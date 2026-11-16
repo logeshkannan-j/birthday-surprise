@@ -1,3 +1,5 @@
 node_modules/
 package-lock.json
 *.backup.html
+# private originals + album password (never upload or commit)
+memories/

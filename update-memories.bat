@@ -1,9 +1,17 @@
 @echo off
-rem Admin: rebuild the memories wall from the files in the "memories" folder.
+rem Admin: build the private, encrypted album from the "memories" folder into the "album" folder.
 cd /d "%~dp0"
-py -3.11 -c "import PIL" >nul 2>&1 && (py -3.11 update_memories.py & goto done)
-python -c "import PIL" >nul 2>&1 && (python update_memories.py & goto done)
-echo Pillow not found - images will be copied without resizing. (Install with: python -m pip install pillow)
-python update_memories.py
-:done
+set "PY="
+py -3.11 -c "import PIL, cryptography, imageio_ffmpeg" >nul 2>&1
+if not errorlevel 1 set "PY=py -3.11"
+if defined PY goto run
+python -c "import PIL, cryptography, imageio_ffmpeg" >nul 2>&1
+if not errorlevel 1 set "PY=python"
+if defined PY goto run
+echo Installing the helper packages (only the first time)...
+py -3.11 -m pip install --user pillow cryptography imageio-ffmpeg
+set "PY=py -3.11"
+:run
+%PY% update_memories.py
+echo.
 pause
