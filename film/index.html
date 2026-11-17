@@ -42,11 +42,14 @@
   #end.on { opacity: 1; pointer-events: auto; }
   #end button { padding: 10px 22px; font: italic 500 17px "Cormorant Garamond", serif; letter-spacing: .03em; }
   #mem { z-index: 3; pointer-events: none; display: none; }
-  #say { position: fixed; left: 0; top: 0; z-index: 6; max-width: min(300px, 74vw); padding: 8px 15px 9px; border-radius: 16px; background: rgba(255, 250, 252, .95); color: #3a2148;
-    font: 600 clamp(18px, 2.1vw, 22px)/1.22 Caveat, cursive; box-shadow: 0 10px 26px -8px rgba(0, 0, 0, .6); opacity: 0; transition: opacity .4s; pointer-events: none; --tx: 50%; --bg: rgba(255, 250, 252, .95); }
-  #say[data-who="snowki"] { --bg: rgba(228, 242, 255, .97); background: var(--bg); color: #27406e; }
+  /* dialogue: elegant cinematic subtitles at the bottom, a small speaker cue above the line */
+  #say { position: fixed; left: 50%; bottom: calc(9.5vh + 12px); transform: translateX(-50%); z-index: 6; width: min(940px, 92vw); text-align: center; pointer-events: none;
+    opacity: 0; transition: opacity .6s ease; color: #FFF6EC; text-shadow: 0 2px 14px rgba(10, 6, 30, .9), 0 0 3px rgba(10, 6, 30, .9); }
+  #say .who { display: block; margin-bottom: 5px; font: 600 clamp(11px, 1.15vw, 13px)/1 "Cormorant Garamond", serif; letter-spacing: .26em; text-transform: uppercase; color: #FFD9A8; opacity: .9; }
+  #say[data-who="snowki"] .who { color: #BFDCFF; }
+  #say .q { display: block; font: italic 500 clamp(19px, 2.5vw, 29px)/1.32 "Cormorant Garamond", serif; letter-spacing: .01em; }
   #say.on { opacity: 1; }
-  #say::after { content: ""; position: absolute; left: var(--tx); bottom: -8px; margin-left: -8px; border: 8px solid transparent; border-bottom: 0; border-top-color: var(--bg); }
+  @media (orientation: portrait) { #say { bottom: calc(4.5vh + 16px); } }
   #hb { position: fixed; left: 0; right: 0; top: 9vh; z-index: 4; text-align: center; pointer-events: none; opacity: 0; transition: opacity 1.4s ease; padding: 0 12px; }
   #hb.on { opacity: 1; transition: opacity .15s; }
   #hb p { margin: 0; font-family: "Dancing Script", cursive; font-weight: 700; line-height: 1.08; }

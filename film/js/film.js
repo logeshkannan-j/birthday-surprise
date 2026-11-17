@@ -259,15 +259,13 @@ function stepSnow(dt, warm) {
 // ---------------------------------------------------------------- text overlays: subtitles, speech bubbles, the birthday message, final lines
 let subT = 0;
 function setSub(t) { const el = $('#sub'); if (el.dataset.t === t) return; el.dataset.t = t; el.classList.remove('on'); clearTimeout(subT); if (t) subT = setTimeout(() => { el.textContent = t; el.classList.add('on'); }, 450); }
-function say(key, t0 = S.T) { const d = (CFG.text.dialogue || {})[key]; if (!d || t0 + d.dur <= S.T) return; S.say = { who: d.who, until: t0 + d.dur }; const el = $('#say'); el.textContent = d.text; el.dataset.who = d.who; el.classList.add('on'); placeSay(); }
+function say(key, t0 = S.T) { const d = (CFG.text.dialogue || {})[key]; if (!d || t0 + d.dur <= S.T) return; S.say = { who: d.who, until: t0 + d.dur }; const el = $('#say'); el.textContent = '';
+  const w = document.createElement('span'); w.className = 'who'; w.textContent = d.who === 'snowki' ? 'Snowki' : 'The man'; const q = document.createElement('span'); q.className = 'q'; q.textContent = '“' + d.text + '”';
+  el.append(w, q); el.dataset.who = d.who; el.classList.add('on'); }
 function sayHide() { S.say = null; $('#say').classList.remove('on'); }
 function placeSay() {
   if (!S.say) return; if (S.T > S.say.until) { sayHide(); return; }
-  const el = $('#say'); let p;
-  if (S.say.who === 'snowki') { const sp = S.snP || snowAt(S.T); p = view.toScreen(sp.x + 6 * SN * us(sp.gy), sp.y - 108 * SN * us(sp.gy), sp.gy); }
-  else { const bp = boyPlace(), h = local2world(bp, 0.3, -104); p = view.toScreen(h[0], h[1], bp.y); }
-  const w = el.offsetWidth, h = el.offsetHeight, x = clamp(p[0] - w / 2, 10, innerWidth - w - 10), y = clamp(p[1] - h - 14, 10, innerHeight - h - 10);
-  el.style.transform = `translate(${x}px,${y}px)`; el.style.setProperty('--tx', clamp(p[0] - x, 16, w - 16) + 'px');
+  // dialogue is a cinematic subtitle at the bottom of the frame (laid out by CSS)
 }
 function hbShow(on, instant) {
   const el = $('#hb');
@@ -480,7 +478,7 @@ function boyReach(bp) {
   if (boyPose() === 'hide') { const k = unitScale(PLACE.tree.y) / unitScale(1004); return toL(PLACE.tree.x - 40 * k, bp.y - 70 * s); }
   return null;
 }
-const heldDraw = (ctx, p) => { ctx.save(); ctx.translate(p[0], p[1]); ctx.scale(SN, SN); ctx.filter = 'brightness(1.5) saturate(1.1)'; snow.draw(ctx, { aura: false, sparkle: false }); ctx.restore(); };
+const heldDraw = (ctx, p) => { ctx.save(); ctx.translate(p[0], p[1]); ctx.scale(SN, SN); ctx.filter = 'brightness(1.28) saturate(1.05)'; snow.draw(ctx, { aura: false, sparkle: false }); ctx.restore(); };
 function boySt(bp, dt, wind) {
   const B = S.boy, sp = S.snP || snowAt(S.T);
   const lt = S.lt, sc = S.scene ? S.scene.n : 0, walking = boyPose() === 'walk';

@@ -26,7 +26,7 @@ export function buildTimeline(cfg) {
   // ---- 5  He kneels, lifts Snowki into his arms; they talk
   scenes.push({ n: 5, dur: d[5], tod: [1.76, 1.78], sub: [],
     cam: [K(0, 'meet', { z: 2.8, lens: 0.9, e: 'inOutSine' }), K(2.9, 'meetUp', { z: 3.1, lens: 0.92, e: 'inOutSine' }), K(d[5], 'meetUp', { z: 3.3, lens: 0.92 })], focus: 'boy', aper: 3,
-    ev: [[0.3, 'boyKneel'], [1.2, 'boyReach'], [2.8, 'boyHold'], [3.3, 'say', 'snowki1'], [7.0, 'say', 'man1'], [10.2, 'boyLookHelen'], [10.5, 'say', 'man2']] });
+    ev: [[0.3, 'boyKneel'], [1.2, 'boyReach'], [2.8, 'boyHold'], [3.3, 'say', 'snowki1'], [7.2, 'say', 'man1'], [11.0, 'say', 'man2'], [15.2, 'boyLookHelen']] });
   // ---- 6  He gives Snowki the gift and sets him down; looks at her far away – she is watching the sea; goes to his crate
   scenes.push({ n: 6, dur: d[6], tod: [1.78, 1.8], sub: [],
     cam: [K(0, 'meetUp', { z: 3.1, lens: 0.92, e: 'inOutSine' }), K(1.9, 'manPOV', { z: 1.6, lens: 0.6, e: 'inOutSine' }), K(4.6, 'manPOV', { z: 1.65, lens: 0.6, e: 'inOutSine' }), K(d[6], 'crate', { z: 2.3, lens: 0.85 })],

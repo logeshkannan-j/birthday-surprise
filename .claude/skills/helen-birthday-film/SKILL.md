@@ -35,7 +35,7 @@ shows her face – the reverse angle. She never turns to him; he sees her happy 
 2 Snowki turns around: someone is behind the big bougainvillea tree; he comes alive; rack focus to the tree.
 3 Snowki hops down and toddles all the way along the promenade to the tree; the man looks down and smiles.
 4 Flashback, warm and golden: years ago he hands Snowki to her.
-5 He kneels on one knee and lifts Snowki into his arms (one forearm under him, a hand at his side). Speech bubbles: "Why are you here? Did you come to see her?" – "I came to wish her a happy birthday, just like every year." – "Some memories never really leave us, Snowki."
+5 He kneels on one knee and cradles Snowki: Snowki sits on his forearm against his chest (upper arm behind Snowki, forearm and curled hand in front), the other hand holds the gift at his side. Cinematic subtitles at the bottom (speaker cue + italic line, `#say`): "Why are you here? Did you come to see her?" – "I came to wish her a happy birthday, just like every year." – "Every birthday, I wanted to make her smile with a little surprise. Today, I wanted to do the same." He looks at Snowki while he talks.
 6 He gives Snowki the gift and sets him down; looks at her far away – she is watching the sea; goes to his crate by the tree.
 7 He lights the fuse himself; one rocket climbs high on a golden trail and cracks; HAPPY BIRTHDAY / HELEN DARLU ❤️ appears suddenly with the burst (HTML), more bursts around it; Snowki is back beside her.
 8 Her face: surprise (wide eyes) → excitement (hands to her mouth) → happiness (laughing, then a soft smile, hand on her heart).
@@ -54,8 +54,9 @@ shows her face – the reverse angle. She never turns to him; he sees her happy 
   Never a dog. Walks with a little toddle, talks in bubbles, carries the gift. `snowki.js`.
   (The user once wrote "black plush fur" for him while asking to keep his original look; he stays light blue –
   change `SNOWKI` colours in `snowki.js` if they ask again.)
-- **Jessi**: an all-black German Shepherd (the user's photo): tall pointed ears, long muzzle, thick neck ruff, long
-  bushy tail, brown eyes, pink collar with a gold tag, a soft light rim so she reads at night. `jessi.js` – the same
+- **Jessi**: an all-black German Shepherd PUPPY (the user insists on a puppy): big upright ears, round head, short muzzle,
+  shiny brown eyes, round body, short legs with real joints (elbow back, knee forward, hock back), big paws with toenails,
+  short fluffy tail, pink collar with a gold tag, a soft violet rim so she reads at night. Run/walk plant the paws at `o.vx`. `jessi.js` – the same
   rig in the film, the countdown show and the reveal page's trio (guide.js draws it there).
 
 ## Rules

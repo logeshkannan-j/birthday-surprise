@@ -17,11 +17,11 @@ export default {
       1: 'After the cake and the candles… a quiet night by the sea.',
       4: 'A long time ago, he gave her Snowki…'
     },
-    // what Snowki and he say (speech bubbles). dur = seconds on screen
+    // what Snowki and he say (cinematic subtitles at the bottom). dur = seconds on screen
     dialogue: {
       snowki1: { who: 'snowki', text: 'Why are you here? Did you come to see her?', dur: 3.5 },
-      man1: { who: 'man', text: 'I came to wish her a happy birthday, just like every year.', dur: 3.2 },
-      man2: { who: 'man', text: 'Some memories never really leave us, Snowki.', dur: 2.6 }
+      man1: { who: 'man', text: 'I came to wish her a happy birthday, just like every year.', dur: 3.6 },
+      man2: { who: 'man', text: 'Every birthday, I wanted to make her smile with a little surprise. Today, I wanted to do the same.', dur: 4.8 }
     },
     // the birthday message over the fireworks (HTML script lettering). {NAME} becomes the recipient in capitals.
     skyMessage: ['HAPPY BIRTHDAY', '{NAME}'],
@@ -36,8 +36,8 @@ export default {
     mute: 'Sound off', unmute: 'Sound on'
   },
 
-  // seconds per scene (scene 0 waits for the wish). Total ≈ 97 s.
-  timings: { 1: 10, 2: 7, 3: 9, 4: 7, 5: 13, 6: 8, 7: 12, 8: 9, 9: 8, 10: 14 },
+  // seconds per scene (scene 0 waits for the wish). Total ≈ 100 s.
+  timings: { 1: 10, 2: 7, 3: 9, 4: 7, 5: 16, 6: 8, 7: 12, 8: 9, 9: 8, 10: 14 },
 
   // drop an mp3 here to replace the generated score (waves, wind and firework sounds stay)
   music: '/assets/music.mp3',

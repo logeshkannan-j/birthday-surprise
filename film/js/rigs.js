@@ -381,6 +381,8 @@ export class Boy {
     const pose = this.pose(st), anch = [], rest = [];
     for (let i = 0; i < 7; i++) { const u = i / 6; anch.push([lerp(-8.8, 8.9, u), -59]); rest.push([lerp(-9.3, 9.4, u), -45.8 + Math.sin(u * Math.PI) * 0.5]); }
     this.hem.step(dt, anch, rest, (st.wind || 0) * 0.55, st.t);
+    if (this.armP && dt > 0 && dt < 0.2) { const k = 1 - Math.exp(-dt * 11); pose.arms = pose.arms.map((arm, i) => arm.map((q, j) => (j === 0 || !this.armP[i] ? q : [lerp(this.armP[i][j][0], q[0], k), lerp(this.armP[i][j][1], q[1], k)]))); }
+    this.armP = pose.arms.map(a => a.map(q => q.slice()));
     this.P = pose;
   }
   pose(st) {
@@ -410,12 +412,12 @@ export class Boy {
     if (st.pose === 'light') { P.arms = [ik(sL, P.tp(-6, -56), 14.2, 12.4, -1), st.reach ? ik(sR, st.reach, 14.2, 12.4, 1) : ik(sR, [20, -20], 14.2, 12.4, 1)]; }
     else if (st.pose === 'walk') { const s = Math.sin(this.walkPh), h = P.hip[0]; P.arms = [[sL, [-12.4 + h, -67.2 - s * 0.8], [-12.1 + h, -55.4 - s * 2.2]], [sR, [12.6 + h, -67.2 + s * 0.8], [12.3 + h, -55.4 + s * 2.2]]]; }
     else if (st.armT) P.arms = [ik(sL, st.armT[0], 14.2, 12.4, -1), ik(sR, st.armT[1], 14.2, 12.4, 1)];
-    else if (st.hold) P.arms = [ik(sL, P.tp(4.5, -56.2), 14.2, 12.4, -1), ik(sR, P.tp(12.5, -66.5), 14.2, 12.4, 1)];
+    else if (st.hold) { P.arms = [[sL, P.tp(-12.7, -66.6), P.tp(-12.2, -54.4)], [sR, P.tp(13.6, -66.8), P.tp(2.4, -64.8)]]; P.cradle = true; }
     else if (st.signal) P.arms = [[sL, P.tp(-12.7, -66.6), P.tp(-12.4, -54.6)], ik(sR, P.tp(17, -92 - st.signal * 6), 14.2, 12.4, 1)];
     else if (st.pose === 'hide' || st.pose === 'watch') {
       P.arms = [[sL, P.tp(-12.8, -66.6), P.tp(-12.6, -54.6)], st.reach ? ik(sR, st.reach, 14.2, 12.4, 1) : [sR, P.tp(12.9, -66.4), P.tp(12.5, -54.4)]];
     } else P.arms = [[sL, P.tp(-12.7, -66.6), P.tp(-12.4, -54.6)], st.reach ? ik(sR, st.reach, 14.2, 12.4, 1) : [sR, P.tp(12.9, -66.4), P.tp(12.5, -54.4)]];
-    P.head = P.tp(0.3, -86); P.holdPt = P.tp(7, -57.4);
+    P.head = P.tp(0.3, -86); P.holdPt = P.tp(7.6, -66.4);   // Snowki sits on the cradling forearm
     return P;
   }
   arm(ctx, j, side) {
@@ -426,6 +428,19 @@ export class Boy {
     const e = [a[0] + (b[0] - a[0]) * 1.06, a[1] + (b[1] - a[1]) * 1.06], mid = [(a[0] + e[0]) / 2, (a[1] + e[1]) / 2];
     limb(ctx, a, mid, e, [4.6, 4.5, 4.3, 4.3, 4.5], C.shirt, C.out, { shade: '#0E1226', light: '#7F90C8', lw: 0.18 });
     const cd = [b[0] - a[0], b[1] - a[1]], cl = Math.hypot(cd[0], cd[1]) || 1, cn = [-cd[1] / cl * 2.4, cd[0] / cl * 2.4], cu = [cd[0] / cl * 0.9, cd[1] / cl * 0.9];
+    const cuff = P2(`M${e[0] + cn[0] - cu[0]} ${e[1] + cn[1] - cu[1]} L${e[0] + cn[0] + cu[0]} ${e[1] + cn[1] + cu[1]} L${e[0] - cn[0] + cu[0]} ${e[1] - cn[1] + cu[1]} L${e[0] - cn[0] - cu[0]} ${e[1] - cn[1] - cu[1]} Z`);
+    cel(ctx, cuff, '#4E5F92', e[0] - 2.4, e[0] + 2.4, { lc: C.out, lw: 0.14, shade: '#0E1226' });
+  }
+  armUpper(ctx, j) {   // the sleeve only (drawn behind what he holds)
+    const C = BC, [a, b] = j, e = [a[0] + (b[0] - a[0]) * 1.06, a[1] + (b[1] - a[1]) * 1.06], mid = [(a[0] + e[0]) / 2, (a[1] + e[1]) / 2];
+    ctx.save(); ctx.translate(0.9, 0.7); ctx.fillStyle = 'rgba(70,50,100,.22)'; ctx.fill(limbPath(a, mid, b, [4.4, 4.4, 4.2, 4.2, 4.0])); ctx.restore();
+    limb(ctx, a, mid, e, [4.6, 4.5, 4.3, 4.3, 4.5], C.shirt, C.out, { shade: '#0E1226', light: '#7F90C8', lw: 0.18 });
+  }
+  armLower(ctx, j, side) {   // forearm, a hand curled around what it holds, and the rolled cuff over the elbow
+    const C = BC, [a, b, c] = j, m = [(b[0] + c[0]) / 2, (b[1] + c[1]) / 2];
+    limb(ctx, b, m, c, [3.2, 3.15, 3.0, 2.7, 2.3], C.skin, C.out, { lw: 0.18 });
+    { const d = [c[0] - b[0], c[1] - b[1]], l = Math.hypot(d[0], d[1]) || 1; hand2(ctx, [c[0] - d[0] / l * 0.3, c[1] - d[1] / l * 0.3], [0.62, -1], C.skin, 1.18, C.out, side || 1, 1.0); }
+    const e = [a[0] + (b[0] - a[0]) * 1.06, a[1] + (b[1] - a[1]) * 1.06], cd = [b[0] - a[0], b[1] - a[1]], cl = Math.hypot(cd[0], cd[1]) || 1, cn = [-cd[1] / cl * 2.4, cd[0] / cl * 2.4], cu = [cd[0] / cl * 0.9, cd[1] / cl * 0.9];
     const cuff = P2(`M${e[0] + cn[0] - cu[0]} ${e[1] + cn[1] - cu[1]} L${e[0] + cn[0] + cu[0]} ${e[1] + cn[1] + cu[1]} L${e[0] - cn[0] + cu[0]} ${e[1] - cn[1] + cu[1]} L${e[0] - cn[0] - cu[0]} ${e[1] - cn[1] - cu[1]} Z`);
     cel(ctx, cuff, '#4E5F92', e[0] - 2.4, e[0] + 2.4, { lc: C.out, lw: 0.14, shade: '#0E1226' });
   }
@@ -520,10 +535,12 @@ export class Boy {
     ctx.translate(0.3, -86); ctx.rotate(P.headTilt + Math.sin(t * 0.8) * 0.01); ctx.translate(-0.3, 86);
     this.face(ctx, st); this.curls(ctx, t, 0.3, -98.8, false);
     ctx.restore();
-    if (st.held) st.held(ctx, P.holdPt);
+    const cradle = P.cradle && st.held;
+    if (cradle) { this.armUpper(ctx, P.arms[1]); st.held(ctx, P.holdPt); this.armLower(ctx, P.arms[1], 1); }
+    else if (st.held) st.held(ctx, P.holdPt);
     this.arm(ctx, P.arms[0], -1);
     if (st.gift) { const h = P.arms[0][2]; ctx.save(); ctx.translate(h[0] + 0.6, h[1] + 1.2); const g = ctx.createLinearGradient(-2.4, -2.4, 2.4, 2.4); g.addColorStop(0, '#FF9DC0'); g.addColorStop(1, '#D9437A'); ctx.fillStyle = g; ctx.fillRect(-2.4, -1.8, 4.8, 4); fill(ctx, P2('M-0.5 -1.8 h1 v4 h-1 Z M-2.4 -0.2 h4.8 v0.9 h-4.8 Z'), '#FFE4A0'); fill(ctx, ell(-0.9, -2.4, 1.0, 0.6, -0.5), '#FFE4A0'); fill(ctx, ell(0.9, -2.4, 1.0, 0.6, 0.5), '#FFE4A0'); ctx.restore(); }
-    this.arm(ctx, P.arms[1], 1);
+    if (!cradle) this.arm(ctx, P.arms[1], 1);
     if (st.flame && !P.back) { // a tiny lighter flame in his hand
       const c = P.arms[1][2], f = 1 + 0.15 * Math.sin(t * 31) + 0.1 * Math.sin(t * 17);
       const g = ctx.createRadialGradient(c[0] + 1.5, c[1] - 1.5, 0, c[0] + 1.5, c[1] - 1.5, 4 * f); g.addColorStop(0, 'rgba(255,250,220,1)'); g.addColorStop(0.3, 'rgba(255,190,90,.9)'); g.addColorStop(1, 'rgba(255,140,40,0)');
