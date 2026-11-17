@@ -4,3 +4,5 @@ memories
 *.py
 *.bat
 *.backup.html
+film/tools
+film/README.md

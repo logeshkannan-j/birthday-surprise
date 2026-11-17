@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Light Is the Only Words He Has</title>
+<meta name="description" content="A short animated birthday film.">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#2A1B4D">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&display=swap" rel="stylesheet">
+<style>
+  :root { --ink: #FFF6EC; --gold: #FFD27A; --pink: #FF9EC4; --dusk: #2A1B4D; --navy: #0B1030; }
+  html, body { margin: 0; height: 100%; background: var(--dusk); overflow: hidden; color: var(--ink); font-family: "Cormorant Garamond", Georgia, serif; -webkit-tap-highlight-color: transparent; }
+  canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  #wishfx { z-index: 2; pointer-events: none; }
+  #veil { position: fixed; inset: 0; z-index: 20; background: var(--dusk); display: grid; place-items: center; transition: opacity 1.2s; }
+  #veil i { width: 7px; height: 7px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 18px var(--gold); animation: pulse 1.4s ease-in-out infinite; }
+  #veil.off { opacity: 0; pointer-events: none; }
+  @keyframes pulse { 50% { transform: scale(1.8); opacity: .5; } }
+  #wish { position: fixed; inset: 0; z-index: 5; display: flex; flex-direction: column; align-items: center; padding-top: max(9vh, 40px); cursor: pointer; transition: opacity 1.2s; }
+  #wish.off { opacity: 0; pointer-events: none; }
+  #wish .t { margin: 0; font: italic 400 clamp(30px, 5.4vw, 52px)/1.1 "Cormorant Garamond", serif; letter-spacing: .02em; text-shadow: 0 0 30px rgba(255, 190, 120, .35); }
+  #wish .h { margin: 12px 0 0; font: 400 clamp(15px, 2vw, 18px)/1.4 "Cormorant Garamond", serif; opacity: .75; letter-spacing: .04em; }
+  #mic { margin-top: auto; margin-bottom: max(7vh, 30px); background: none; border: 0; color: var(--ink); opacity: .6; font: italic 400 16px "Cormorant Garamond", serif; cursor: pointer; padding: 10px; }
+  #mic:hover, #mic:focus-visible { opacity: 1; }
+  #sub { position: fixed; left: 0; right: 0; bottom: calc(9.5vh + 14px); z-index: 4; text-align: center; padding: 0 22px; pointer-events: none;
+    font: italic 400 clamp(19px, 2.6vw, 30px)/1.3 "Cormorant Garamond", serif; letter-spacing: .02em; text-shadow: 0 2px 18px rgba(20, 8, 40, .7); opacity: 0; transition: opacity 1.1s ease; }
+  #sub.on { opacity: 1; }
+  @media (orientation: portrait) { #sub { bottom: calc(4.5vh + 18px); } }
+  #lines { position: fixed; left: 0; right: 0; top: 50%; transform: translateY(-6%); z-index: 4; text-align: center; padding: 0 26px; pointer-events: none; }
+  #lines .l { margin: 0 auto 18px; max-width: 760px; opacity: 0; transform: translateY(8px); transition: opacity 2.2s ease, transform 2.2s ease; text-shadow: 0 2px 22px rgba(10, 10, 40, .8); }
+  #lines .l.on { opacity: 1; transform: none; }
+  #lines .l0 { font: 500 clamp(28px, 4.6vw, 50px)/1.15 "Cormorant Garamond", serif; color: #FFF0D8; }
+  #lines .l1 { font: italic 400 clamp(17px, 2.3vw, 24px)/1.45 "Cormorant Garamond", serif; opacity: 0; }
+  #lines .l2 { font: italic 500 clamp(18px, 2.4vw, 26px)/1.4 "Cormorant Garamond", serif; color: var(--gold); }
+  #ui { position: fixed; top: max(10px, env(safe-area-inset-top)); right: 12px; z-index: 8; display: flex; gap: 6px; }
+  #ui button, #end button { background: rgba(255, 255, 255, .08); color: var(--ink); border: 1px solid rgba(255, 255, 255, .18); border-radius: 999px; cursor: pointer; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+  #ui button { width: 34px; height: 34px; font: 15px/1 Georgia, serif; opacity: .55; transition: opacity .3s; display: grid; place-items: center; }
+  #ui button:hover, #ui button:focus-visible { opacity: 1; }
+  #end { position: fixed; left: 0; right: 0; bottom: max(8vh, 40px); z-index: 9; display: flex; justify-content: center; gap: 10px; opacity: 0; pointer-events: none; transition: opacity 2s; }
+  #end.on { opacity: 1; pointer-events: auto; }
+  #end button { padding: 10px 22px; font: italic 500 17px "Cormorant Garamond", serif; letter-spacing: .03em; }
+  .vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+</style>
+</head>
+<body>
+<canvas id="stage" aria-hidden="true"></canvas>
+<canvas id="wishfx" aria-hidden="true"></canvas>
+<div id="wish" role="button" tabindex="0" aria-label="Blow out the candle"><p class="t"></p><p class="h"></p><button id="mic" type="button"></button></div>
+<div id="sub" aria-live="polite"></div>
+<div id="lines" aria-live="polite"></div>
+<div id="ui"><button id="mute" type="button">♪</button><button id="skip" type="button">»</button></div>
+<div id="end"><button id="again" type="button"></button><button id="cont" type="button" hidden></button></div>
+<div id="veil"><i></i></div>
+<p class="vh">An animated birthday film. A young man secretly lights the evening sky with fireworks that spell her name, watches her smile from a distance, and quietly walks away.</p>
+<script type="module" src="js/film.js"></script>
+</body>
+</html>
