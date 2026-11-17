@@ -163,7 +163,7 @@ const pup = new Jessi(), dPup = new Jessi(), dBear = new Snowki();
 const askEl = $('#gdAsk'), pupHit = $('#gdPup'), dreamHit = $('#gdDream');
 const J = { state: 'off', x: -300, face: 1, q: [], qt: 0, woofs: [], dream: 0, dreamTo: 0, scene: 0, sceneT: 0, called: false, asked: false, intro: false, L: null };
 function stage() {
-  const cd = $('.cd').getBoundingClientRect(), ps = clamp(sc * 1.45, 1.15, 1.9);
+  const cd = $('.cd').getBoundingClientRect(), ps = clamp(sc * 1.8, 1.4, 2.3);
   const gy = clamp(Math.max(cd.bottom + 128 * sc, H - 96 * sc), cd.bottom + 96 * sc, H - 30);
   const L = { gy, ps, snowX: W / 2 + 48 * sc, pupX: W / 2 - 40 * sc - 32 * ps };
   // the dream cloud floats above Jessi, kept clear of the words on screen
@@ -187,7 +187,7 @@ function askJessi() { if (J.called) return; J.asked = true; say(''); G.homeAct =
 function notNow() { bear.act('nod', { restart: true }); G.react = 1.4; say('Okay! Tap me whenever you want her ♡', 3200); }
 function callJessi() { J.called = true; unlockAudio(); bear.act('call', { restart: true }); G.react = 0; G.idle = 99; say('Jessiii! ♡', 1500); later(650, () => pupEnter(false)); }
 function pupEnter(short) {
-  stage(); J.state = 'enter'; J.x = -70 * J.L.ps; J.face = 1; J.dreamTo = 0; pup.act('run', { restart: true });
+  stage(); J.state = 'enter'; J.x = -70 * J.L.ps; J.face = 1; J.dreamTo = 0; pup.act('run', { restart: true, vx: PUP_RUN });
   J.short = short;
 }
 const TRICKS = { bark: ['bark', 1.3, 'cheer'], flip: ['flip', 1.15, 'clap'], spin: ['spin', 1.3, 'giggle'], roll: ['roll', 1.45, 'clap'], bow: ['bow', 1.3, 'dance'], paw: ['paw', 1.9, 'clap', 'Good girl, Jessi! ♡'],
@@ -205,7 +205,8 @@ function tapPup() {
   const pool = RM ? ['paw', 'bow'] : ['flip', 'spin', 'roll', 'bow', 'paw'], pick = pool[(Math.random() * pool.length) | 0];
   J.dreamTo = 0; queue((J.state === 'sleep' ? ['wake'] : []).concat(['bark', pick, 'lie', 'yawn', 'sleep']));
 }
-function pupLeave() { if (J.state === 'off') return; J.dreamTo = 0; J.state = 'leave'; J.face = 1; pup.act('run', { restart: true }); hideAsk(); }
+function pupLeave() { if (J.state === 'off') return; J.dreamTo = 0; J.state = 'leave'; J.face = 1; pup.act('run', { restart: true, vx: PUP_RUN }); hideAsk(); }
+const PUP_RUN = 220;   // her running speed in rig units/s: the rig plants each paw on the page at exactly this speed
 
 // woof: floating words and (when her sound is on) a small synthesised bark
 let AC = null;
@@ -222,8 +223,8 @@ function woof(n) {
 }
 function stepPup(dt) {
   if (J.state === 'off') return; const L = J.L || stage();
-  if (J.state === 'enter') { J.x += 340 * L.ps * dt; if (J.x >= L.pupX) { J.x = L.pupX; pup.s.by.v += 40; queue(J.short ? ['bark', 'lie', 'yawn', 'sleep'] : SHOW); } }
-  else if (J.state === 'leave') { J.x += 380 * L.ps * dt; if (J.x > W + 160) { J.state = 'off'; } }
+  if (J.state === 'enter') { J.x += PUP_RUN * L.ps * dt; if (J.x >= L.pupX) { J.x = L.pupX; pup.bump(40); queue(J.short ? ['bark', 'lie', 'yawn', 'sleep'] : SHOW); } }
+  else if (J.state === 'leave') { J.x += PUP_RUN * L.ps * dt; if (J.x > W + 160) { J.state = 'off'; } }
   else { J.x = lerp(J.x, L.pupX, Math.min(1, dt * 4)); if (J.state === 'show' && (J.qt -= dt) <= 0) nextTrick(); }
   if (J.state === 'sleep' && pup.name === 'sleep' && pup.a > 1.3 && !J.dreamTo) { J.dreamTo = 1; J.scene = 0; J.sceneT = 0; setDream(); }
   pup.update(dt);
@@ -333,7 +334,7 @@ function drawTrio(dt) {
   if (!trioC || G.step !== 7) return; const w = 140, h = 104, d = Math.min(devicePixelRatio || 1, 2);
   if (trioC.width !== w * d) { trioC.width = w * d; trioC.height = h * d; }
   const x = trioC.getContext('2d'); x.setTransform(d, 0, 0, d, 0, 0); x.clearRect(0, 0, w, h);
-  trioPup.update(dt); x.save(); x.translate(w * 0.52, h - 4); x.scale(-1.5, 1.5); trioPup.draw(x); x.restore();
+  trioPup.update(dt); x.save(); x.translate(w * 0.5, h - 3); x.scale(-1.72, 1.72); trioPup.draw(x); x.restore();
 }
 
 // ---------------------------------------------------------------- loop

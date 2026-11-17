@@ -46,7 +46,7 @@ const LY = Object.fromEntries(layers.map(l => [l.name, l]));
 const A = CFG.assets || {};
 // Jessi: the same puppy rig as on the birthday page, sitting beside Helen (0.56 character units per rig unit)
 class FilmJessi {
-  constructor() { this.p = new Pup(); this.k = 0.56; this.bounds = [-21, -32, 19, 3]; this.p.act('happy'); }
+  constructor() { this.p = new Pup(); this.k = 0.56; this.bounds = [-23, -36, 21, 3]; this.p.act('happy'); }
   update(st) { const want = st.pet ? 'pet' : st.lookUp ? 'lookUp' : st.happy ? 'happy' : 'sit'; if (this.p.name !== want) this.p.act(want); this.p.lookAt(st.lookUp ? 0 : -0.4, 0); this.p.update(st.dt); }
   draw(ctx) { ctx.save(); ctx.scale(this.k, this.k); this.p.draw(ctx); ctx.restore(); }
   headTop() { const h = this.p.headTop(); return [h[0] * this.k, h[1] * this.k]; }
