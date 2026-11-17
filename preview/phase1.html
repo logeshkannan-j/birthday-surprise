@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Film Preview</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Figtree:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root { --ink: #2A1C33; --cream: #FFF6EC; --pink: #E2447C; }
+  html, body { margin: 0; background: #1B1236; color: var(--cream); font-family: Figtree, system-ui, sans-serif; }
+  body.sheet { background: linear-gradient(#F9E1D3, #EBD3EC); color: var(--ink); }
+  canvas { display: block; width: 100%; }
+  body:not(.sheet) canvas { position: fixed; inset: 0; height: 100%; }
+  .bar { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; z-index: 5; background: rgba(30,18,50,.45); backdrop-filter: blur(8px); padding: 5px; border-radius: 999px; }
+  .bar button, .shots button { font: 600 13px Figtree, sans-serif; color: #fff; background: transparent; border: 0; padding: 8px 14px; border-radius: 999px; cursor: pointer; }
+  .bar button.on, .shots button.on { background: rgba(255,255,255,.22); }
+  .shots { position: fixed; bottom: max(14px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); display: flex; gap: 4px; z-index: 5; background: rgba(30,18,50,.4); backdrop-filter: blur(8px); padding: 4px; border-radius: 999px; flex-wrap: wrap; justify-content: center; max-width: calc(100vw - 24px); }
+  body.sheet .shots, body.sheet .sub { display: none; }
+  @media (max-width: 600px) { .shots { flex-wrap: nowrap; overflow-x: auto; justify-content: flex-start; scrollbar-width: none; } .shots button { padding: 7px 10px; font-size: 12px; white-space: nowrap; } .sub { bottom: 84px !important; } }
+  .sub { position: fixed; left: 0; right: 0; bottom: 92px; text-align: center; pointer-events: none; z-index: 4; padding: 0 16px; }
+  .sub p { display: inline-block; margin: 0; font: 400 clamp(22px, 3.4vw, 36px)/1.25 "Instrument Serif", serif; color: #fff; text-shadow: 0 2px 14px rgba(60,20,60,.55); opacity: 0; transition: opacity 1.2s; }
+  .sub p::after { content: ""; display: block; height: 1px; margin: 10px auto 0; width: 0; background: rgba(255,255,255,.8); transition: width 1.6s .3s; }
+  .sub p.on { opacity: 1; } .sub p.on::after { width: 60%; }
+  .note { position: fixed; top: 60px; left: 50%; transform: translateX(-50%); font-size: 12px; opacity: .75; z-index: 5; white-space: nowrap; }
+  body.sheet .note { position: absolute; color: var(--ink); }
+</style>
+</head>
+<body>
+<div class="bar"><button data-m="scene" class="on">Seaside</button><button data-m="sheet">Characters</button></div>
+<div class="note" id="note">Phase 1 preview · art direction only</div>
+<canvas id="c"></canvas>
+<div class="sub"><p id="sub"></p></div>
+<div class="shots" id="shots">
+  <button data-s="auto" class="on">Auto</button><button data-s="wide">Wide</button><button data-s="helen">Helen</button><button data-s="face">Close-up</button><button data-s="boy">Him</button><button data-s="back">Walking away</button>
+</div>
+<script src="../film/film-core.js"></script>
+<script src="../film/film-chars.js"></script>
+<script src="../film/film-world.js"></script>
+<script>
+const F = Film, cv = document.getElementById('c'), ctx = cv.getContext('2d');
+const world = new F.Promenade();
+let mode = 'scene', shot = 'auto', W = 0, H = 0, dpr = 1;
+const HELEN = { x: 560, y: 790 }, JESSI = { x: 668, y: 800 };
+const hs = F.depth(HELEN.y);
+// him: behind the tree trunk, leaning out to watch, one hand on the bark
+const BOY = { x: 1214, y: 772, flip: true, rot: 0.13, s: F.depth(772), reach: [1178, 505] }, bs = BOY.s;
+const toWorld = (o, lx, ly) => { const r = o.rot || 0, rx = lx * Math.cos(r) - ly * Math.sin(r), ry = lx * Math.sin(r) + ly * Math.cos(r); return [o.x + o.s * (o.flip ? -1 : 1) * rx, o.y + o.s * ry]; };
+const boyFace = toWorld(BOY, 0.4, -93);
+// camera shots (portrait screens use px/py so the subject stays in frame)
+const SHOTS = {
+  wide: { x: 800, y: 500, z: 1, px: 640, line: 'Some evenings are made only for you.' },
+  helen: { x: 600, y: 610, z: 1.9, px: 575, py: 585, line: 'She never knew someone was watching.' },
+  face: { x: HELEN.x + 1, y: HELEN.y - 89 * hs, z: 6.2, line: 'Just her smile, and the sea.' },
+  boy: { x: boyFace[0] + 6, y: boyFace[1] + 6, z: 4.4, line: 'He only came to see her happy.' },
+  back: { x: 1100, y: 600, z: 1.7, follow: true, line: 'And then, quietly, he walked away.' }
+};
+const AUTO = ['wide', 'helen', 'face', 'boy', 'back'];
+const cam = { x: 800, y: 500, z: 1 }; let from = { ...cam }, to = SHOTS.wide, tStart = 0, cur = 'wide', autoT = 0;
+function goShot(name, now) { cur = name; from = { ...cam }; to = SHOTS[name]; tStart = now; const s = document.getElementById('sub'); s.classList.remove('on'); setTimeout(() => { s.textContent = SHOTS[name].line; s.classList.add('on'); }, 700); }
+
+function resize() {
+  dpr = Math.min(window.devicePixelRatio || 1, 2); W = innerWidth;
+  if (mode === 'scene') H = innerHeight; else H = sheetHeight();
+  cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); cv.style.height = H + 'px';
+}
+addEventListener('resize', resize);
+
+// ---------------- the seaside scene
+function actors(t) {
+  return (c, layer) => {
+    const walkAway = cur === 'back';
+    if (layer === 'mid') {
+      // soft contact shadows
+      c.fillStyle = 'rgba(110,60,110,.25)';
+      c.beginPath(); c.ellipse(HELEN.x, HELEN.y, 9 * hs, 1.8 * hs, 0, 0, 7); c.fill();
+      c.beginPath(); c.ellipse(JESSI.x - 2 * hs, JESSI.y, 10 * hs, 1.8 * hs, 0, 0, 7); c.fill();
+      F.snowki(c, { x: 420, y: F.wallCapY(420) - 6, s: F.depth(F.wallBaseY(420)) * 0.9, t });
+      F.jessi(c, { x: JESSI.x, y: JESSI.y, s: F.depth(JESSI.y), t, look: cur === 'face' ? -0.1 : 0 });
+      F.helen(c, { x: HELEN.x, y: HELEN.y, s: hs, t, pose: cur === 'helen' ? 'heart' : cur === 'face' ? 'tuck' : 'stand', expr: cur === 'face' ? 'closed' : cur === 'helen' ? 'laugh' : 'smile', wind: -0.75 });
+      if (walkAway) {
+        const w = walker(performance.now() / 1000);
+        F.boy(c, { x: w.x, y: w.y, s: F.depth(w.y), t, view: 'back', pose: 'walk', wind: -0.75 });
+      } else F.boy(c, { ...BOY, t, expr: cur === 'boy' ? 'emotional' : 'smile', look: -0.25, light: -1, wind: -0.75 });
+    }
+  };
+}
+// his path when he walks away: from behind the tree, along the promenade, into the distance
+function walker(now) { const p = F.clamp((now - tStart) * 0.045, 0, 1), y = 840 - p * 280, x = 1372 - p * 60; return { x, y, p }; }
+function drawScene(t, now) {
+  if (shot === 'auto' && now - autoT > 7.5) { autoT = now; const n = AUTO[(AUTO.indexOf(cur) + 1) % AUTO.length]; goShot(n, now); }
+  const k = F.ease(F.clamp((now - tStart) / 3.2, 0, 1)), portrait = H > W;
+  let tx = portrait && to.px != null ? to.px : to.x, ty = portrait && to.py != null ? to.py : to.y;
+  if (to.follow) { const w = walker(now), s = F.depth(w.y); tx = w.x - 10; ty = w.y - 52 * s; }
+  cam.x = F.lerp(from.x, tx, k) + Math.sin(t * 0.13) * 6; cam.y = F.lerp(from.y, ty, k) + Math.sin(t * 0.11) * 4;
+  cam.z = Math.exp(F.lerp(Math.log(from.z), Math.log(to.z), k)) * (1 + 0.012 * Math.sin(t * 0.2));
+  world.draw(ctx, W, H, cam, t, { dpr, wind: -0.75, actors: actors(t) });
+}
+
+// ---------------- the character sheet
+const CARDS = [
+  ['Helen · smile', (c, x, y, s, t) => F.helen(c, { x, y, s, t })],
+  ['Helen · in the breeze', (c, x, y, s, t) => F.helen(c, { x, y, s, t, pose: 'tuck', expr: 'closed', wind: -1 })],
+  ['Helen · looking up', (c, x, y, s, t) => F.helen(c, { x, y, s, t, pose: 'wonder', expr: 'wonder' })],
+  ['Helen · back', (c, x, y, s, t) => F.helen(c, { x, y, s, t, view: 'back' })],
+  ['Him · soft smile', (c, x, y, s, t) => F.boy(c, { x, y, s: s * 0.96, t })],
+  ['Him · watching', (c, x, y, s, t) => F.boy(c, { x, y, s: s * 0.96, t, flip: true, pose: 'hands', expr: 'emotional', look: -0.3 })],
+  ['Him · walking away', (c, x, y, s, t) => F.boy(c, { x, y, s: s * 0.96, t, view: 'back', pose: 'walk' })],
+  ['Him · against the sun', (c, x, y, s, t) => F.boy(c, { x, y, s: s * 0.96, t, view: 'back', pose: 'walk', sil: '#2A1D3E', rimColor: '#FFC98A' })],
+  ['Jessi', (c, x, y, s, t) => F.jessi(c, { x: x + 2 * s, y, s: s * 1.7, t })],
+  ['Jessi · looking up', (c, x, y, s, t) => F.jessi(c, { x: x + 2 * s, y, s: s * 1.7, t, look: -0.7 })],
+  ['Snowki', (c, x, y, s, t) => F.snowki(c, { x, y, s: s * 4.2, t })],
+  ['Helen with Jessi', (c, x, y, s, t) => { F.jessi(c, { x: x - 16 * s * 0.8, y, s: s * 0.8, t }); F.helen(c, { x: x + 10 * s * 0.8, y, s: s * 0.8, t, pose: 'pet', expr: 'laugh' }); }]
+];
+const FACES = [
+  ['smile', (c, t) => F.helen(c, { t })], ['laughing', (c, t) => F.helen(c, { t, expr: 'laugh' })], ['wonder', (c, t) => F.helen(c, { t, expr: 'wonder', pose: 'wonder' })], ['happy tears', (c, t) => F.helen(c, { t, expr: 'teary', pose: 'heart' })],
+  ['him · smile', (c, t) => F.boy(c, { t, flip: true }), 1], ['him · emotional', (c, t) => F.boy(c, { t, flip: true, expr: 'emotional' }), 1]
+];
+function layout() { const cols = W >= 1000 ? 4 : W >= 640 ? 3 : 2, cw = W / cols, ch = cw * 1.32, rows = Math.ceil(CARDS.length / cols), fcols = W >= 1000 ? 6 : W >= 640 ? 3 : 2, fw = W / fcols, frows = Math.ceil(FACES.length / fcols); return { cols, cw, ch, rows, fcols, fw, frows }; }
+function sheetHeight() { const L = layout(); return 130 + L.rows * L.ch + 60 + L.frows * L.fw + 40; }
+function card(x, y, w, h, label) {
+  const g = ctx.createLinearGradient(0, y, 0, y + h); g.addColorStop(0, '#FBD3B0'); g.addColorStop(0.55, '#F6B7C6'); g.addColorStop(1, '#C9B6E4');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.roundRect(x, y, w, h, 18); ctx.fill();
+  const sg = ctx.createRadialGradient(x + w * 0.2, y + h * 0.3, 0, x + w * 0.2, y + h * 0.3, w * 0.8); sg.addColorStop(0, 'rgba(255,246,214,.8)'); sg.addColorStop(1, 'rgba(255,246,214,0)'); ctx.fillStyle = sg; ctx.fill();
+  ctx.fillStyle = 'rgba(42,28,51,.8)'; ctx.font = '600 13px Figtree'; ctx.textAlign = 'center'; ctx.fillText(label, x + w / 2, y + h - 12);
+}
+function drawSheet(t) {
+  const L = layout();
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#2A1C33'; ctx.textAlign = 'center'; ctx.font = '400 32px "Instrument Serif"'; ctx.fillText('Character sheet', W / 2, 108);
+  CARDS.forEach(([label, fn], i) => {
+    const col = i % L.cols, row = (i / L.cols) | 0, x = col * L.cw + 8, y = 130 + row * L.ch + 8, w = L.cw - 16, h = L.ch - 16;
+    card(x, y, w, h, label);
+    ctx.save(); ctx.beginPath(); ctx.roundRect(x, y, w, h, 18); ctx.clip();
+    ctx.fillStyle = 'rgba(110,60,110,.18)'; ctx.beginPath(); ctx.ellipse(x + w / 2, y + h - 34, w * 0.22, 6, 0, 0, 7); ctx.fill();
+    fn(ctx, x + w / 2, y + h - 34, (h - 70) / 104, t + i * 0.37);
+    ctx.restore();
+  });
+  const fy = 130 + L.rows * L.ch + 30;
+  ctx.fillStyle = '#2A1C33'; ctx.font = '400 26px "Instrument Serif"'; ctx.fillText('Close-ups (the same drawings, camera pushed in)', W / 2, fy + 6);
+  FACES.forEach(([label, fn, boy], i) => {
+    const col = i % L.fcols, row = (i / L.fcols) | 0, x = col * L.fw + 8, y = fy + 24 + row * L.fw + 8, w = L.fw - 16, h = L.fw - 16;
+    card(x, y, w, h, label);
+    ctx.save(); ctx.beginPath(); ctx.roundRect(x, y, w, h - 30, 18); ctx.clip();
+    const s = h / 18, fx = boy ? -0.6 : 0.5, fyy = boy ? -93.5 : -89.8;
+    ctx.translate(x + w / 2 - fx * s, y + (h - 30) / 2 - fyy * s); ctx.scale(s, s);
+    fn(ctx, t + i);
+    ctx.restore();
+  });
+}
+
+let t0 = performance.now();
+function frame(nowMs) {
+  const now = nowMs / 1000, t = (nowMs - t0) / 1000;
+  if (mode === 'scene') drawScene(t, now); else drawSheet(t);
+  requestAnimationFrame(frame);
+}
+document.querySelectorAll('.bar button').forEach(b => b.onclick = () => { mode = b.dataset.m; document.querySelectorAll('.bar button').forEach(x => x.classList.toggle('on', x === b)); document.body.classList.toggle('sheet', mode === 'sheet'); scrollTo(0, 0); resize(); });
+document.querySelectorAll('#shots button').forEach(b => b.onclick = () => { shot = b.dataset.s; document.querySelectorAll('#shots button').forEach(x => x.classList.toggle('on', x === b)); const now = performance.now() / 1000; autoT = now; goShot(shot === 'auto' ? 'wide' : shot, now); });
+window.__film = { goShot: n => { shot = n; goShot(n, performance.now() / 1000); }, setMode: m => document.querySelector(`.bar [data-m="${m}"]`).click() };
+resize(); goShot('wide', performance.now() / 1000); requestAnimationFrame(frame);
+</script>
+</body>
+</html>

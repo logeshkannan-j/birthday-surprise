@@ -3,3 +3,6 @@ package-lock.json
 *.backup.html
 # private originals + album password (never upload or commit)
 memories/
+
+# reference video (private, not for the site)
+ref/
