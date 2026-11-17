@@ -5,7 +5,7 @@
 //   const s = new Snowki();  s.act('wave');  s.update(dt, { vel: [vx, vy] });  s.draw(ctx, { aura: true });
 //
 // Actions: idle sit stand wave point cheer clap hug cover peek sleep kick push fly dangle spin shy think hold
-//          dance yawn bow lookUp giggle blow nod call shh. Expressions: smile happy giggle wink surprised sleepy love shy
+//          dance yawn bow lookUp giggle blow nod call shh walk alert. Option talk:true moves his mouth. Expressions: smile happy giggle wink surprised sleepy love shy
 //          determined soft sad blow oops.
 
 const TAU = Math.PI * 2;
@@ -137,6 +137,14 @@ export class Snowki {
       case 'nod': P.nod = Math.sin(a * 6) * 0.6; P.expr = 'happy'; break;
       case 'lookUp': P.nod = -1; P.gaze = [0, -1]; P.tilt = 0.06; P.expr = o.expr || 'surprised'; break;
       case 'giggle': P.lean = Math.sin(a * 22) * 0.04; P.armL = [12, 13]; P.armR = [-12, 13]; P.expr = 'giggle'; P.squash += Math.abs(Math.sin(a * 11)) * 0.04; break;
+      case 'walk': {   // a little teddy toddle: alternate steps, body sways, arms swing (or carry what he holds)
+        const k = a * 8.5, sn = Math.sin(k), dirx = o.dir ? Math.sign(o.dir[0]) || 1 : 1; P.lift = 12;
+        P.legL = [-11 + dirx * Math.max(0, sn) * 2.5, -3 - Math.max(0, sn) * 4.5]; P.legR = [11 + dirx * Math.max(0, -sn) * 2.5, -3 - Math.max(0, -sn) * 4.5];
+        P.lean = sn * 0.07 + dirx * 0.05; P.tilt = -sn * 0.05; P.hop = Math.abs(sn) * 1.6; P.turn = dirx * 0.55;
+        if (o.hold) { P.armL = [13, 9]; P.armR = [-13, 9]; } else { P.armL = [-6, 18 - sn * 4]; P.armR = [6, 18 + sn * 4]; }
+        P.expr = o.expr || 'happy'; break;
+      }
+      case 'alert': { const d = o.dir || [1, 0]; P.turn = clamp(d[0], -1, 1) * 0.65; P.nod = clamp(d[1], -1, 1) * 0.3; P.gaze = [clamp(d[0], -1, 1), clamp(d[1], -1, 1) * 0.5]; P.expr = o.expr || 'surprised'; P.squash = -0.04; break; }
       case 'call': P.armL = [13, -19]; P.armR = [-13, -19]; P.turn = -0.45; P.lean = -0.06; P.expr = 'happy'; P.tilt = -0.06; break;
       case 'shh': P.armR = [-15, -21]; P.expr = 'soft'; P.tilt = 0.12; P.turn = -0.3; break;
       case 'blow': P.lean = dir[0] * 0.1; P.turn = dir[0] * 0.5; P.expr = 'blow'; P.armL = [-6, 18]; P.armR = [6, 18]; break;
@@ -174,7 +182,7 @@ export class Snowki {
     }
     // whole-body transform: hop, lean (about the seat), squash and spin
     const sh = P.shake ? Math.sin(t * 60) * 0.6 : 0;
-    ctx.translate(sh, -P.hop); ctx.rotate(s.lean.x); ctx.scale((1 + s.squash.x) * s.spin.x, 1 - s.squash.x);
+    ctx.save(); ctx.translate(sh, -P.hop); ctx.rotate(s.lean.x); ctx.scale((1 + s.squash.x) * s.spin.x, 1 - s.squash.x);
     const front = s.spin.x >= 0;
     const hipY = -8 - lift, shY = -36 - lift, neckY = -40 - lift, drop = s.drop.x;
     // legs behind the body when standing / flying
@@ -309,7 +317,7 @@ export class Snowki {
     const nx = fx * 1.22, ny = -61.2 + fy * 1.2;
     ctx.fillStyle = C.nose; ctx.beginPath(); ctx.moveTo(nx - 4.2, ny - 1.6); ctx.quadraticCurveTo(nx, ny - 3.6, nx + 4.2, ny - 1.6); ctx.quadraticCurveTo(nx + 3.6, ny + 1.6, nx, ny + 2.7); ctx.quadraticCurveTo(nx - 3.6, ny + 1.6, nx - 4.2, ny - 1.6); ctx.fill();
     ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.beginPath(); ctx.ellipse(nx - 1.3, ny - 1.5, 1.4, 0.7, -0.2, 0, TAU); ctx.fill();
-    this.mouth(ctx, yawn ? 'yawn' : E.mouth, nx, ny);
+    this.mouth(ctx, yawn ? 'yawn' : this.o.talk ? (Math.sin(this.t * 17) + Math.sin(this.t * 11) > 0.2 ? 'o' : 'small') : E.mouth, nx, ny);
   }
 
   eye(ctx, x, y, kind, gz, side, tn) {
@@ -387,6 +395,8 @@ export class Snowki {
     if (kind === 'heart') { const hp = heartPath(0, 0, 9 + Math.sin(t * 5) * 0.6); const g = ctx.createLinearGradient(0, -9, 0, 9); g.addColorStop(0, '#FF9DC0'); g.addColorStop(1, '#E3346F'); ctx.fillStyle = g; ctx.fill(hp); ctx.strokeStyle = 'rgba(160,20,70,.5)'; ctx.lineWidth = 1; ctx.stroke(hp); ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.beginPath(); ctx.ellipse(-3.6, -3, 2.2, 1.3, -0.6, 0, TAU); ctx.fill(); }
     else if (kind === 'star') { const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 22); g.addColorStop(0, 'rgba(255,236,170,.9)'); g.addColorStop(1, 'rgba(255,236,170,0)'); ctx.fillStyle = g; ctx.fillRect(-22, -22, 44, 44);
       ctx.fillStyle = '#FFD86A'; ctx.beginPath(); for (let k = 0; k < 10; k++) { const a = -Math.PI / 2 + k * Math.PI / 5, r = k % 2 ? 4 : 9.5; ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r); } ctx.closePath(); ctx.fill(); ctx.strokeStyle = '#E2A532'; ctx.lineWidth = 0.9; ctx.stroke(); }
+    else if (kind === 'gift') { const g = ctx.createLinearGradient(-8, -8, 8, 8); g.addColorStop(0, '#FF9DC0'); g.addColorStop(1, '#D9437A'); ctx.fillStyle = g; ctx.fillRect(-8, -6, 16, 13); ctx.fillStyle = '#FFE4A0'; ctx.fillRect(-1.6, -6, 3.2, 13); ctx.fillRect(-8, -0.8, 16, 3);
+      ctx.fillStyle = '#E8457A'; ctx.fillRect(-9, -8.5, 18, 3.4); ctx.fillStyle = '#FFE4A0'; ctx.beginPath(); ctx.ellipse(-3.2, -10.6, 3.4, 2.2, -0.5, 0, TAU); ctx.ellipse(3.2, -10.6, 3.4, 2.2, 0.5, 0, TAU); ctx.fill(); ctx.strokeStyle = 'rgba(120,20,60,.5)'; ctx.lineWidth = 0.8; ctx.strokeRect(-8, -6, 16, 13); }
     else if (kind === 'key') { ctx.rotate(-0.5); ctx.strokeStyle = '#E8B84A'; ctx.lineWidth = 2.6; ctx.beginPath(); ctx.arc(-7, 0, 4.4, 0, TAU); ctx.moveTo(-2.6, 0); ctx.lineTo(10, 0); ctx.moveTo(6, 0); ctx.lineTo(6, 3.6); ctx.moveTo(9, 0); ctx.lineTo(9, 3); ctx.stroke(); }
     else if (kind === 'lantern') { const fl = 0.85 + 0.15 * Math.sin(t * 9); const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 30); g.addColorStop(0, `rgba(255,214,140,${0.7 * fl})`); g.addColorStop(1, 'rgba(255,214,140,0)'); ctx.fillStyle = g; ctx.fillRect(-30, -30, 60, 60);
       const lg = ctx.createRadialGradient(0, 0, 1, 0, 0, 10); lg.addColorStop(0, '#FFF6D8'); lg.addColorStop(0.6, '#FFC46B'); lg.addColorStop(1, '#E2793A'); ctx.fillStyle = lg; ctx.beginPath(); ctx.moveTo(-5, -8); ctx.quadraticCurveTo(-10, 0, -5, 9); ctx.lineTo(5, 9); ctx.quadraticCurveTo(10, 0, 5, -8); ctx.closePath(); ctx.fill();

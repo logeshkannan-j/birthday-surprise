@@ -128,6 +128,7 @@ export class Fireworks {
         const u = 1 - this.life[i] / this.ml[i]; cool(k === 0 ? 0.25 + u * 0.75 : u, col);
         if (this.hue[i] === 1) { col[0] = lerp(1, 0.95, u); col[1] = lerp(0.75, 0.4, u); col[2] = lerp(0.9, 0.7, u); }
         if (this.hue[i] === 2) { col[0] = lerp(0.8, 0.6, u); col[1] = lerp(0.75, 0.5, u); col[2] = 1; }
+        if (this.hue[i] === 3) { col[0] = lerp(0.95, 0.7, u); col[1] = lerp(0.62, 0.36, u); col[2] = 1; }
         const a = k === 0 ? (1 - u) * 0.8 : (1 - u * u) * 1.1, st = k === 0 ? 0.02 : 0.045;
         add.push(this.x[i], this.y[i], this.gy[i], 0, s, s, -this.vx[i] * st, -this.vy[i] * st, col[0], col[1], col[2], a);
       }

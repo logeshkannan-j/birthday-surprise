@@ -1,5 +1,5 @@
 /* ============================================================================
-   "Light is the only words he has" – everything you may want to change lives here.
+   "The Memories That Never Fade" – everything you may want to change lives here.
    Names, date, every line of text, timings, music and optional character art.
    ========================================================================== */
 export default {
@@ -14,21 +14,21 @@ export default {
     micUnavailable: 'Microphone unavailable – just tap the candle',
     // one subtitle per scene (empty = no subtitle). Scene 0 is the candle.
     subtitles: {
-      1: 'A quiet night by the sea…',
-      2: 'She had no idea…',
-      3: '',
-      4: 'Someone came to light the sky for you…',
-      5: 'Look up…',
-      6: 'Her smile was enough.',
-      7: ''
+      1: 'After the cake and the candles… a quiet night by the sea.',
+      4: 'A long time ago, he gave her Snowki…'
     },
-    // the sky message: two lines so it fits phones too. {name} becomes the recipient in capitals.
+    // what Snowki and he say (speech bubbles). dur = seconds on screen
+    dialogue: {
+      snowki1: { who: 'snowki', text: 'Why are you here? Did you come to see her?', dur: 3.5 },
+      man1: { who: 'man', text: 'I came to wish her a happy birthday, just like every year.', dur: 3.2 },
+      man2: { who: 'man', text: 'Some memories never really leave us, Snowki.', dur: 2.6 }
+    },
+    // the birthday message over the fireworks (HTML script lettering). {NAME} becomes the recipient in capitals.
     skyMessage: ['HAPPY BIRTHDAY', '{NAME}'],
-    skyHeart: true,                // a heart drawn after the name
+    skyHeart: true,                // ❤️ after the name
     finalLines: [
       'Happy Birthday {name} ❤️',
-      'Some surprises don’t need to be seen by the person who creates them.\nSeeing you smile is enough.',
-      'Stay happy. Keep smiling. Always.'
+      'Some surprises are not about coming back…\nThey’re about remembering.'
     ],
     watchAgain: 'Watch again',
     continue: 'Continue',
@@ -36,8 +36,8 @@ export default {
     mute: 'Sound off', unmute: 'Sound on'
   },
 
-  // seconds per scene (scene 0 waits for the wish). Total ≈ 100 s.
-  timings: { 1: 10, 2: 12, 3: 12, 4: 10, 5: 17, 6: 8, 7: 13, 8: 18 },
+  // seconds per scene (scene 0 waits for the wish). Total ≈ 92 s.
+  timings: { 1: 10, 2: 7, 3: 9, 4: 7, 5: 13, 6: 9, 7: 14, 8: 7, 9: 16 },
 
   // drop an mp3 here to replace the generated score (waves, wind and firework sounds stay)
   music: '/assets/music.mp3',

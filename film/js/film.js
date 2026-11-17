@@ -47,7 +47,7 @@ const A = CFG.assets || {};
 // Jessi: the same puppy rig as on the birthday page, sitting beside Helen (0.56 character units per rig unit)
 class FilmJessi {
   constructor() { this.p = new Pup(); this.k = 0.56; this.bounds = [-21, -32, 19, 3]; this.p.act('happy'); }
-  update(st) { const want = st.pet ? 'pet' : st.lookUp ? 'lookUp' : 'happy'; if (this.p.name !== want) this.p.act(want); this.p.update(st.dt); }
+  update(st) { const want = st.pet ? 'pet' : st.lookUp ? 'lookUp' : st.happy ? 'happy' : 'sit'; if (this.p.name !== want) this.p.act(want); this.p.lookAt(st.lookUp ? 0 : -0.4, 0); this.p.update(st.dt); }
   draw(ctx) { ctx.save(); ctx.scale(this.k, this.k); this.p.draw(ctx); ctx.restore(); }
   headTop() { const h = this.p.headTop(); return [h[0] * this.k, h[1] * this.k]; }
 }
@@ -84,71 +84,63 @@ function initSystems() {
 // ---------------------------------------------------------------- state
 const S = {
   phase: 'wish', T: 0, simT: 0, real: 0, scene: null, lt: 0, fired: new Set(), timeScale: 1, bt: null, shake: 0,
-  helen: { expr: 'calm', lookUp: 0, pet: false }, boy: { pose: 'hide', expr: 'watching', flame: false, look: -0.25 }, jessi: { lookUp: false, pet: false, happy: true },
-  ramps: {}, lines: [], ended: false, blowT: -1, fuseT: -99, input: [0, 0], cloudK: 1, sn: null, snMode: 'lap', snTrail: [], snPrev: null
+  helen: {}, boy: {}, jessi: {},
+  ramps: {}, lines: [], ended: false, blowT: -1, input: [0, 0], cloudK: 1, sn: null, snTrail: [], snPrev: null, say: null, snGift: false
 };
+function freshActors() {
+  S.helen = { expr: 'calm', turn: -0.35, gaze: -0.6, lookUp: 0, handChest: 0 };
+  S.boy = { expr: 'watching', kneel: false, hold: false, reach: false, signal: 0, lookDown: 0, gift: true };
+  S.jessi = { lookUp: false, happy: false };
+}
+freshActors();
 const ramp = (k, to, dur, instant) => { const cur = S.ramps[k] ? S.ramps[k].v : (to === 0 ? 1 : 0); S.ramps[k] = instant ? { v: to, to, rate: 0 } : { v: cur, to, rate: Math.abs(to - cur) / Math.max(dur, 0.001) }; };
 const rv = (k, d = 0) => (S.ramps[k] ? S.ramps[k].v : d);
 function stepRamps(dt) { for (const r of Object.values(S.ramps)) { if (r.v < r.to) r.v = Math.min(r.to, r.v + r.rate * dt); else if (r.v > r.to) r.v = Math.max(r.to, r.v - r.rate * dt); } }
+const TIMERS = [];
 function resetState() {
-  Object.assign(S, { T: 0, simT: 0, scene: null, lt: 0, fired: new Set(), timeScale: 1, bt: null, shake: 0, ramps: {}, lines: [], ended: false, fuseT: -99, cloudK: 1, sn: null, snMode: 'lap', snTrail: [], snPrev: null });
-  S.helen = { expr: 'calm', lookUp: 0, pet: false }; S.boy = { pose: 'hide', expr: 'watching', flame: false, look: -0.25 }; S.jessi = { lookUp: false, pet: false, happy: true };
-  initSystems(); placeMessage(); $('#lines').innerHTML = ''; $('#end').classList.remove('on'); setSub('');
+  TIMERS.forEach(clearTimeout); TIMERS.length = 0;
+  Object.assign(S, { T: 0, simT: 0, scene: null, lt: 0, fired: new Set(), timeScale: 1, bt: null, shake: 0, ramps: {}, lines: [], ended: false, cloudK: 1, sn: null, snTrail: [], snPrev: null, say: null, snGift: false, softFw: null, _sfw: 0, snKey: null, snGlow: -99 });
+  freshActors(); initSystems(); placeMessage(); $('#lines').innerHTML = ''; $('#end').classList.remove('on'); setSub(''); sayHide(); hbShow(false);
 }
 
-// ---------------------------------------------------------------- the sky message: sampled from text, placed for the sky shot
+// ---------------------------------------------------------------- where the fireworks burst: a view of the sky shot (the message itself is HTML)
 function placeMessage() {
-  const W = innerWidth, H = innerHeight, portrait = H > W, sk = anchor('sky', portrait), v = new View().set(W, H, { x: sk.x, y: sk.y, z: 1, roll: 0, lens: 0 });
-  const box = portrait ? [0.05, 0.12, 0.95, 0.38] : [0.05, 0.1, 0.74, 0.46];
-  const lines = CFG.text.skyMessage.map(fill);
-  const pts = sampleMessage(lines, CFG.text.skyHeart, q.letters, '"Cinzel", Georgia, serif', (px, py, cw, ch) => {
-    const sx = W * (box[0] + (box[2] - box[0]) * px / cw), sy = H * (box[1] + (box[3] - box[1]) * py / ch); return v.toWorld(sx, sy, SKY_GY);
-  });
-  fw.setTargets(pts);
-  // heart constellation for the last scene, centred in the night framing
-  const nt = anchor('night', portrait), vn = new View().set(W, H, { x: nt.x, y: nt.y, z: 1.04, roll: 0, lens: 0 }), c = vn.toWorld(W * 0.5, H * (portrait ? 0.27 : 0.3), SKY_GY), r = Math.min(W, H) * 0.15 / vn.S;
-  amb.setHeart(c[0], c[1], r, 26); thread.stars = amb.heart;
-  S.msgBox = { v, box, W, H };
+  const W = innerWidth, H = innerHeight, portrait = H > W, sk = anchor('skyWide', portrait), v = new View().set(W, H, { x: sk.x, y: sk.y, z: 1, roll: 0, lens: 0 });
+  fw.setTargets(null); S.msgBox = { v, W, H };
 }
 
-// ---------------------------------------------------------------- live anchors for the camera grammar
+// ---------------------------------------------------------------- places and live anchors for the camera grammar
 const us = gy => unitScale(gy);
-function boyPlace() {
-  const sc = S.scene ? S.scene.n : 0, lt = S.lt;
-  if (sc === 4 || sc === 5) return { x: PLACE.boyLight.x, y: PLACE.boyLight.y, flip: false, rot: 0 };
-  if (sc === 7 || sc === 8) { const u = clamp((lt - 0.6) / (TL.scenes[6].dur - 0.6), 0, 1), e = sc === 8 ? 1 : u; return { x: lerp(PLACE.walkFrom.x, PLACE.walkTo.x, e), y: lerp(PLACE.walkFrom.y, PLACE.walkTo.y, e), flip: false, rot: 0 }; }
-  const slip = sc === 3 ? ease.outCubic(clamp((lt - 0.4) / 1.8, 0, 1)) : 1;
-  return { x: lerp(PLACE.boy.x + 60, PLACE.boy.x, slip), y: PLACE.boy.y, flip: true, rot: 0.2 * slip };
+const MEET = { x: 716, y: 652 }, SNF = [376, 678, 678], SNM = [674, 654, 654], LAUNCH = [1040, 497, 498];
+function boyPlace() {   // behind the bougainvillea tree, leaning out; when Snowki reaches him he steps out and kneels
+  const s5 = TL.scenes[4].start, u = ease.inOutSine(clamp((S.T - s5) / 1.2, 0, 1));
+  return { x: lerp(PLACE.boy.x, MEET.x, u), y: lerp(PLACE.boy.y, MEET.y, u), flip: true, rot: lerp(0.16, 0, u) };
 }
 function local2world(p, lx, ly) { const s = us(p.gy ?? p.y), fl = p.flip ? -1 : 1, r = p.rot || 0; return [p.x + s * fl * (lx * Math.cos(r) - ly * Math.sin(r)), p.y + s * (lx * Math.sin(r) + ly * Math.cos(r))]; }
 const HS = { x: PLACE.helen.x, y: PLACE.helen.seat, gy: PLACE.helen.gy };
 const helenW = (lx, ly) => [HS.x + lx * us(HS.gy), HS.y + ly * us(HS.gy)];
 function anchor(name, portrait) {
-  const bp = boyPlace(), bf = local2world(bp, 0.4, -93), hf = helenW(1, -37.5), hc = helenW(0.5, -20);
+  const bp = boyPlace(), hf = helenW(1, -37.5), hc = helenW(0.5, -20), sp = snowAt(S.T), snc = [sp.x, sp.y - 55 * SN * us(sp.gy)];
   switch (name) {
-    case 'wide': return portrait ? { x: 400, y: 545 } : { x: 810, y: 505 };
-    case 'helenWide': return portrait ? { x: hc[0] + 30, y: hc[1] + 10, gy: HS.gy } : { x: hc[0] + 120, y: hc[1] + 6, gy: HS.gy };
+    case 'wide': return portrait ? { x: 420, y: 560, gy: 690 } : { x: 548, y: 548, gy: 672 };
+    case 'helenSide': return portrait ? { x: hc[0] + 12, y: hc[1] + 10, gy: HS.gy } : { x: hc[0] + 46, y: hc[1] + 2, gy: HS.gy };
     case 'helenMed': return portrait ? { x: hc[0] + 14, y: hc[1] + 12, gy: HS.gy, zk: 0.85 } : { x: hc[0] + 30, y: hc[1] + 4, gy: HS.gy };
     case 'helenUp': return { x: hf[0] + 8, y: hf[1] + 18, gy: HS.gy };
     case 'helenFace': return { x: hf[0] + (portrait ? 0 : 5), y: hf[1] + 1, gy: HS.gy };
-    case 'boyFace': return { x: bf[0] - (portrait ? 0 : 10), y: bf[1] + 6, gy: bp.y };
-    case 'boyMed': { const c = local2world(bp, 0.5, -76); return { x: c[0] - (portrait ? 0 : 26), y: c[1], gy: bp.y }; }
-    case 'boyMeet': { const sp = snowAt(S.T), c = local2world(bp, 0.5, -84); return { x: (c[0] + sp.x) / 2 - (portrait ? 0 : 10), y: (c[1] + sp.y - 50 * SN * us(sp.gy)) / 2 + 8, gy: (bp.y + sp.gy) / 2 }; }
-    case 'snowki': { const sp = snowAt(S.T); return { x: sp.x, y: sp.y - 55 * SN * us(sp.gy), gy: sp.gy }; }
-    case 'crateWide': return { x: PLACE.launcher.x - 90, y: PLACE.launcher.y - 70 * us(PLACE.launcher.y), gy: PLACE.launcher.y, zk: portrait ? 0.8 : 1 };
     case 'helenSnow': { const c = helenW(0.5, -18); return { x: c[0] + (portrait ? 6 : 34), y: c[1] + 4, gy: HS.gy }; }
-    case 'threadWide': return portrait ? { x: 980, y: 540, gy: 760 } : { x: 770, y: 545, gy: 760 };
-    case 'launcher': return { x: PLACE.boyLight.x + (portrait ? 92 : 50), y: PLACE.boyLight.y - 60 * us(PLACE.boyLight.y), gy: PLACE.boyLight.y, zk: portrait ? 0.72 : 1 };
-    case 'skyRise': return { x: 900, y: 330 };
-    case 'sky': return portrait ? { x: 560, y: 240 } : { x: 600, y: 240 };
-    case 'walker': return { x: bp.x + 6, y: bp.y - 70 * us(bp.y), gy: bp.y };
-    case 'walkerEnd': return { x: PLACE.walkTo.x, y: PLACE.walkTo.y - 70 * us(PLACE.walkTo.y), gy: PLACE.walkTo.y };
-    case 'night': return { x: 700, y: -220 };
+    case 'snowki': return { x: snc[0], y: snc[1], gy: sp.gy };
+    case 'snowkiLow': return { x: snc[0] + (portrait ? 10 : 70) * sp.dir, y: snc[1] - 20 * us(sp.gy), gy: sp.gy };
+    case 'treeMan': { const c = local2world(bp, 0.5, -82); return { x: c[0] - (portrait ? 0 : 40), y: c[1] + 10, gy: bp.y }; }
+    case 'meet': { const c = local2world(bp, 1, -64); return { x: (c[0] + snc[0]) / 2, y: (c[1] + snc[1]) / 2 - 6, gy: (bp.y + sp.gy) / 2 }; }
+    case 'meetUp': { const c = local2world(bp, 2, -80); return { x: c[0] - (portrait ? 0 : 14), y: c[1], gy: bp.y }; }
+    case 'twoShot': { const c = local2world(bp, 0, -62); return { x: (hc[0] + c[0]) / 2, y: (hc[1] + c[1]) / 2 - 8, gy: (HS.gy + bp.y) / 2, zk: portrait ? 0.62 : 1 }; }
+    case 'skyWide': return portrait ? { x: 470, y: 300 } : { x: 520, y: 320 };
+    case 'finalWide': return portrait ? { x: 470, y: 480 } : { x: 560, y: 470 };
   }
   return { x: 800, y: 500 };
 }
 function focusGy(name) {
-  switch (name) { case 'helen': return PLACE.helen.gy; case 'snowki': return snowAt(S.T).gy; case 'boy': return boyPlace().y; case 'boyLight': return PLACE.boyLight.y; case 'walker': return boyPlace().y; case 'sky': return HZ + 12; }
+  switch (name) { case 'helen': return PLACE.helen.gy; case 'snowki': return snowAt(S.T).gy; case 'boy': return boyPlace().y; case 'sky': return HZ + 12; }
   return 700;
 }
 
@@ -160,102 +152,142 @@ function ripple(k) {
 function fire(ev, instant) {
   const [, name, arg] = ev;
   switch (name) {
-    case 'laugh': S.helen.expr = 'joyful'; S.laughUntil = S.T + 2.6; ramp('glowPulse', 1, 0.3, instant); break;
-    case 'ripple': if (!instant) ripple(arg); break;
-    case 'pet': S.helen.pet = true; S.jessi.pet = true; S.petUntil = S.T + 4.3; if (!instant) setTimeout(() => ripple(0.7), 600); break;
-    case 'calm': S.helen.expr = 'calm'; break;
-    case 'boyWatch': S.boy.pose = 'watch'; break;
-    case 'threadOn': ramp('thread', 1, 2.5, instant); break;
+    case 'snAlert': snAct('alert', { dir: [1, -0.15] }, 2.4); break;
+    case 'snAlive': snAct('idle', { expr: 'happy' }, 2.0); S.snGlow = S.T; break;
+    case 'boyLookDown': S.boy.lookDown = 1; break;
     case 'boySmile': S.boy.expr = 'contentment'; break;
-    case 'flame': S.boy.flame = true; break;
-    case 'boyReach': S.boy.reachSnow = true; break;
-    case 'boyLetGo': S.boy.reachSnow = false; break;
-    case 'snWink': snAct('idle', { expr: 'wink' }, 2.2); break;
-    case 'snWave': snAct('wave', {}, 2.2); break;
-    case 'snTouch': snAct('point', { dir: [1, 0.15], expr: 'love' }, 1.6); break;
-    case 'snNod': snAct('nod', {}, 1.2); break;
-    case 'snCover': snAct('cover', {}, 2.6); break;
-    case 'snCheer': snAct('cheer', {}, 0.9); break;
-    case 'snLookUp': snAct('lookUp', { expr: 'love' }, 11); break;
-    case 'snHug': snAct('hug', { expr: 'soft' }, 30); break;
-    case 'fuse': S.fuseT = S.T; if (!instant) audio.noise && audio.noise(2.4, 3000, 5000, 0.03, 0.8, 'highpass'); break;
-    case 'rockets': if (!instant) launchRockets(); S.boy.flame = false; break;
-    case 'boyStand': S.boy.pose = 'stand'; S.boy.gazeY = -0.8; break;
-    case 'formIfMissing': { let has = false; for (let i = 0; i < fw.max && !has; i++) if (fw.alive[i] && fw.kind[i] === 2) has = true; if (!has && fw.rockets.length === 0) fw.formInstant(); break; }
-    case 'lanterns': amb.lanternOn = 1; if (instant) for (let i = 0; i < 6; i++) amb.spawnLantern(); break;
-    case 'aurora': ramp('aurora', 1, 5, instant); audio.setIntensity && audio.setIntensity(0.75, 0.5); break;
-    case 'lookUp': S.helen.lookUp = 1; S.helen.expr = 'surprised'; S.jessi.lookUp = true; break;
-    case 'wish': amb.wishOn = 1; break;
-    case 'bulletIn': if (!instant) { S.bt = { in: S.T, out: S.T + 5.0 }; ramp('refl', 1, 1.5); } break;
-    case 'bulletOut': if (!instant) setTimeout(() => audio.heartbeat(), 350); break;
-    case 'teary': S.helen.expr = 'teary'; break;
-    case 'threadWarm': ramp('warm', 1, 1.5, instant); break;
-    case 'lettersFade': fw.fadeLetters = true; break;
-    case 'softFireworks': S.softFw = S.T; break;
+    case 'memOn': ramp('mem', 1, 1.1, instant); break;
+    case 'memOff': ramp('mem', 0, 1.1, instant); break;
+    case 'boyKneel': S.boy.kneel = true; break;
+    case 'boyReach': S.boy.reach = true; break;
+    case 'boyHold': S.boy.reach = false; S.boy.hold = true; S.boy.lookDown = 0.6; break;
+    case 'say': say(arg, S.evAt ?? S.T); break;
+    case 'boyLookHelen': S.boy.lookDown = 0; break;
+    case 'boyStand': S.boy.kneel = false; break;
+    case 'helenNotice': S.helen.gaze = 0.75; break;
+    case 'helenTurn': S.helen.turn = 0.6; break;
+    case 'helenSmile': S.helen.expr = 'smile'; break;
+    case 'boyPutDown': S.boy.hold = false; S.boy.gift = false; S.snGift = true; break;
+    case 'boySignal': S.boy.signal = 1; break;
+    case 'boySignalDown': S.boy.signal = 0; break;
+    case 'rockets': if (!instant) fireworksShow(); audio.setIntensity && audio.setIntensity(0.75, 0.5); break;
+    case 'message': hbShow(true, instant); break;
+    case 'messageOff': hbShow(false); break;
+    case 'helenLookUp': S.helen.lookUp = 1; S.helen.turn = 0.12; S.helen.gaze = 0.1; S.helen.expr = 'surprised'; break;
+    case 'jessiLookUp': S.jessi.lookUp = true; break;
+    case 'handChest': S.helen.handChest = 1; break;
+    case 'snLookUp': snAct('lookUp', { expr: 'love', hold: 'gift' }, 60); break;
+    case 'snHold': snAct('hold', { expr: 'soft', hold: 'gift' }, 60); break;
+    case 'jessiHappy': S.jessi.lookUp = false; S.jessi.happy = true; break;
+    case 'softFireworks': S.softFw = S.T; S._sfw = 0; break;
     case 'line': showLine(arg, instant); break;
-    case 'toStars': ramp('toStars', 1, 4.5, instant); break;
-    case 'heartDraw': ramp('heartVis', 1, 2, instant); ramp('heartDraw', 1, 6.5, instant); break;
     case 'end': showEnd(); break;
   }
 }
-function launchRockets() {
-  const pts = fw.targets; if (!pts) return;
-  const n = 5, sorted = pts.slice().sort((a, b) => a[0] - b[0]), groups = [];
-  for (let i = 0; i < n; i++) groups.push(sorted.slice(Math.floor(i * sorted.length / n), Math.floor((i + 1) * sorted.length / n)));
-  const L = LY.crate.top;
-  groups.forEach((g, i) => {
-    let cx = 0, cy = 1e9; for (const p of g) { cx += p[0]; cy = Math.min(cy, p[1]); } cx /= g.length;
-    setTimeout(() => fw.launch([L[0] + (i - 2) * 4, L[1], L[2]], [cx, cy - 20], 3.4, { kind: 'letters', pts: g }), i * 330 / Math.max(S.timeScale, 0.05));
-  });
-  setTimeout(() => { for (const [dx, dy, h] of [[-0.42, -0.08, 1], [0.44, -0.04, 2], [0, -0.16, 0]]) { const v = S.msgBox.v, w = v.toWorld(innerWidth * (0.5 + dx), innerHeight * (0.3 + dy), SKY_GY); fw.launch([L[0], L[1], L[2]], w, 3.0, { kind: 'peony', n: 150, speed: 230, hue: h }); } }, 2600);
+// his quiet birthday wish: rockets rise from far along the beach and burst over the sea in gold, pink, blue and purple
+function fireworksShow() {
+  const v = S.msgBox.v, W = innerWidth, H = innerHeight, portrait = H > W;
+  const spots = portrait ? [[0.5, 0.2], [0.3, 0.28], [0.7, 0.24], [0.45, 0.12], [0.62, 0.32], [0.36, 0.18], [0.55, 0.26], [0.28, 0.12], [0.74, 0.14], [0.5, 0.3], [0.4, 0.22], [0.66, 0.16]]
+    : [[0.55, 0.2], [0.36, 0.26], [0.72, 0.16], [0.46, 0.1], [0.84, 0.28], [0.3, 0.14], [0.62, 0.3], [0.42, 0.2], [0.78, 0.1], [0.52, 0.14], [0.68, 0.24], [0.38, 0.32]];
+  spots.forEach(([fx, fy], i) => TIMERS.push(setTimeout(() => {
+    if (S.phase !== 'film') return; const w = v.toWorld(W * fx, H * fy, SKY_GY);
+    fw.launch([LAUNCH[0] + rand(-14, 14), LAUNCH[1], LAUNCH[2]], w, 2.1 + rand(0, 0.5), { kind: i % 3 === 2 ? 'willow' : 'peony', n: 240, speed: 470 + rand(0, 110), hue: i % 4, size: 5.2 });
+    if (i % 4 === 1) TIMERS.push(setTimeout(() => { if (S.phase === 'film') fw.launch([LAUNCH[0] + rand(-14, 14), LAUNCH[1], LAUNCH[2]], v.toWorld(W * (1 - fx), H * (fy + 0.05), SKY_GY), 2.3, { kind: 'peony', n: 180, speed: 380, hue: (i + 2) % 4, size: 4.6 }); }, 300));
+  }, i * 820)));
 }
 
-// ---------------------------------------------------------------- Snowki: in her lap, then alive. Keys: [time, 'lap' | [x, y, gy], 1 hover | 2 perch]
+// ---------------------------------------------------------------- Snowki: in her lap; alive, he walks to the man, is held, carries the gift back. Keys: [time, place, mode of the segment that starts there]
 function snowKeys() {
-  const s = n => TL.scenes[n - 1].start, cr = PLACE.launcher, top = cr.y - 62 * us(cr.y) + 1;
-  return [[0, 'lap'], [s(2) + 9.6, 'lap'], [s(2) + 10.5, [270, 574, 702]], [s(2) + 11.8, [286, 410, 702], 1],
-    [s(3) + 1.3, [600, 520, 732]], [s(3) + 2.7, [860, 548, 762]], [s(3) + 4.0, [1052, 536, 800], 1],
-    [s(3) + 8.4, [1052, 536, 800], 1], [s(3) + 9.8, [1290, 440, 820]], [s(3) + 11.2, [cr.x + 30, top, cr.y + 2], 2],
-    [s(4) + 5.0, [cr.x + 30, top, cr.y + 2], 2], [s(4) + 6.4, [1330, 320, 830]], [s(4) + 8.8, [840, 330, 772]], [s(5) + 1.6, [430, 468, 710]], [s(5) + 3.0, 'lap'], [1e9, 'lap']];
+  const s = n => TL.scenes[n - 1].start;
+  return [[0, 'lap', 'lap'], [s(3) + 0.3, 'lap', 'fly'], [s(3) + 1.5, SNF, 'walk'], [s(3) + 8.6, SNM, 'stand'], [s(5) + 2.6, 'held', 'held'], [s(7) + 0.6, 'held', 'fly'],
+    [s(7) + 1.3, SNM, 'walk'], [s(7) + 8.4, SNF, 'fly'], [s(7) + 9.4, 'lap', 'lap'], [1e9, 'lap', 'lap']];
 }
 const lapAt = () => { const p = helenW(-3.4, -2.6); return [p[0], p[1], HS.gy + 0.5]; };
+function heldAt() { const bp = boyPlace(), hp = boy.P && boy.P.holdPt ? boy.P.holdPt : [5, -57.5], w = local2world(bp, hp[0], hp[1] + 4); return [w[0], w[1], bp.y + 1]; }
 function snowAt(T) {
   const K = SNK || (SNK = snowKeys()); let i = 0; while (i < K.length - 2 && T >= K[i + 1][0]) i++;
-  const P = k => (k[1] === 'lap' ? lapAt() : k[1]), a = K[i], b = K[i + 1];
-  if (a[1] === 'lap' && b[1] === 'lap') { const p = lapAt(); return { x: p[0], y: p[1], gy: p[2], mode: 'lap', t0: a[0] }; }
-  const pa = P(a), pb = P(b);
-  if (pa[0] === pb[0] && pa[1] === pb[1]) { const hover = a[2] === 1, bob = hover ? Math.sin(T * 2.3) * 3 : 0; return { x: pa[0], y: pa[1] + bob, gy: pa[2], mode: hover ? 'hover' : 'perch', t0: a[0] }; }
-  const p0 = P(K[Math.max(0, i - 1)]), p3 = P(K[Math.min(K.length - 1, i + 2)]), u = clamp((T - a[0]) / (b[0] - a[0]), 0, 1), e = ease.inOutSine(u);
-  const cr = (q0, q1, q2, q3) => 0.5 * (2 * q1 + (-q0 + q2) * e + (2 * q0 - 5 * q1 + 4 * q2 - q3) * e * e + (-q0 + 3 * q1 - 3 * q2 + q3) * e * e * e);
-  return { x: cr(p0[0], pa[0], pb[0], p3[0]), y: cr(p0[1], pa[1], pb[1], p3[1]), gy: lerp(pa[2], pb[2], e), mode: 'fly', t0: a[0] };
+  const a = K[i], b = K[i + 1], mode = a[2], P = k => (k[1] === 'lap' ? lapAt() : k[1] === 'held' ? heldAt() : k[1]);
+  const pa = P(a), u = clamp((T - a[0]) / (b[0] - a[0]), 0, 1);
+  if (mode === 'lap' || mode === 'held' || mode === 'stand') return { x: pa[0], y: pa[1], gy: pa[2], mode, t0: a[0], dir: 1 };
+  const pb = P(b), e = mode === 'walk' ? u : ease.inOutSine(u), hop = mode === 'fly' ? Math.sin(u * Math.PI) * 34 : 0;
+  return { x: lerp(pa[0], pb[0], e), y: lerp(pa[1], pb[1], e) - hop, gy: mode === 'fly' ? Math.max(pa[2], pb[2]) : lerp(pa[2], pb[2], e), mode, t0: a[0], dir: Math.sign(pb[0] - pa[0]) || 1 };
 }
 let SNK = null;
 function snAct(name, o, dur) { S.sn = { name, o, t: S.T, until: S.T + dur }; }
-const SN_DEFAULT = { lap: ['sit', {}], hover: ['stand', { stand: true }], perch: ['sit', {}], fly: ['fly', {}] };
+const SN_DEFAULT = { lap: ['sit', {}], fly: ['fly', { expr: 'happy' }], walk: ['walk', {}], stand: ['stand', {}], held: ['sit', { expr: 'happy' }] };
 function stepSnow(dt, warm) {
-  const sp = snowAt(S.T), want = S.sn && S.sn.t >= sp.t0 && S.T < S.sn.until ? [S.sn.name, S.sn.o] : SN_DEFAULT[sp.mode];
+  const sp = snowAt(S.T), d = SN_DEFAULT[sp.mode], want = S.sn && S.sn.t >= sp.t0 && S.T < S.sn.until ? [S.sn.name, { ...S.sn.o }] : [d[0], { ...d[1] }];
+  if (sp.mode === 'walk') want[1].dir = [sp.dir, 0];
+  if (S.snGift && !want[1].hold && sp.mode !== 'fly') want[1].hold = 'gift';
+  if (S.say && S.say.who === 'snowki' && S.T < S.say.until) want[1].talk = true;
   const key = want[0] + JSON.stringify(want[1]) + sp.mode;
-  if (key !== S.snKey) { S.snKey = key; snow.act(want[0], { stand: sp.mode === 'hover', ...want[1] }); }
-  // velocity on screen (for banking), gaze, magic
+  if (key !== S.snKey) { S.snKey = key; snow.act(want[0], { stand: sp.mode === 'stand' || sp.mode === 'walk', ...want[1] }); }
   const sc = view.toScreen(sp.x, sp.y, sp.gy), prev = S.snPrev; S.snPrev = sc;
   const vel = prev && dt > 0 ? [(sc[0] - prev[0]) / Math.max(dt, 1e-3) * 0.5, (sc[1] - prev[1]) / Math.max(dt, 1e-3) * 0.5] : [0, 0];
-  if (sp.mode === 'hover') snow.look(0.7, -0.35); else if (sp.mode === 'perch') snow.look(-0.4, -0.6); else if (sp.mode === 'lap') snow.look(want[1].expr === 'wink' ? 0 : 0.15, 0.05); else snow.look(0, 0);
-  snow.update(warm ? 1 / 60 : dt, { vel: sp.mode === 'fly' ? vel : [0, 0], magic: sp.mode === 'lap' ? (S.sn && S.sn.name === 'idle' && S.T < S.sn.until ? 0.3 : 0) : 1 });
-  // sparkle trail while he flies or floats
-  if (sp.mode !== 'lap' && dt > 0) { const s = us(sp.gy), n = sp.mode === 'fly' ? 3 : 1; for (let i = 0; i < n; i++) S.snTrail.push({ x: sp.x + rand(-8, 8) * s * 0.4, y: sp.y - rand(30, 75) * SN * s, gy: sp.gy, vx: rand(-6, 6) * s, vy: rand(-4, 8) * s, life: rand(0.6, 1.3), ml: 1.3, r: rand(0, 6) }); }
+  if (sp.mode === 'stand') snow.look(0.8, -0.7); else if (sp.mode === 'held') snow.look(0.45, -0.9); else if (sp.mode === 'lap') snow.look(want[0] === 'alert' ? 0.9 : 0.1, 0.05); else snow.look(sp.dir * 0.6, 0);
+  const glow = S.T - S.snGlow < 3 ? 0.6 : 0;
+  snow.update(warm ? 1 / 60 : dt, { vel: sp.mode === 'fly' ? vel : [0, 0], magic: sp.mode === 'lap' ? glow : 0.45 });
+  // a few sparkles when he moves by magic
+  const rate = sp.mode === 'fly' ? 3 : sp.mode === 'walk' ? (Math.random() < 0.35 ? 1 : 0) : glow > 0 ? 1 : 0;
+  if (dt > 0) { const s = us(sp.gy); for (let i = 0; i < rate; i++) S.snTrail.push({ x: sp.x + rand(-8, 8) * s * 0.4, y: sp.y - rand(30, 75) * SN * s, gy: sp.gy, vx: rand(-6, 6) * s, vy: rand(-8, 4) * s, life: rand(0.6, 1.3), ml: 1.3, r: rand(0, 6) }); }
   for (const p of S.snTrail) { p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt; }
   S.snTrail = S.snTrail.filter(p => p.life > 0); if (S.snTrail.length > 160) S.snTrail.splice(0, S.snTrail.length - 160);
   S.snP = sp;
 }
 
-// ---------------------------------------------------------------- text overlays
+// ---------------------------------------------------------------- text overlays: subtitles, speech bubbles, the birthday message, final lines
 let subT = 0;
 function setSub(t) { const el = $('#sub'); if (el.dataset.t === t) return; el.dataset.t = t; el.classList.remove('on'); clearTimeout(subT); if (t) subT = setTimeout(() => { el.textContent = t; el.classList.add('on'); }, 450); }
+function say(key, t0 = S.T) { const d = (CFG.text.dialogue || {})[key]; if (!d || t0 + d.dur <= S.T) return; S.say = { who: d.who, until: t0 + d.dur }; const el = $('#say'); el.textContent = d.text; el.dataset.who = d.who; el.classList.add('on'); placeSay(); }
+function sayHide() { S.say = null; $('#say').classList.remove('on'); }
+function placeSay() {
+  if (!S.say) return; if (S.T > S.say.until) { sayHide(); return; }
+  const el = $('#say'); let p;
+  if (S.say.who === 'snowki') { const sp = S.snP || snowAt(S.T); p = view.toScreen(sp.x + 6 * SN * us(sp.gy), sp.y - 108 * SN * us(sp.gy), sp.gy); }
+  else { const bp = boyPlace(), h = local2world(bp, 0.3, -104); p = view.toScreen(h[0], h[1], bp.y); }
+  const w = el.offsetWidth, h = el.offsetHeight, x = clamp(p[0] - w / 2, 10, innerWidth - w - 10), y = clamp(p[1] - h - 14, 10, innerHeight - h - 10);
+  el.style.transform = `translate(${x}px,${y}px)`; el.style.setProperty('--tx', clamp(p[0] - x, 16, w - 16) + 'px');
+}
+function hbShow(on, instant) {
+  const el = $('#hb');
+  if (on) { const L = CFG.text.skyMessage.map(fill); el.querySelector('.a').textContent = L[0]; el.querySelector('.bn').textContent = L[1] || ''; el.querySelector('.h').hidden = !CFG.text.skyHeart; el.classList.toggle('now', !!instant); el.classList.add('on'); }
+  else el.classList.remove('on');
+}
 function showLine(i, instant) {
   const box = $('#lines'), p = document.createElement('p'); p.className = 'l l' + i; p.innerHTML = fill(CFG.text.finalLines[i]).replace(/\n/g, '<br>');
   box.appendChild(p); requestAnimationFrame(() => requestAnimationFrame(() => p.classList.add('on')));
 }
 function showEnd() { if (S.ended) return; S.ended = true; $('#end').classList.add('on'); $('#cont').hidden = !EMBED; }
+
+// ---------------------------------------------------------------- the memory: years ago, he gives her Snowki (a warm golden flashback over the scene)
+const mc = $('#mem'), mxc = mc.getContext('2d'), memHelen = new Helen(), memBoy = new Boy(), memSnow = new Snowki(); memSnow.act('idle', { expr: 'happy' });
+function drawMemory(dt) {
+  const a = rv('mem'); if (a < 0.003) { if (mc.style.display !== 'none') mc.style.display = 'none'; return; }
+  mc.style.display = 'block';
+  const W = innerWidth, H = innerHeight, pr = Math.min(devicePixelRatio || 1, 2), x = mxc, t = S.real;
+  if (mc.width !== Math.round(W * pr) || mc.height !== Math.round(H * pr)) { mc.width = Math.round(W * pr); mc.height = Math.round(H * pr); }
+  x.setTransform(pr, 0, 0, pr, 0, 0); x.clearRect(0, 0, W, H); x.globalAlpha = a;
+  const bg = x.createRadialGradient(W * 0.5, H * 0.42, 0, W * 0.5, H * 0.5, Math.max(W, H) * 0.8); bg.addColorStop(0, '#FFEFC8'); bg.addColorStop(0.45, '#F6C68C'); bg.addColorStop(1, '#9A6440');
+  x.fillStyle = bg; x.fillRect(0, 0, W, H);
+  for (let i = 0; i < 26; i++) { const bx = ((i * 137.5) % 100) / 100 * W, by = ((i * 61.3) % 70) / 100 * H, r = (14 + (i * 7) % 34) * Math.min(W, H) / 900, tw = 0.5 + 0.5 * Math.sin(t * 0.8 + i);
+    const g = x.createRadialGradient(bx, by, 0, bx, by, r); g.addColorStop(0, `rgba(255,248,220,${0.35 * tw})`); g.addColorStop(1, 'rgba(255,248,220,0)'); x.fillStyle = g; x.fillRect(bx - r, by - r, r * 2, r * 2); }
+  const gy = H * 0.9; x.fillStyle = 'rgba(190,140,90,.45)'; x.beginPath(); x.ellipse(W * 0.5, gy + 6, W * 0.7, H * 0.08, 0, 0, 7); x.fill();
+  // the two of them, younger, the teddy passing from his hands to hers
+  const k = Math.min(H * 0.62 / 92, W * 0.9 / 120), hx = W * 0.5 - 16 * k, bx = hx + 30 * k, HA = [[8.5, -14.5], [14, -13.5]];
+  memHelen.update({ t, dt, wind: 12, expr: 'joyful', stand: true, armT: HA });
+  memBoy.update({ t, dt, wind: 8, pose: 'stand', expr: 'contentment', armT: [[15, -55.5], [17.5, -53.5]], lookDown: 0.6 });
+  memSnow.update(dt, { magic: 0 });
+  x.save(); x.filter = 'sepia(0.3) saturate(1.15) brightness(1.06)';
+  x.save(); x.translate(hx, gy - 41.6 * k); x.scale(k, k); x.lineJoin = x.lineCap = 'round'; memHelen.draw(x, { t, wind: 12, expr: 'joyful', stand: true, armT: HA }); x.restore();
+  x.save(); x.translate(bx, gy); x.scale(-k * 0.95, k * 0.95); x.lineJoin = x.lineCap = 'round'; memBoy.draw(x, { t, pose: 'stand', expr: 'contentment' }); x.restore();
+  x.save(); x.translate(hx + 14 * k, gy - 41.6 * k - 11 * k); x.scale(0.2 * k, 0.2 * k); memSnow.draw(x, { aura: false, sparkle: false }); x.restore();
+  x.restore();
+  // the soft golden edges of a memory
+  const vg = x.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.32, W / 2, H / 2, Math.max(W, H) * 0.72); vg.addColorStop(0, 'rgba(255,222,170,0)'); vg.addColorStop(1, 'rgba(255,214,160,.92)');
+  x.fillStyle = vg; x.fillRect(0, 0, W, H);
+  const lk = x.createLinearGradient(0, 0, W, H); lk.addColorStop(0, 'rgba(255,240,200,.35)'); lk.addColorStop(0.35, 'rgba(255,240,200,0)'); x.fillStyle = lk; x.fillRect(0, 0, W, H);
+  x.globalAlpha = 1;
+}
 
 // ---------------------------------------------------------------- per-actor canvases (drawn at screen resolution) -> textured quads
 class ActorView {
@@ -366,10 +398,8 @@ function stopMic() { if (micStream) { micStream.getTracks().forEach(t => t.stop(
 function seek(T) {
   if (S.phase === 'wish') { S.phase = 'film'; S.blown = true; S.blowT = performance.now() - 6000; $('#wish').classList.add('off'); audio.start(); }
   resetState(); S.T = clamp(T, 0, TL.duration); S.simT = S.T; S.snKey = null;
-  for (const sc of TL.scenes) for (const ev of sc.ev || []) { const at = sc.start + ev[0]; if (at <= S.T) { S.fired.add(sc.n + ':' + ev[0] + ev[1] + (ev[2] ?? '')); fire(ev, true); } }
-  if (S.T > TL.scenes[3].start + 9.5) fw.formInstant();
-  if (S.laughUntil && S.T > S.laughUntil) S.helen.expr = S.helen.expr === 'joyful' ? 'calm' : S.helen.expr;
-  if (S.petUntil && S.T > S.petUntil) { S.helen.pet = false; S.jessi.pet = false; }
+  for (const sc of TL.scenes) for (const ev of sc.ev || []) { const at = sc.start + ev[0]; if (at <= S.T) { S.fired.add(sc.n + ':' + ev[0] + ev[1] + (ev[2] ?? '')); S.evAt = at; fire(ev, true); } }
+  S.evAt = null;
   for (const k in S.ramps) S.ramps[k].v = S.ramps[k].to;
   // settle hair, cloth and particles without moving the story clock
   const T0 = S.T, sim0 = S.simT, fired0 = new Set(S.fired);
@@ -387,30 +417,23 @@ function step(dtReal, warm) {
   S.timeScale = timeScaleAt(S.bt, S.T); const dt = dtReal * S.timeScale; S.simT += dt;
   stepRamps(dtReal); wind.update(S.simT);
   const sc = TL.at(Math.min(S.T, TL.duration - 0.001)); S.scene = sc; S.lt = S.T - sc.start;
-  for (const ev of sc.ev || []) { const key = sc.n + ':' + ev[0] + ev[1] + (ev[2] ?? ''); if (S.lt >= ev[0] && !S.fired.has(key)) { S.fired.add(key); fire(ev, warm); } }
-  if (S.laughUntil && S.T > S.laughUntil && S.helen.expr === 'joyful') S.helen.expr = 'calm';
-  if (S.petUntil && S.T > S.petUntil) { S.helen.pet = false; S.jessi.pet = false; }
+  for (const ev of sc.ev || []) { const key = sc.n + ':' + ev[0] + ev[1] + (ev[2] ?? ''); if (S.lt >= ev[0] && !S.fired.has(key)) { S.fired.add(key); S.evAt = sc.start + ev[0]; fire(ev, warm); S.evAt = null; } }
   const sub = (sc.sub || []).find(s => S.lt >= s[0] && S.lt < s[0] + s[2]); if (!warm) setSub(sub ? sub[1] : '');
   // rigs
   const hw = wind.at(HS.x), bp = boyPlace(), bw = wind.at(bp.x);
-  const petT = S.helen.pet ? jessiHeadLocal() : null;
-  helen.update({ t: S.simT, dt, wind: hw.s * 90, expr: S.helen.expr, lookUp: S.helen.lookUp, pet: petT });
-  boy.update({ t: S.simT, dt, wind: bw.s * 90 * (bp.flip ? -1 : 1), pose: boyPose(), reach: boyReach(bp) });
-  jessi.update({ t: S.simT, dt, wind: hw.s * 90, pet: S.jessi.pet, lookUp: S.jessi.lookUp, happy: true });
+  helen.update({ t: S.simT, dt, wind: hw.s * 90, ...S.helen });
+  boy.update(boySt(bp, dt, bw.s * 90 * (bp.flip ? -1 : 1)));
+  jessi.update({ t: S.simT, dt, wind: hw.s * 90, ...S.jessi });
   stepSnow(dt, warm);
   // particles
   fw.update(dt, S.simT, wind.at(800).s);
-  fw.letterAlpha = 1 - smoothstep(TL.scenes[6].start + 3, TL.scenes[6].start + 10, S.T);
-  thread.update(dt, S.simT); amb.update(dt, S.simT, wind);
-  if (amb.lanternOn && Math.random() < dt * 1.4 && amb.lanterns.length < 40) amb.spawnLantern();
-  if (amb.wishOn && S.T < TL.scenes[4].start + 15 && Math.random() < dt * 9) amb.spawnWish(HS.x + 10, HS.y - 20, HS.gy + 6, 1);
-  if (S.T - S.fuseT < 2.6 && S.T > S.fuseT && dt > 0) { const f = LY.crate.fuse, s = us(PLACE.launcher.y); for (let i = 0; i < 3; i++) fw.emit(5, f[0] + rand(-1, 1) * s, f[1], rand(-30, 30) * s, rand(-40, 10) * s, rand(0.2, 0.5), PLACE.launcher.y, 1.2 * s, 0); }
-  if (S.softFw != null) { const k = S.T - S.softFw; if (k > 0 && !S._sfw) S._sfw = 0; while (S._sfw < 4 && k > 0.5 + S._sfw * 3.2) { const v = S.msgBox.v, w = v.toWorld(innerWidth * rand(0.25, 0.75), innerHeight * rand(0.15, 0.3), SKY_GY); fw.launch([w[0] + rand(-40, 40), HZ + 2, SKY_GY], w, 2.2, { kind: 'willow', n: 90, speed: 150, size: 2.2, hue: S._sfw % 3 }); S._sfw++; } }
+  amb.update(dt, S.simT, wind);
+  if (S.softFw != null) { const k = S.T - S.softFw; while (S._sfw < 4 && k > 0.5 + S._sfw * 3.2) { const v = S.msgBox.v, w = v.toWorld(innerWidth * rand(0.3, 0.8), innerHeight * rand(0.12, 0.28), SKY_GY); fw.launch([LAUNCH[0] + rand(-14, 14), LAUNCH[1], LAUNCH[2]], w, 2.2, { kind: 'willow', n: 160, speed: 330, size: 4, hue: S._sfw % 4 }); S._sfw++; } }
   if (S.T > TL.duration + 2 && !S.ended) showEnd();
   // camera
   const portrait = innerHeight > innerWidth, lt = Math.min(S.lt, sc.dur);
   let cam = cameraAt(sc, lt, anchor, portrait);
-  if (S.T >= TL.duration) cam = cameraAt(TL.scenes[7], TL.scenes[7].dur, anchor, portrait);
+  if (S.T >= TL.duration) { const lst = TL.scenes[TL.scenes.length - 1]; cam = cameraAt(lst, lst.dur, anchor, portrait); }
   const fo = focusAt(sc, lt), focus = lerp(focusGy(fo.a), focusGy(fo.b), fo.k);
   if (!RM) { // handheld breathing, mouse / tilt parallax, firework shake
     const hk = 1 / Math.sqrt(cam.z);
@@ -426,13 +449,19 @@ function step(dtReal, warm) {
   audio.setWind && audio.setWind(hw.g); audio.setNight && audio.setNight(clamp(S.tod - 1, 0, 1));
 }
 function jessiHeadLocal() { const jp = { x: PLACE.jessi.x, y: PLACE.jessi.seat, gy: PLACE.jessi.gy, flip: true }, ht = jessi.headTop ? jessi.headTop() : [4, -38.5], hd = local2world(jp, ht[0] + Math.sin(S.simT * 2.2) * 1.2, ht[1]); const s = us(HS.gy); return [(hd[0] - HS.x) / s, (hd[1] - HS.y) / s]; }
-function boyPose() { const sc = S.scene ? S.scene.n : 0; if (sc === 7 || sc === 8) return 'walk'; if (sc === 4 || sc === 5) return S.boy.pose === 'stand' ? 'stand' : 'light'; if (sc === 6) return 'watch'; return S.boy.pose === 'watch' ? 'watch' : 'hide'; }
+// the man: hiding with one hand on the trunk and the little gift in the other; then kneeling, reaching, holding Snowki, talking
+function boyPose() { return S.T < TL.scenes[4].start + 0.6 ? 'hide' : 'stand'; }
 function boyReach(bp) {
-  const pose = boyPose(), s = us(bp.y), fl = bp.flip ? -1 : 1, r = bp.rot || 0, toL = (wx, wy) => { const lx = (wx - bp.x) / (s * fl), ly = (wy - bp.y) / s; return [lx * Math.cos(-r) - ly * Math.sin(-r), lx * Math.sin(-r) + ly * Math.cos(-r)]; };
-  if (pose === 'light') { const f = LY.crate.fuse; return toL(f[0], f[1]); }
-  if (pose === 'watch' && S.boy.reachSnow) { const sp = snowAt(S.T); return toL(sp.x + 12 * SN * us(sp.gy), sp.y - 40 * SN * us(sp.gy)); }
-  if (pose === 'watch') { const k = unitScale(PLACE.tree.y) / unitScale(1004); return toL(PLACE.tree.x - 46 * k, bp.y - 64 * s); }
+  const s = us(bp.y), fl = bp.flip ? -1 : 1, r = bp.rot || 0, toL = (wx, wy) => { const lx = (wx - bp.x) / (s * fl), ly = (wy - bp.y) / s; return [lx * Math.cos(-r) - ly * Math.sin(-r), lx * Math.sin(-r) + ly * Math.cos(-r)]; };
+  if (S.boy.reach) { const sp = snowAt(S.T); return toL(sp.x + 4 * SN * us(sp.gy), sp.y - 88 * SN * us(sp.gy)); }
+  if (boyPose() === 'hide') { const k = unitScale(PLACE.tree.y) / unitScale(1004); return toL(PLACE.tree.x - 40 * k, bp.y - 70 * s); }
   return null;
+}
+const heldDraw = (ctx, p) => { ctx.save(); ctx.translate(p[0], p[1]); ctx.scale(SN, SN); snow.draw(ctx, { aura: false, sparkle: false }); ctx.restore(); };
+function boySt(bp, dt, wind) {
+  const B = S.boy, sp = S.snP || snowAt(S.T);
+  return { t: S.simT, dt, wind, pose: boyPose(), reach: boyReach(bp), expr: B.expr, kneel: B.kneel, hold: B.hold, signal: B.signal, lookDown: B.lookDown, gift: B.gift,
+    talk: !!(S.say && S.say.who === 'man' && S.T < S.say.until), look: -0.3, gazeY: B.lookDown * 0.8 };
 }
 
 // ---------------------------------------------------------------- frame description -> renderer
@@ -471,41 +500,28 @@ function frame() {
   const draw = [{ type: 'layer', layer: LY.ground, y: 0 }, { type: 'layer', layer: LY.wall, y: 1 }];
   const push = (it, y) => { if (it) { it.y = y; draw.push(it); } };
   const tight = smoothstep(2.6, 4.2, view.cam.z * fOf(HS.gy));
-  const boyTight = smoothstep(1.9, 2.4, view.cam.z) * (S.scene && [3, 6].includes(S.scene.n) ? 1 : 0);
-  for (const n of ['lamp60', 'lamp560', 'jar', 'tea', 'wires', 'planter', 'crate', 'tree', 'fg']) { const L = LY[n]; if ((n === 'planter' || n === 'lamp60' || n === 'fg') && tight > 0.98) continue; if (n === 'lamp60' && view.cam.y < 330) continue; if (n === 'fg' && boyTight > 0.5) continue; push({ type: 'layer', layer: L, wind: (wind.at((L.rect[0] + L.rect[2]) / 2).s - 0.45) * 0.6, sway: 1 + wind.at((L.rect[0] + L.rect[2]) / 2).g * 1.5 }, L.gy); }
+  const boyTight = smoothstep(1.9, 2.4, view.cam.z) * (S.scene && [2, 3, 4, 5, 6].includes(S.scene.n) ? 1 : 0);
+  for (const n of ['lamp60', 'lamp560', 'jar', 'tea', 'wires', 'tree', 'fg']) { const L = LY[n]; if ((n === 'planter' || n === 'lamp60' || n === 'fg') && tight > 0.98) continue; if (n === 'lamp60' && view.cam.y < 330) continue; if (n === 'fg' && boyTight > 0.5) continue; push({ type: 'layer', layer: L, wind: (wind.at((L.rect[0] + L.rect[2]) / 2).s - 0.45) * 0.6, sway: 1 + wind.at((L.rect[0] + L.rect[2]) / 2).g * 1.5 }, L.gy); }
   if (S.phase !== 'wish') {
     // Helen, Jessi, the gift teddy, the boy
-    const hst = { t: S.simT, expr: S.helen.expr, wind: wind.at(HS.x).s * 90, eyeLights: eyeLights(), pet: S.helen.pet ? jessiHeadLocal() : null, lap: sp.mode === 'lap' ? lapDraw : null };
+    const hst = { t: S.simT, ...S.helen, wind: wind.at(HS.x).s * 90, eyeLights: eyeLights(), lap: sp.mode === 'lap' ? lapDraw : null };
     const hi = views.helen.render(F, { x: HS.x, y: HS.y, gy: HS.gy }, hst, { groundY: baseY(HS.x) + 2, shadowA: shA * 0.8, shadowDir: [shadowDir[0] * 0.5, 0.9], shadowLen: 0.5 });
     if (hi) { hi.light = charLight(hi.anc); hi.blur = blurOf(HS.gy); push(hi, HS.gy); }
-    const J = PLACE.jessi, ji = views.jessi.render(F, { x: J.x, y: J.seat, gy: J.gy, flip: true }, { t: S.simT, pet: S.jessi.pet, lookUp: S.jessi.lookUp, happy: true }, { shadowA: shA, shadowDir, shadowLen: 0.3 });
+    const J = PLACE.jessi, ji = views.jessi.render(F, { x: J.x, y: J.seat, gy: J.gy, flip: true }, { t: S.simT, ...S.jessi }, { shadowA: shA, shadowDir, shadowLen: 0.3 });
     if (ji) { ji.light = charLight(ji.anc); ji.blur = blurOf(J.gy); push(ji, J.gy); }
-    // Snowki when he is out of her lap: flying, floating in front of the boy, perched on the crate
+    // Snowki when he is out of her lap and not in the man's arms: hopping, walking, standing on the promenade
     if (sp.mode !== 'lap') {
-      const si = views.snow.render(F, { x: sp.x, y: sp.y, gy: sp.gy }, {}, { scale: SN, shadowA: sp.mode === 'perch' ? shA : 0, shadowDir, shadowLen: 0.3 });
+      const si = views.snow.render(F, { x: sp.x, y: sp.y, gy: sp.gy }, {}, { scale: SN, shadowA: sp.mode === 'fly' ? 0 : shA * 1.4, shadowDir, shadowLen: 0.3 });
       if (si) { si.light = charLight(si.anc, { self: true, amb: mix3(ambL, [1, 0.94, 0.86], 0.55 * snK), rim: 1.3 }); si.blur = blurOf(sp.gy) * 0.5; push(si, sp.gy); }
     }
-    const sc = S.scene ? S.scene.n : 0;
-    if (sc >= 3 && sc <= 7) {
-      const bp = boyPlace(), pose = boyPose(), walking = pose === 'walk';
-      const lb = walking ? smoothstep(4.6, 5.6, S.lt) * (1 - smoothstep(6.8, 7.8, S.lt)) : 0, melt = walking ? smoothstep(8.6, 11.6, S.lt) : 0;
-      const bst = { t: S.simT, pose, expr: walking ? 'farewell' : S.boy.expr, flame: S.boy.flame, look: bp.flip ? -0.3 : 0.3, gazeY: S.boy.gazeY || 0, lookBack: lb, eyeLights: sc === 6 ? eyeLights(0.7) : null };
-      const bi = views.boy.render(F, { x: bp.x, y: bp.y, gy: bp.y, flip: bp.flip, rot: bp.rot }, bst, { shadowA: (walking ? 0.42 : shA * 1.1) * (1 - melt), shadowDir: walking ? [0.08, 1.2] : [Math.abs(shadowDir[0]) + 0.5, 0.35], shadowLen: walking ? 1.9 : 2.2 });
-      if (bi) {
-        let extra = {};
-        if (walking) { const gS = view.toScreen(PLACE.walkTo.x - 60, HZ - 30, HZ + 0.5), d = [gS[0] - bi.anc[0], gS[1] - bi.anc[1]], l = Math.hypot(d[0], d[1]) || 1; extra = { amb: [0.2, 0.16, 0.3], keyC: [1, 0.72, 0.5].map(v => v * 1.7), keyDir: [d[0] / l, d[1] / l], rim: 1.9 }; }
-        if (pose === 'light' && S.boy.flame) { const f = LY.crate.fuse; extra.flame = view.toScreen(f[0] - 6, f[1] - 4, PLACE.boyLight.y); }
-        bi.light = charLight(bi.anc, extra); bi.blur = blurOf(bp.y); bi.glow = melt * 0.9; bi.alpha = 1 - smoothstep(10.4, 12.4, S.lt) * (walking ? 1 : 0);
-        push(bi, bp.y);
-        // the thread: from his chest towards her, stopping short
-        const ch = local2world(bp, walking ? 0 : 1.5, -70);
-        thread.set([ch[0], ch[1], bp.y], [sp.x, sp.y - 45 * SN * us(sp.gy), sp.gy + 1]);
-      }
-    }
+    // the man, by the bougainvillea tree
+    { const bp = boyPlace(), bst = { ...boySt(bp, 0, wind.at(bp.x).s * 90 * (bp.flip ? -1 : 1)), t: S.simT, eyeLights: S.scene && S.scene.n >= 7 ? eyeLights(0.7) : null };
+      const bi = views.boy.render(F, { x: bp.x, y: bp.y, gy: bp.y, flip: bp.flip, rot: bp.rot }, bst, { shadowA: shA * 1.1, shadowDir: [Math.abs(shadowDir[0]) + 0.3, 0.4], shadowLen: 1.2 });
+      if (bi) { bi.light = charLight(bi.anc); bi.blur = blurOf(bp.y); push(bi, bp.y); } }
   }
   // sprites
   const lightT = [...ambL.map(v => Math.min(1, v * 1.05)), 0.9 * (1 - night * 0.5)];
-  fw.draw(lists.emis, S.simT); amb.drawHeart(lists.emis, S.simT);
+  fw.draw(lists.emis, S.simT);
   if (emK > 0.05) { const lh = [128, HZ - 34], k = 0.6 + 0.4 * Math.max(0, Math.sin(S.real * 2.2)); lists.emis.push(lh[0], lh[1], HZ + 0.5, 0, 6, 6, 0, 0, 1, 0.95, 0.75, emK * k); lists.emis.push(lh[0], lh[1], HZ + 0.5, 0, 24, 24, 0, 0, 1, 0.85, 0.6, emK * k * 0.4); }
   if (tod < 1.25) amb.drawWalkers(lists.mid, atlas, S.simT, ambL.map(v => v * (1 - night * 0.6)), 1 - smoothstep(0.95, 1.25, tod));
   if (S.phase !== 'wish' && snK > 0.03) { const s = us(sp.gy), c = [sp.x, sp.y - 55 * SN * s]; lists.add.push(c[0], c[1], sp.gy + 2, 0, 60 * SN * s, 60 * SN * s, 0, 0, 1, 0.84, 0.55, 0.32 * snK); lists.add.push(c[0], c[1], sp.gy + 2, 0, 150 * SN * s, 150 * SN * s, 0, 0, 1, 0.7, 0.45, 0.12 * snK); }
@@ -513,10 +529,6 @@ function frame() {
   const bulbK = 0.45 + emK * 0.9;
   bulbs.forEach(([x, y, k], i) => { const c = [[1, 0.84, 0.5], [1, 0.66, 0.8], [0.78, 0.9, 1]][k], fl = 0.82 + 0.18 * Math.sin(S.real * 3 + i * 1.7), s = unitScale(721); lists.lights.push(x, y, 721, 0, 1.4 * s, 1.4 * s, 0, 0, 1, 0.98, 0.9, fl * bulbK); lists.lights.push(x, y, 721, 0, 9 * s, 9 * s, 0, 0, c[0], c[1], c[2], 0.32 * fl * bulbK); });
   if (S.phase !== 'wish') { const st = LY.tea.steam; for (let i = 0; i < 3; i++) { const ph = (S.simT * 0.4 + i / 3) % 1, s = unitScale(700); lists.mid.push(st[0] + Math.sin(ph * 6 + i) * 2 * s, st[1] - ph * 26 * s, 700, ph, (3 + ph * 6) * s, (3 + ph * 6) * s, 0, 0, 1, 1, 1, (1 - ph) * 0.35, atlas.uv.smoke); } }
-  thread.vis = rv('thread') * (S.scene && S.scene.n === 7 ? 1 - 0.5 * smoothstep(8, 12, S.lt) : 1);
-  thread.glow = 0.75 + 0.6 * rv('glowPulse') + 0.7 * rv('warm') + clamp(fw.light.k, 0, 1) * 0.3; thread.toStars = rv('toStars');
-  thread.draw(lists.thread, S.simT);
-  amb.heartVis = rv('heartVis'); amb.heartDraw = rv('heartDraw');
   amb.draw(lists, atlas, S.simT, lightT);
   draw.push({ type: 'sprites', list: lists.mid, add: false, y: 662 }, { type: 'sprites', list: lists.add, add: true, y: 663 }, { type: 'sprites', list: lists.lights, add: true, y: 721 },
     { type: 'sprites', list: lists.thread, add: true, y: 1001 }, { type: 'sprites', list: lists.fgAlpha, add: false, y: 1300, overlay: true }, { type: 'sprites', list: lists.fgAdd, add: true, y: 1301, overlay: true }, { type: 'sprites', list: lists.alpha, add: false, y: 1302, overlay: true });
@@ -526,14 +538,14 @@ function frame() {
   const bright = clamp(fw.light.k, 0, 1.5), fade = S.phase === 'wish' ? 1 : rv('fadeIn');
   const sunUV = sunVis > 0.02 ? [sunS[0] / W, 1 - sunS[1] / H] : null;
   F.post = { thresh: lerp(0.93, 0.6, night), bloomK: 0.42 + bright * 0.55 + night * 0.12, raysK: q.rays * sunVis * 0.5, sunUV, flareK: q.flare * (0.4 + bright), halK: 0.08, grain: 0.03, vig: 0.6,
-    chroma: 0.006, dirtK: 0.55, sat: 1.05 + bright * 0.05, expo: 1.0 + (S.scene && S.scene.n === 7 ? 0.05 : 0), letter: S.phase === 'wish' ? 0 : (portrait ? 0.035 : 0.085) * smoothstep(0, 2.5, S.T), fade, fadeC: [0.165, 0.106, 0.302], motion };
+    chroma: 0.006, dirtK: 0.55, sat: 1.05 + bright * 0.05, expo: 1.0, letter: S.phase === 'wish' ? 0 : (portrait ? 0.035 : 0.085) * smoothstep(0, 2.5, S.T), fade, fadeC: [0.165, 0.106, 0.302], motion };
   if (window.__postOverride) Object.assign(F.post, window.__postOverride);
   if (window.__fOverride) window.__fOverride(F);
   return F;
 }
-function eyeLights(k = 1) {
-  if (!fw.targets || fw.light.k < 0.05) return null; const n = 7, out = [], t = S.simT;
-  for (let i = 0; i < n; i++) { const tw = 0.5 + 0.5 * Math.sin(t * 3 + i * 1.9), pink = i === n - 1; out.push([-0.55 + i * 0.16 + Math.sin(i * 7.7) * 0.05, -0.35 + Math.sin(i * 3.3) * 0.12, 255, pink ? 170 : 214, pink ? 200 : 130, (0.45 + 0.4 * tw) * clamp(fw.light.k, 0.3, 1) * k * fw.letterAlpha, 0.1 + 0.05 * tw]); }
+function eyeLights(k = 1) {   // firework light reflected in the eyes
+  if (fw.light.k < 0.05) return null; const n = 6, out = [], t = S.simT, L = fw.light;
+  for (let i = 0; i < n; i++) { const tw = 0.5 + 0.5 * Math.sin(t * 3 + i * 1.9); out.push([-0.5 + i * 0.18 + Math.sin(i * 7.7) * 0.05, -0.35 + Math.sin(i * 3.3) * 0.12, 255, Math.round(170 + 60 * L.g), Math.round(140 + 80 * L.b), (0.4 + 0.4 * tw) * clamp(L.k, 0.3, 1) * k, 0.1 + 0.05 * tw]); }
   return out;
 }
 
@@ -547,10 +559,11 @@ function loop(now) {
   step(dtReal); syncClip(false);
   try { R.render(frame()); } catch (e) { console.error(e); }
   if (S.phase === 'wish' || S.blown) drawWish(dtReal);
+  drawMemory(dtReal); placeSay();
 }
 document.addEventListener('visibilitychange', () => { paused = document.hidden; audio.suspend(paused); });
 addEventListener('resize', () => { if (fw) placeMessageKeep(); });
-function placeMessageKeep() { const had = fw.targets; placeMessage(); if (had && S.T > TL.scenes[3].start + 9.5) fw.formInstant(); }
+function placeMessageKeep() { placeMessage(); }
 addEventListener('pointermove', e => { S.input = [(e.clientX / innerWidth - 0.5) * 2, (e.clientY / innerHeight - 0.5) * 2]; });
 addEventListener('deviceorientation', e => { if (e.gamma == null) return; S.input = [clamp(e.gamma / 30, -1, 1), clamp((e.beta - 45) / 30, -1, 1)]; });
 $('#wish').addEventListener('click', e => { if (e.target.id === 'mic') return; blow(); });
