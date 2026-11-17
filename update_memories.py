@@ -30,6 +30,8 @@ VID = {".mp4", ".mov", ".m4v", ".webm", ".3gp", ".mkv", ".avi"}
 AUD = {".mp3", ".m4a", ".aac", ".wav", ".ogg", ".opus"}
 CONCEPTS = ["golden", "rose", "midnight", "ocean", "garden", "film", "festival", "rain", "lavender"]
 ITER = 150_000
+CHUNK = 1 << 19                                 # streamed videos: 512 KiB encrypted chunks
+STREAM_SIDE = 960                               # long side of streamed videos
 MAX_SIDE, THUMB = 1600, 480
 
 try:
@@ -174,6 +176,18 @@ class Vault:
         self.keep.add(fid + ".bin")
         return fid
 
+    def put_stream(self, data, kind, cs=CHUNK):
+        """Encrypt in fixed-size chunks (each with its own IV + tag) so the page can decrypt and play while downloading."""
+        fid = hmac.new(self.key, (hashlib.sha256(data).hexdigest() + kind + str(cs)).encode(), "sha256").hexdigest()[:24]
+        path = os.path.join(FILES, fid + ".bin")
+        if not os.path.exists(path):
+            with open(path + ".part", "wb") as fh:
+                for k in range(0, len(data), cs):
+                    fh.write(self.enc(data[k:k + cs]))
+            os.replace(path + ".part", path)
+        self.keep.add(fid + ".bin")
+        return fid
+
 
 def jpeg(im, side, q):
     im = im.copy()
@@ -208,6 +222,19 @@ def video_item(path):
         subprocess.run([FFMPEG, "-y", "-hide_banner", "-loglevel", "error", "-ss", "1", "-i", mp4, "-frames:v", "1", "-q:v", "3", jpg], check=False)
         if not os.path.exists(jpg):
             subprocess.run([FFMPEG, "-y", "-hide_banner", "-loglevel", "error", "-i", mp4, "-frames:v", "1", "-q:v", "3", jpg], check=False)
+    fmp4 = os.path.join(CACHE, tag + ".s%dc.mp4" % STREAM_SIDE)
+    if not os.path.exists(fmp4):
+        print("    making a streamable copy…", os.path.basename(path))
+        tmp = fmp4 + ".part.mp4"
+        s = STREAM_SIDE
+        cmd = [FFMPEG, "-y", "-hide_banner", "-loglevel", "error", "-i", mp4,
+               "-vf", "scale='if(gt(iw,ih),min(%d,iw),-2)':'if(gt(iw,ih),-2,min(%d,ih))'" % (s, s),
+               "-c:v", "libx264", "-preset", "slow", "-crf", "28", "-pix_fmt", "yuv420p", "-profile:v", "high", "-level", "4.0",
+               "-maxrate", "1400k", "-bufsize", "2800k", "-force_key_frames", "expr:gte(t,n_forced*2)", "-c:a", "aac", "-b:a", "96k", "-ac", "2",
+               "-movflags", "+frag_keyframe+empty_moov+default_base_moof", tmp]
+        subprocess.run(cmd, check=True)
+        os.replace(tmp, fmp4)
+    mp4 = fmp4
     info = subprocess.run([FFMPEG, "-hide_banner", "-i", mp4], capture_output=True, text=True, errors="ignore").stderr
     m = re.search(r"Video:.*?(\d{2,5})x(\d{2,5})", info)
     w, h = (int(m.group(1)), int(m.group(2))) if m else (1280, 720)
@@ -216,7 +243,8 @@ def video_item(path):
     th = None
     if os.path.exists(jpg):
         th, _ = jpeg(Image.open(jpg).convert("RGB"), THUMB, 78)
-    return open(mp4, "rb").read(), th, w, h, round(dur, 1)
+    codecs = "avc1.640028" + (", mp4a.40.2" if re.search(r"Stream #.*Audio:", info) else "")
+    return open(mp4, "rb").read(), th, w, h, round(dur, 1), codecs
 
 
 def voice_for(folder, name):
@@ -271,8 +299,9 @@ def main():
                     it = {"t": "i", "id": V.put(full, "i"), "th": V.put(th, "t"), "w": w, "h": h}
                     n_img += 1
                 else:
-                    data, th, w, h, dur = video_item(p)
-                    it = {"t": "v", "id": V.put(data, "v"), "th": V.put(th, "t") if th else None, "w": w, "h": h, "du": dur}
+                    data, th, w, h, dur, codecs = video_item(p)
+                    it = {"t": "v", "id": V.put_stream(data, "vs"), "cs": CHUNK, "mc": codecs,
+                          "th": V.put(th, "t") if th else None, "w": w, "h": h, "du": dur}
                     n_vid += 1
             except Exception as ex:
                 print("    skipped", f, "-", ex); continue

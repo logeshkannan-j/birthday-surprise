@@ -594,7 +594,37 @@ const Album=(()=>{
   async function get(id,mime){if(urls[id])return urls[id];const r=await fetch(A.files+id+".bin");if(!r.ok)throw new Error("missing "+id);
     const u=await dec(new Uint8Array(await r.arrayBuffer()));return urls[id]||(urls[id]=URL.createObjectURL(new Blob([u],{type:mime})))}
   const thumb=it=>it.th?get(it.th,"image/jpeg"):it.t==="i"?get(it.id,"image/jpeg"):Promise.resolve("");
-  const drop=id=>{if(urls[id]){URL.revokeObjectURL(urls[id]);delete urls[id]}};
+  // streamed videos: fetched once and decrypted chunk by chunk, so playback starts after the first chunks arrive
+  const L={},MSC=window.ManagedMediaSource||window.MediaSource;let unpump=null;
+  function load(it){if(!it.cs)return null;let l=L[it.id];if(l)return l;l=L[it.id]={parts:[],done:false,err:null,subs:new Set(),url:null,ac:window.AbortController?new AbortController():null};
+    const tell=()=>l.subs.forEach(f=>{try{f()}catch(e){}});
+    (async()=>{try{const r=await fetch(A.files+it.id+".bin",l.ac?{signal:l.ac.signal}:{});if(!r.ok)throw new Error("missing "+it.id);
+      const E=it.cs+28;let pend=[],len=0;
+      const take=n=>{const o=new Uint8Array(n);let k=0;while(k<n){const p=pend[0],m=Math.min(p.length,n-k);o.set(p.subarray(0,m),k);k+=m;if(m===p.length)pend.shift();else pend[0]=p.subarray(m)}len-=n;return o};
+      const flush=async all=>{while(len>=E||(all&&len>0)){l.parts.push(await dec(take(Math.min(E,len))));tell()}};
+      const rd=r.body&&r.body.getReader&&r.body.getReader();
+      if(rd){for(;;){const c=await rd.read();if(c.done)break;pend.push(c.value);len+=c.value.length;await flush(false)}}
+      else{const b=new Uint8Array(await r.arrayBuffer());pend.push(b);len=b.length}
+      await flush(true);l.done=true}catch(e){l.err=e;delete L[it.id]}tell()})();
+    return l}
+  const blobOf=l=>l.url||(l.url=URL.createObjectURL(new Blob(l.parts,{type:"video/mp4"})));
+  function feed(v,it,fail){const l=load(it),T='video/mp4; codecs="'+it.mc+'"';
+    const whole=()=>{const f=()=>{if(l.err){l.subs.delete(f);fail()}else if(l.done){l.subs.delete(f);v.src=blobOf(l)}};l.subs.add(f);unpump=()=>l.subs.delete(f);f()};
+    if(l.done){v.src=blobOf(l);return}
+    if(!MSC||!it.mc||!MSC.isTypeSupported||!MSC.isTypeSupported(T)){whole();return}
+    const ms=new MSC();if(MSC===window.ManagedMediaSource)v.disableRemotePlayback=true;
+    ms.addEventListener("sourceopen",()=>{let sb;try{sb=ms.addSourceBuffer(T)}catch(e){whole();return}let k=0;
+      const pump=()=>{if(l.err){l.subs.delete(pump);fail();return}if(ms.readyState!=="open"||sb.updating)return;
+        if(k<l.parts.length){try{sb.appendBuffer(l.parts[k++])}catch(e){l.subs.delete(pump);whole()}}
+        else if(l.done){l.subs.delete(pump);try{ms.endOfStream()}catch(e){}}};
+      sb.addEventListener("updateend",pump);l.subs.add(pump);unpump=()=>l.subs.delete(pump);pump()},{once:true});
+    v.src=URL.createObjectURL(ms)}
+  const drop=id=>{if(urls[id]){URL.revokeObjectURL(urls[id]);delete urls[id]}const l=L[id];if(l&&l.done){if(l.url)URL.revokeObjectURL(l.url);delete L[id]}};
+  // get the next memories ready in the background (after the current video has finished downloading)
+  function pre(it){if(!it)return;if(it.t==="v"&&it.cs)load(it);else get(it.id,it.t==="v"?"video/mp4":"image/jpeg").catch(()=>{})}
+  function preAt(n){const go=()=>{const a=queue[n+1],b=queue[n+2];if(a&&!a.intro)pre(a.it);if(b&&!b.intro&&b.it.t==="i")pre(b.it)};
+    const c=queue[n],l=c&&!c.intro&&c.it.cs?L[c.it.id]:null;
+    if(l&&!l.done&&!l.err){const f=()=>{if(l.done||l.err){l.subs.delete(f);if(pos===n)go()}};l.subs.add(f)}else go()}
   // voice: the admin's own recorded voice note if there is one, otherwise the browser reads the quote aloud
   function pickVoice(){if(!("speechSynthesis" in window))return null;const vs=speechSynthesis.getVoices();if(!vs.length)return null;
     const P=[v=>/en[-_]IN/i.test(v.lang)&&/female|neerja|heera|veena|isha|raveena|aditi|priya|kajal|swara/i.test(v.name),v=>/en[-_]IN/i.test(v.lang),
@@ -630,7 +660,7 @@ const Album=(()=>{
       else{fxx.beginPath();fxx.arc(p.x,p.y,p.s,0,6.283);fxx.fill()}}}
   // ---------- views: what is inside -> the book -> the end
   function view(w){q("#alidx").hidden=w!=="idx";q("#alplay").hidden=w!=="play";q("#alend").hidden=w!=="end"}
-  function stopMedia(){clearTimeout(adv);hush();if(vid){vid.pause();vid=null}}
+  function stopMedia(){clearTimeout(adv);hush();if(unpump){unpump();unpump=null}if(vid){vid.pause();vid.removeAttribute("src");try{vid.load()}catch(e){}vid=null}}
   function index(){stopMedia();view("idx");curSpace=-1;q("#alspace").textContent="";theme(man.spaces[0]&&man.spaces[0].concept);
     const ni=flat.filter(f=>f.it.t==="i").length,n={i:ni,v:flat.length-ni,s:man.spaces.length};
     q("#alsum").textContent=(sumText(n)||"No memories yet")+(n.s>1?", in "+n.s+" spaces.":".");
@@ -647,27 +677,30 @@ const Album=(()=>{
   function next(){if(pos+1<queue.length)show(pos+1);else end()}
   function wait(ms){clearTimeout(adv);if(playing)adv=setTimeout(next,ms)}
   async function show(n){stopMedia();const my=++gen;pos=n;const x=queue[n],sp=man.spaces[x.s];
+    {const keep=new Set([n,n+1].map(k=>queue[k]).filter(y=>y&&!y.intro).map(y=>y.it.id));for(const id in L){const l=L[id];if(!l.done&&!keep.has(id)&&l.ac)l.ac.abort()}}  // free the network for what is on screen
     if(x.s!==curSpace){curSpace=x.s;theme(sp.concept);strip(x.s);q("#alspace").textContent=sp.title}
     const bk=q("#albook"),fr=q("#alframe"),qq=q("#alq");bk.classList.remove("turn");void bk.offsetWidth;if(!RM)bk.classList.add("turn");
     fr.style.setProperty("--fr",(((n*37)%7-3)*.5).toFixed(1)+"deg");mark();q("#alpos").textContent=x.intro?"":(x.i+1)+" / "+sp.items.length;
     await new Promise(r=>setTimeout(r,RM?0:320));if(my!==gen)return;   // the page is mid-turn: swap what is on it
-    if(x.intro){q("#ald").textContent=man.title||"";qq.className="big";qq.textContent=sp.title;q("#aln").textContent=sp.quote||"";fr.innerHTML='<div class="wait">✦</div>';
+    if(x.intro){preAt(n);q("#ald").textContent=man.title||"";qq.className="big";qq.textContent=sp.title;q("#aln").textContent=sp.quote||"";fr.innerHTML='<div class="wait">✦</div>';
       const f=sp.items.find(i=>i.t==="i")||sp.items[0];if(f)thumb(f).then(u=>{if(my===gen&&u)fr.innerHTML='<span class="tape"></span><img class="media kb" alt="" src="'+u+'">'}).catch(()=>{});
       const t0=performance.now();speak(sp.title+(sp.quote?". "+sp.quote:""),null,()=>wait(Math.max(900,3800-(performance.now()-t0))));return}
     const it=x.it;q("#ald").textContent=it.d||"";qq.className="";qq.textContent=it.q||"";q("#aln").textContent=sp.title;fr.innerHTML='<div class="wait">Opening this memory…</div>';
-    let u;try{u=await get(it.id,it.t==="v"?"video/mp4":"image/jpeg")}catch(e){if(my===gen){fr.innerHTML='<div class="wait">This memory could not be opened.</div>';wait(2500)}return}
-    if(my!==gen)return;
+    const fail=()=>{if(my===gen){fr.innerHTML='<div class="wait">This memory could not be opened.</div>';wait(2500)}};
+    let u="";if(!(it.t==="v"&&it.cs)){try{u=await get(it.id,it.t==="v"?"video/mp4":"image/jpeg")}catch(e){fail();return}if(my!==gen)return}
     if(it.t==="i"){fr.innerHTML='<span class="tape"></span><img class="media kb" alt="'+esc(it.q||"A memory")+'" style="--kx:'+((n%3)-1)+'%;--ky:'+(((n>>1)%3)-1)+'%" src="'+u+'">';
       const t0=performance.now();speak(it.q,it,()=>wait(Math.max(1500,6500-(performance.now()-t0))))}
-    else{fr.innerHTML='<span class="tape"></span><video class="media" playsinline preload="auto" src="'+u+'"></video>';const v=vid=fr.querySelector("video");
+    else{fr.innerHTML='<div class="wait">Opening this memory…</div><video class="media" playsinline preload="auto" style="display:none"></video>';const v=vid=fr.querySelector("video");
+      v.addEventListener("loadeddata",()=>{if(my!==gen)return;const w=fr.querySelector(".wait");if(w)w.remove();v.style.display="";v.insertAdjacentHTML("beforebegin",'<span class="tape"></span>')},{once:true});
+      if(it.cs)feed(v,it,fail);else v.src=u;
       v.onended=()=>{if(my===gen&&playing)next()};
       if(playing){const p=v.play();if(p&&p.catch)p.catch(()=>{v.muted=true;v.play().catch(()=>{});const b=document.createElement("button");b.className="snd";b.textContent="Tap for sound";b.onclick=()=>{v.muted=false;b.remove()};fr.appendChild(b)})}}
     // get the next memory ready while this one plays; let go of big videos far behind
-    const nx=queue[n+1];if(nx&&!nx.intro)get(nx.it.id,nx.it.t==="v"?"video/mp4":"image/jpeg").catch(()=>{});
+    preAt(n);
     queue.forEach((y,k)=>{if(!y.intro&&y.it.t==="v"&&Math.abs(k-n)>2)drop(y.it.id)})}
   function end(){stopMedia();view("end");q("#alspace").textContent=""}
   // ---------- open / close
-  function open(){ov.hidden=false;window.__albumOpen=true;musicWas=on;if(on)stopMusic(true);setMode("still");fxStart();index();
+  function open(){ov.hidden=false;window.__albumOpen=true;musicWas=on;if(on)stopMusic(true);setMode("still");fxStart();index();if(flat[0])pre(flat[0].it);
     Promise.all(flat.map((f,k)=>thumb(f.it).then(u=>({src:u,w:f.it.w,h:f.it.h,v:f.it.t==="v",k})).catch(()=>null))).then(l=>Wall.set(l.filter(Boolean)))}
   function close(){stopMedia();ov.hidden=true;window.__albumOpen=false;fxStop();if(musicWas)startMusic();go(2)}
   q("#alplayall").addEventListener("click",()=>play(null));
