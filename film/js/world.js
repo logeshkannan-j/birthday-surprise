@@ -109,7 +109,8 @@ function groundLayer(res) {
     else if (i % 3 === 1) { ctx.fillStyle = ['#E2447C', '#3FA0D8', '#F2B33D'][i % 3]; ctx.fillRect(x - 4 * s, y - 7 * s, 8 * s, 2 * s); ctx.fillStyle = '#EED9C9'; ctx.fillRect(x - 3.4 * s, y - 5 * s, 6.8 * s, 5 * s); }
   }
   grain(P, 0.05);
-  return { name: 'ground', ...P, kind: 'ground', grid: [48, 34], gyFn: (x, y) => Math.max(y, 482), fog: 0.5 };
+  const E = litPools(P, rect, res, [[600, 604, 170, 44, 0.55], [150, 860, 300, 80, 0.5], [640, 690, 560, 130, 0.32], [1560, 712, 120, 26, 0.8], [330, 742, 150, 36, 0.5], [1000, 575, 120, 26, 0.3]]);
+  return { name: 'ground', ...P, em: E, kind: 'ground', grid: [48, 34], gyFn: (x, y) => Math.max(y, 482), fog: 0.5 };
 }
 // the sea wall on its own layer: every point of it shares the depth of its base line, so it stays upright when the camera moves
 function wallLayer(res) {
@@ -131,7 +132,39 @@ function wallLayer(res) {
   // a few tiny people sitting on the far wall
   for (const x of [560, 610, 640, 700, 716]) { const y = capY(x) - 1.5, s = unitScale(baseY(x)); ctx.fillStyle = 'rgba(90,60,100,.75)'; ctx.beginPath(); ctx.ellipse(x, y - 8 * s, 2.6 * s, 6 * s, 0, 0, 7); ctx.fill(); ctx.beginPath(); ctx.arc(x, y - 16 * s, 2.4 * s, 0, 7); ctx.fill(); }
   grain(P, 0.05);
-  return { name: 'wall', ...P, kind: 'ground', grid: [40, 4], gyFn: (x) => baseY(Math.min(x, 745)), fog: 0.5 };
+  const jx = PLACE.jar.x, E = litPools(P, rect, res, [[jx, capY(jx) - 2, 60, 34, 0.7], [jx - 6, capY(jx) + 30, 46, 40, 0.3], [560, capY(560) + 4, 70, 30, 0.6], [60, capY(60) + 10, 110, 50, 0.5]]);
+  { const ex = E.getContext('2d');
+    ex.fillStyle = 'rgba(150,160,215,.16)'; ex.fill(cap);                                                        // moonlight on the top of the wall
+    ex.strokeStyle = 'rgba(215,222,255,.6)'; ex.lineWidth = 2.4; ex.beginPath(); ex.moveTo(c0[0], c0[1]); ex.lineTo(c1[0], c1[1]); ex.stroke();   // its front edge
+    ex.strokeStyle = 'rgba(200,210,250,.28)'; ex.lineWidth = 1.4; ex.beginPath(); ex.moveTo(c0[0], c0[1] - 28); ex.lineTo(c1[0], c1[1] - 3); ex.stroke();
+    const fg = ex.createLinearGradient(0, 480, 0, 1010); fg.addColorStop(0, 'rgba(120,120,170,.10)'); fg.addColorStop(1, 'rgba(120,120,170,0)'); ex.fillStyle = fg; ex.fill(face); }
+  return { name: 'wall', ...P, em: E, kind: 'ground', grid: [40, 4], gyFn: (x) => baseY(Math.min(x, 745)), fog: 0.5 };
+}
+
+// night: the painted surface lit warm by lamps, lanterns and string lights, kept only inside soft pools (emissive layer)
+function litPools(P, rect, res, pools, warm = '#FFB878') {
+  const E = painter(rect, res), M = painter(rect, res), ex = E.ctx, mx = M.ctx;
+  ex.save(); ex.setTransform(1, 0, 0, 1, 0, 0); ex.drawImage(P.c, 0, 0); ex.globalCompositeOperation = 'multiply'; ex.fillStyle = warm; ex.fillRect(0, 0, E.c.width, E.c.height); ex.restore();
+  for (const [x, y, rx, ry, a] of pools) { mx.save(); mx.translate(x, y); mx.scale(1, ry / rx); const g = mx.createRadialGradient(0, 0, 0, 0, 0, rx); g.addColorStop(0, `rgba(0,0,0,${a})`); g.addColorStop(0.45, `rgba(0,0,0,${a * 0.5})`); g.addColorStop(1, 'rgba(0,0,0,0)'); mx.fillStyle = g; mx.fillRect(-rx, -rx, rx * 2, rx * 2); mx.restore(); }
+  ex.save(); ex.setTransform(1, 0, 0, 1, 0, 0); ex.globalCompositeOperation = 'destination-in'; ex.drawImage(M.c, 0, 0); ex.restore();
+  return E.c;
+}
+function jarLantern(res) {
+  const x = PLACE.jar.x, by = capY(x) - 1, gy = baseY(x), s = unitScale(gy);
+  return bill('jar', [x - 14 * s, by - 18 * s, x + 14 * s, by + 2], gy, res, (P, E) => {
+    const { ctx } = P;
+    ctx.fillStyle = 'rgba(40,20,50,.35)'; ctx.beginPath(); ctx.ellipse(x + 1.5 * s, by, 4.2 * s, 1 * s, 0, 0, 7); ctx.fill();
+    // glass jar with a candle inside
+    ctx.fillStyle = 'rgba(210,225,240,.35)'; ctx.beginPath(); ctx.roundRect(x - 2.8 * s, by - 7.6 * s, 5.6 * s, 7.6 * s, 1.3 * s); ctx.fill();
+    ctx.fillStyle = '#FFF1D6'; ctx.fillRect(x - 1.1 * s, by - 3.6 * s, 2.2 * s, 3.4 * s);
+    ctx.fillStyle = '#FFE7A8'; ctx.beginPath(); ctx.ellipse(x, by - 4.5 * s, 0.55 * s, 1.0 * s, 0, 0, 7); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 0.35 * s; ctx.beginPath(); ctx.moveTo(x - 2.1 * s, by - 6.6 * s); ctx.lineTo(x - 2.1 * s, by - 1.2 * s); ctx.stroke();
+    ctx.fillStyle = '#5A4A58'; ctx.fillRect(x - 3 * s, by - 8.4 * s, 6 * s, 1 * s);
+    ctx.strokeStyle = '#5A4A58'; ctx.lineWidth = 0.3 * s; ctx.beginPath(); ctx.arc(x, by - 8.4 * s, 2.8 * s, Math.PI, 0); ctx.stroke();
+    const g = E.ctx.createRadialGradient(x, by - 4 * s, 0, x, by - 4 * s, 9 * s); g.addColorStop(0, 'rgba(255,214,140,.85)'); g.addColorStop(0.25, 'rgba(255,180,100,.4)'); g.addColorStop(1, 'rgba(255,160,90,0)');
+    E.ctx.fillStyle = g; E.ctx.fillRect(x - 13 * s, by - 17 * s, 26 * s, 19 * s);
+    E.ctx.fillStyle = 'rgba(255,250,225,1)'; E.ctx.beginPath(); E.ctx.ellipse(x, by - 4.5 * s, 0.7 * s, 1.2 * s, 0, 0, 7); E.ctx.fill();
+  }, { em: true, light: [x, by - 4.2 * s] });
 }
 
 // ---------------------------------------------------------------- billboards (single depth): lamps, tea cart, balloon seller, trees, wires, foreground
@@ -299,7 +332,7 @@ export function blurCopy(c, px) {
   x.filter = `blur(${px}px)`; x.drawImage(c, 0, 0, b.width, b.height); return b;
 }
 export function bakeWorld(res) {
-  const L = [farLayer(res * 0.75), groundLayer(res), wallLayer(res), lamp(60, res), lamp(560, res), balloonSeller(res), teaCart(res), wires(res), planter(res), crate(res), bigTree(res * 0.9), foreground(res * 0.4)];
+  const L = [farLayer(res * 0.75), groundLayer(res), wallLayer(res), lamp(60, res), lamp(560, res), jarLantern(res), teaCart(res), wires(res), planter(res), crate(res), bigTree(res * 0.9), foreground(res * 0.4)];
   for (const l of L) { l.blur = blurCopy(l.c, 7); if (l.em) l.emBlur = blurCopy(l.em, 7); }
   return L;
 }

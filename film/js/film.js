@@ -4,8 +4,9 @@ import CFG from '../config.js';
 import { clamp, lerp, ease, smoothstep, noise2, rand, mix3 } from './core.js';
 import { View, PLACE, HZ, capY, baseY, unitScale, fOf } from './space.js';
 import { bakeWorld, makeAtlas, wireBulbs } from './world.js';
-import { Wind, Balloon } from './physics.js';
-import { Helen, Boy, Jessi, drawTeddy, TEDDY_CREAM, ImageActor } from './rigs.js';
+import { Wind } from './physics.js';
+import { Helen, Boy, Jessi, ImageActor } from './rigs.js';
+import { Snowki } from './snowki.js';
 import { SpriteList, Fireworks, sampleMessage, Thread, Ambient, SKY_GY } from './particles.js';
 import { buildTimeline, cameraAt, focusAt, timeScaleAt } from './timeline.js';
 import { FilmAudio } from './audio.js';
@@ -43,10 +44,11 @@ R.setWorld(layers, atlas);
 const LY = Object.fromEntries(layers.map(l => [l.name, l]));
 const A = CFG.assets || {};
 const helen = A.helen ? new ImageActor(A.helen) : new Helen(), boy = A.boy ? new ImageActor(A.boy) : new Boy(), jessi = A.dog ? new ImageActor(A.dog) : new Jessi();
-const gift = { bounds: [-6, -18, 6, 1], update() {}, draw(ctx, st) { drawTeddy(ctx, 0, 0, 1, st.t, TEDDY_CREAM); } };
+const snow = new Snowki(), SN = 0.2;     // Snowki, the magical teddy: 100 rig units = 20 character units
+const snowRig = { bounds: [-70, -140, 70, 16], draw(ctx) { snow.draw(ctx, { aura: false, sparkle: false }); } };
 const wind = new Wind(), view = new View(), audio = new FilmAudio(CFG);
 const lists = { emis: new SpriteList(q.letters + q.pool + 600), mid: new SpriteList(900), lights: new SpriteList(400), thread: new SpriteList(q.thread * 2 + 200), alpha: new SpriteList(400), add: new SpriteList(600), fgAlpha: new SpriteList(600), fgAdd: new SpriteList(900) };
-let fw, thread, amb, balloons;
+let fw, thread, amb;
 const TL = buildTimeline(CFG);
 // ---------------------------------------------------------------- optional AI clips (Seedance 2.5 / Veo 3.1), one per scene
 const CLIPS = {};
@@ -69,21 +71,19 @@ function initSystems() {
     crackle: () => audio.crackle()
   });
   thread = new Thread(q.thread); amb = new Ambient(q);
-  const hand = LY.seller.hand, cols = [[0.89, 0.27, 0.49], [0.25, 0.63, 0.85], [0.95, 0.70, 0.24], [0.49, 0.77, 0.48], [0.61, 0.48, 0.84], [0.95, 0.55, 0.24], [1, 0.53, 0.71], [0.27, 0.76, 0.79], [1, 0.82, 0.35]];
-  balloons = cols.map((c, i) => new Balloon(hand, 26 + (i % 3) * 7, c, i * 0.7));
 }
 
 // ---------------------------------------------------------------- state
 const S = {
   phase: 'wish', T: 0, simT: 0, real: 0, scene: null, lt: 0, fired: new Set(), timeScale: 1, bt: null, shake: 0,
   helen: { expr: 'calm', lookUp: 0, pet: false }, boy: { pose: 'hide', expr: 'watching', flame: false, look: -0.25 }, jessi: { lookUp: false, pet: false, happy: true },
-  ramps: {}, lines: [], ended: false, blowT: -1, giftOn: false, fuseT: -99, input: [0, 0], cloudK: 1
+  ramps: {}, lines: [], ended: false, blowT: -1, fuseT: -99, input: [0, 0], cloudK: 1, sn: null, snMode: 'lap', snTrail: [], snPrev: null
 };
 const ramp = (k, to, dur, instant) => { const cur = S.ramps[k] ? S.ramps[k].v : (to === 0 ? 1 : 0); S.ramps[k] = instant ? { v: to, to, rate: 0 } : { v: cur, to, rate: Math.abs(to - cur) / Math.max(dur, 0.001) }; };
 const rv = (k, d = 0) => (S.ramps[k] ? S.ramps[k].v : d);
 function stepRamps(dt) { for (const r of Object.values(S.ramps)) { if (r.v < r.to) r.v = Math.min(r.to, r.v + r.rate * dt); else if (r.v > r.to) r.v = Math.max(r.to, r.v - r.rate * dt); } }
 function resetState() {
-  Object.assign(S, { T: 0, simT: 0, scene: null, lt: 0, fired: new Set(), timeScale: 1, bt: null, shake: 0, ramps: {}, lines: [], ended: false, giftOn: false, fuseT: -99, cloudK: 1 });
+  Object.assign(S, { T: 0, simT: 0, scene: null, lt: 0, fired: new Set(), timeScale: 1, bt: null, shake: 0, ramps: {}, lines: [], ended: false, fuseT: -99, cloudK: 1, sn: null, snMode: 'lap', snTrail: [], snPrev: null });
   S.helen = { expr: 'calm', lookUp: 0, pet: false }; S.boy = { pose: 'hide', expr: 'watching', flame: false, look: -0.25 }; S.jessi = { lookUp: false, pet: false, happy: true };
   initSystems(); placeMessage(); $('#lines').innerHTML = ''; $('#end').classList.remove('on'); setSub('');
 }
@@ -112,20 +112,25 @@ function boyPlace() {
   const slip = sc === 3 ? ease.outCubic(clamp((lt - 0.4) / 1.8, 0, 1)) : 1;
   return { x: lerp(PLACE.boy.x + 60, PLACE.boy.x, slip), y: PLACE.boy.y, flip: true, rot: 0.2 * slip };
 }
-function local2world(p, lx, ly) { const s = us(p.y), fl = p.flip ? -1 : 1, r = p.rot || 0; return [p.x + s * fl * (lx * Math.cos(r) - ly * Math.sin(r)), p.y + s * (lx * Math.sin(r) + ly * Math.cos(r))]; }
+function local2world(p, lx, ly) { const s = us(p.gy ?? p.y), fl = p.flip ? -1 : 1, r = p.rot || 0; return [p.x + s * fl * (lx * Math.cos(r) - ly * Math.sin(r)), p.y + s * (lx * Math.sin(r) + ly * Math.cos(r))]; }
 const HS = { x: PLACE.helen.x, y: PLACE.helen.seat, gy: PLACE.helen.gy };
 const helenW = (lx, ly) => [HS.x + lx * us(HS.gy), HS.y + ly * us(HS.gy)];
 function anchor(name, portrait) {
   const bp = boyPlace(), bf = local2world(bp, 0.4, -93), hf = helenW(1, -37.5), hc = helenW(0.5, -20);
   switch (name) {
-    case 'wide': return portrait ? { x: 520, y: 545 } : { x: 810, y: 505 };
+    case 'wide': return portrait ? { x: 400, y: 545 } : { x: 810, y: 505 };
     case 'helenWide': return portrait ? { x: hc[0] + 30, y: hc[1] + 10, gy: HS.gy } : { x: hc[0] + 120, y: hc[1] + 6, gy: HS.gy };
     case 'helenMed': return portrait ? { x: hc[0] + 14, y: hc[1] + 12, gy: HS.gy, zk: 0.85 } : { x: hc[0] + 30, y: hc[1] + 4, gy: HS.gy };
     case 'helenUp': return { x: hf[0] + 8, y: hf[1] + 18, gy: HS.gy };
     case 'helenFace': return { x: hf[0] + (portrait ? 0 : 5), y: hf[1] + 1, gy: HS.gy };
     case 'boyFace': return { x: bf[0] - (portrait ? 0 : 10), y: bf[1] + 6, gy: bp.y };
+    case 'boyMed': { const c = local2world(bp, 0.5, -76); return { x: c[0] - (portrait ? 0 : 26), y: c[1], gy: bp.y }; }
+    case 'boyMeet': { const sp = snowAt(S.T), c = local2world(bp, 0.5, -84); return { x: (c[0] + sp.x) / 2 - (portrait ? 0 : 10), y: (c[1] + sp.y - 50 * SN * us(sp.gy)) / 2 + 8, gy: (bp.y + sp.gy) / 2 }; }
+    case 'snowki': { const sp = snowAt(S.T); return { x: sp.x, y: sp.y - 55 * SN * us(sp.gy), gy: sp.gy }; }
+    case 'crateWide': return { x: PLACE.launcher.x - 90, y: PLACE.launcher.y - 70 * us(PLACE.launcher.y), gy: PLACE.launcher.y, zk: portrait ? 0.8 : 1 };
+    case 'helenSnow': { const c = helenW(0.5, -18); return { x: c[0] + (portrait ? 6 : 34), y: c[1] + 4, gy: HS.gy }; }
     case 'threadWide': return portrait ? { x: 980, y: 540, gy: 760 } : { x: 770, y: 545, gy: 760 };
-    case 'launcher': return { x: PLACE.boyLight.x + 50, y: PLACE.boyLight.y - 60 * us(PLACE.boyLight.y), gy: PLACE.boyLight.y, zk: portrait ? 0.85 : 1 };
+    case 'launcher': return { x: PLACE.boyLight.x + (portrait ? 92 : 50), y: PLACE.boyLight.y - 60 * us(PLACE.boyLight.y), gy: PLACE.boyLight.y, zk: portrait ? 0.72 : 1 };
     case 'skyRise': return { x: 900, y: 330 };
     case 'sky': return portrait ? { x: 560, y: 240 } : { x: 600, y: 240 };
     case 'walker': return { x: bp.x + 6, y: bp.y - 70 * us(bp.y), gy: bp.y };
@@ -135,7 +140,7 @@ function anchor(name, portrait) {
   return { x: 800, y: 500 };
 }
 function focusGy(name) {
-  switch (name) { case 'helen': return PLACE.helen.gy; case 'boy': return boyPlace().y; case 'boyLight': return PLACE.boyLight.y; case 'walker': return boyPlace().y; case 'sky': return HZ + 12; }
+  switch (name) { case 'helen': return PLACE.helen.gy; case 'snowki': return snowAt(S.T).gy; case 'boy': return boyPlace().y; case 'boyLight': return PLACE.boyLight.y; case 'walker': return boyPlace().y; case 'sky': return HZ + 12; }
   return 700;
 }
 
@@ -154,7 +159,17 @@ function fire(ev, instant) {
     case 'boyWatch': S.boy.pose = 'watch'; break;
     case 'threadOn': ramp('thread', 1, 2.5, instant); break;
     case 'boySmile': S.boy.expr = 'contentment'; break;
-    case 'flame': S.boy.flame = true; S.giftOn = true; break;
+    case 'flame': S.boy.flame = true; break;
+    case 'boyReach': S.boy.reachSnow = true; break;
+    case 'boyLetGo': S.boy.reachSnow = false; break;
+    case 'snWink': snAct('idle', { expr: 'wink' }, 2.2); break;
+    case 'snWave': snAct('wave', {}, 2.2); break;
+    case 'snTouch': snAct('point', { dir: [1, 0.15], expr: 'love' }, 1.6); break;
+    case 'snNod': snAct('nod', {}, 1.2); break;
+    case 'snCover': snAct('cover', {}, 2.6); break;
+    case 'snCheer': snAct('cheer', {}, 0.9); break;
+    case 'snLookUp': snAct('lookUp', { expr: 'love' }, 11); break;
+    case 'snHug': snAct('hug', { expr: 'soft' }, 30); break;
     case 'fuse': S.fuseT = S.T; if (!instant) audio.noise && audio.noise(2.4, 3000, 5000, 0.03, 0.8, 'highpass'); break;
     case 'rockets': if (!instant) launchRockets(); S.boy.flame = false; break;
     case 'boyStand': S.boy.pose = 'stand'; S.boy.gazeY = -0.8; break;
@@ -185,6 +200,44 @@ function launchRockets() {
     setTimeout(() => fw.launch([L[0] + (i - 2) * 4, L[1], L[2]], [cx, cy - 20], 3.4, { kind: 'letters', pts: g }), i * 330 / Math.max(S.timeScale, 0.05));
   });
   setTimeout(() => { for (const [dx, dy, h] of [[-0.42, -0.08, 1], [0.44, -0.04, 2], [0, -0.16, 0]]) { const v = S.msgBox.v, w = v.toWorld(innerWidth * (0.5 + dx), innerHeight * (0.3 + dy), SKY_GY); fw.launch([L[0], L[1], L[2]], w, 3.0, { kind: 'peony', n: 150, speed: 230, hue: h }); } }, 2600);
+}
+
+// ---------------------------------------------------------------- Snowki: in her lap, then alive. Keys: [time, 'lap' | [x, y, gy], 1 hover | 2 perch]
+function snowKeys() {
+  const s = n => TL.scenes[n - 1].start, cr = PLACE.launcher, top = cr.y - 62 * us(cr.y) + 1;
+  return [[0, 'lap'], [s(2) + 9.6, 'lap'], [s(2) + 10.5, [270, 574, 702]], [s(2) + 11.8, [286, 410, 702], 1],
+    [s(3) + 1.3, [600, 520, 732]], [s(3) + 2.7, [860, 548, 762]], [s(3) + 4.0, [1052, 536, 800], 1],
+    [s(3) + 8.4, [1052, 536, 800], 1], [s(3) + 9.8, [1290, 440, 820]], [s(3) + 11.2, [cr.x + 30, top, cr.y + 2], 2],
+    [s(4) + 5.0, [cr.x + 30, top, cr.y + 2], 2], [s(4) + 6.4, [1330, 320, 830]], [s(4) + 8.8, [840, 330, 772]], [s(5) + 1.6, [430, 468, 710]], [s(5) + 3.0, 'lap'], [1e9, 'lap']];
+}
+const lapAt = () => { const p = helenW(-3.4, -2.6); return [p[0], p[1], HS.gy + 0.5]; };
+function snowAt(T) {
+  const K = SNK || (SNK = snowKeys()); let i = 0; while (i < K.length - 2 && T >= K[i + 1][0]) i++;
+  const P = k => (k[1] === 'lap' ? lapAt() : k[1]), a = K[i], b = K[i + 1];
+  if (a[1] === 'lap' && b[1] === 'lap') { const p = lapAt(); return { x: p[0], y: p[1], gy: p[2], mode: 'lap', t0: a[0] }; }
+  const pa = P(a), pb = P(b);
+  if (pa[0] === pb[0] && pa[1] === pb[1]) { const hover = a[2] === 1, bob = hover ? Math.sin(T * 2.3) * 3 : 0; return { x: pa[0], y: pa[1] + bob, gy: pa[2], mode: hover ? 'hover' : 'perch', t0: a[0] }; }
+  const p0 = P(K[Math.max(0, i - 1)]), p3 = P(K[Math.min(K.length - 1, i + 2)]), u = clamp((T - a[0]) / (b[0] - a[0]), 0, 1), e = ease.inOutSine(u);
+  const cr = (q0, q1, q2, q3) => 0.5 * (2 * q1 + (-q0 + q2) * e + (2 * q0 - 5 * q1 + 4 * q2 - q3) * e * e + (-q0 + 3 * q1 - 3 * q2 + q3) * e * e * e);
+  return { x: cr(p0[0], pa[0], pb[0], p3[0]), y: cr(p0[1], pa[1], pb[1], p3[1]), gy: lerp(pa[2], pb[2], e), mode: 'fly', t0: a[0] };
+}
+let SNK = null;
+function snAct(name, o, dur) { S.sn = { name, o, t: S.T, until: S.T + dur }; }
+const SN_DEFAULT = { lap: ['sit', {}], hover: ['stand', { stand: true }], perch: ['sit', {}], fly: ['fly', {}] };
+function stepSnow(dt, warm) {
+  const sp = snowAt(S.T), want = S.sn && S.sn.t >= sp.t0 && S.T < S.sn.until ? [S.sn.name, S.sn.o] : SN_DEFAULT[sp.mode];
+  const key = want[0] + JSON.stringify(want[1]) + sp.mode;
+  if (key !== S.snKey) { S.snKey = key; snow.act(want[0], { stand: sp.mode === 'hover', ...want[1] }); }
+  // velocity on screen (for banking), gaze, magic
+  const sc = view.toScreen(sp.x, sp.y, sp.gy), prev = S.snPrev; S.snPrev = sc;
+  const vel = prev && dt > 0 ? [(sc[0] - prev[0]) / Math.max(dt, 1e-3) * 0.5, (sc[1] - prev[1]) / Math.max(dt, 1e-3) * 0.5] : [0, 0];
+  if (sp.mode === 'hover') snow.look(0.7, -0.35); else if (sp.mode === 'perch') snow.look(-0.4, -0.6); else if (sp.mode === 'lap') snow.look(want[1].expr === 'wink' ? 0 : 0.15, 0.05); else snow.look(0, 0);
+  snow.update(warm ? 1 / 60 : dt, { vel: sp.mode === 'fly' ? vel : [0, 0], magic: sp.mode === 'lap' ? (S.sn && S.sn.name === 'idle' && S.T < S.sn.until ? 0.3 : 0) : 1 });
+  // sparkle trail while he flies or floats
+  if (sp.mode !== 'lap' && dt > 0) { const s = us(sp.gy), n = sp.mode === 'fly' ? 3 : 1; for (let i = 0; i < n; i++) S.snTrail.push({ x: sp.x + rand(-8, 8) * s * 0.4, y: sp.y - rand(30, 75) * SN * s, gy: sp.gy, vx: rand(-6, 6) * s, vy: rand(-4, 8) * s, life: rand(0.6, 1.3), ml: 1.3, r: rand(0, 6) }); }
+  for (const p of S.snTrail) { p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt; }
+  S.snTrail = S.snTrail.filter(p => p.life > 0); if (S.snTrail.length > 160) S.snTrail.splice(0, S.snTrail.length - 160);
+  S.snP = sp;
 }
 
 // ---------------------------------------------------------------- text overlays
@@ -221,10 +274,12 @@ class ActorView {
     return { type: 'char', id: this.id, canvas: this.c, corners, gy, pr, anc, full, shadow: opt.shadowA ? { corners: sh, color: opt.shadowC || [0.32, 0.18, 0.42], alpha: opt.shadowA, blur: 6 * pr } : null };
   }
 }
-const views = { helen: new ActorView('helen', helen), jessi: new ActorView('jessi', jessi), boy: new ActorView('boy', boy), gift: new ActorView('gift', gift) };
+const views = { helen: new ActorView('helen', helen), jessi: new ActorView('jessi', jessi), boy: new ActorView('boy', boy), snow: new ActorView('snow', snowRig) };
+const lapDraw = ctx => { ctx.save(); ctx.translate(-3.4, -2.6); ctx.scale(SN, SN); snow.draw(ctx, { aura: false, sparkle: false }); ctx.restore(); };
 
 // ---------------------------------------------------------------- the wish (scene 0) overlay: candle, flame, smoke that becomes clouds
 const wc = $('#wishfx'), wx = wc.getContext('2d'); let smoke = [];
+const wishBear = new Snowki(); wishBear.magic = 0.6;
 function drawWish(dtReal) {
   const W = innerWidth, H = innerHeight, pr = Math.min(devicePixelRatio || 1, 2);
   if (wc.width !== Math.round(W * pr)) { wc.width = Math.round(W * pr); wc.height = Math.round(H * pr); }
@@ -259,6 +314,16 @@ function drawWish(dtReal) {
     }
     x.restore();
   }
+  // Snowki beside the cupcake: points at the flame, shows her how to blow, cheers, then flies up into the story
+  {
+    const wb = wishBear, bx = cx + 150 * s, fly = since > 0.9 ? Math.pow(since - 0.9, 2) * 260 * s : 0, by = cy + 58 * s - fly, cyc = (t % 7);
+    if (since < 0) { const want = cyc < 3.2 ? 'point' : cyc < 4.8 ? 'blow' : 'kick'; if (wb.name !== want) wb.act(want, { dir: [-1, -1.15] }); }
+    else if (since < 0.9) { if (wb.name !== 'cheer') wb.act('cheer'); }
+    else if (wb.name !== 'fly') wb.act('fly');
+    wb.update(dtReal, { vel: since > 0.9 ? [40, -380] : [0, 0], magic: since < 0 ? 0.55 : 1 });
+    const a = since < 0 ? 1 : clamp(1 - (since - 1.6) / 1.6, 0, 1);
+    if (a > 0.01 && by > -200) { x.save(); x.globalAlpha = a; x.translate(bx, by); x.scale(s * 1.05, s * 1.05); wb.draw(x, { aura: true }); x.restore(); }
+  }
   // smoke: curls up, drifts towards the sky and warms into the sunset clouds
   if (since >= 0 && since < 1.6) for (let i = 0; i < 3; i++) smoke.push({ x: cx + rand(-2, 2) * s, y: cy - 158 * s, vx: rand(-8, 8), vy: rand(-60, -30), r: rand(3, 6) * s, life: rand(3.5, 5.2), ml: 5.2, p: rand(0, 6) });
   const dt = Math.min(dtReal, 0.05);
@@ -292,7 +357,7 @@ function stopMic() { if (micStream) { micStream.getTracks().forEach(t => t.stop(
 // ---------------------------------------------------------------- seeking / skipping (state is rebuilt by replaying events instantly)
 function seek(T) {
   if (S.phase === 'wish') { S.phase = 'film'; S.blown = true; S.blowT = performance.now() - 6000; $('#wish').classList.add('off'); audio.start(); }
-  resetState(); S.T = clamp(T, 0, TL.duration); S.simT = S.T;
+  resetState(); S.T = clamp(T, 0, TL.duration); S.simT = S.T; S.snKey = null;
   for (const sc of TL.scenes) for (const ev of sc.ev || []) { const at = sc.start + ev[0]; if (at <= S.T) { S.fired.add(sc.n + ':' + ev[0] + ev[1] + (ev[2] ?? '')); fire(ev, true); } }
   if (S.T > TL.scenes[3].start + 9.5) fw.formInstant();
   if (S.laughUntil && S.T > S.laughUntil) S.helen.expr = S.helen.expr === 'joyful' ? 'calm' : S.helen.expr;
@@ -324,7 +389,7 @@ function step(dtReal, warm) {
   helen.update({ t: S.simT, dt, wind: hw.s * 90, expr: S.helen.expr, lookUp: S.helen.lookUp, pet: petT });
   boy.update({ t: S.simT, dt, wind: bw.s * 90 * (bp.flip ? -1 : 1), pose: boyPose(), reach: boyReach(bp) });
   jessi.update({ t: S.simT, dt, wind: hw.s * 90, pet: S.jessi.pet, lookUp: S.jessi.lookUp, happy: true });
-  for (const b of balloons) b.step(dt, LY.seller.hand, wind.at(930).s, S.simT);
+  stepSnow(dt, warm);
   // particles
   fw.update(dt, S.simT, wind.at(800).s);
   fw.letterAlpha = 1 - smoothstep(TL.scenes[6].start + 3, TL.scenes[6].start + 10, S.T);
@@ -346,18 +411,19 @@ function step(dtReal, warm) {
   }
   view.set(innerWidth, innerHeight, cam);
   const mv = [(prevCam.x - cam.x) * view.S * cam.z, (prevCam.y - cam.y) * view.S * cam.z], ml = Math.hypot(mv[0], mv[1]);
-  motion = !RM && ml > 6 && !warm ? [clamp(mv[0] * 1.2, -90, 90), clamp(mv[1] * 1.2, -90, 90)] : [0, 0];
+  motion = !RM && ml > 6 && ml < 140 && !warm ? [clamp(mv[0] * 0.8, -60, 60), clamp(mv[1] * 0.8, -60, 60)] : [0, 0];
   Object.assign(prevCam, { x: cam.x, y: cam.y, z: cam.z });
   S.focus = focus; S.aper = sc.aper * 0.012 * (Math.max(0, cam.z - 1) + 0.2) * (portrait ? 0.85 : 1);   // depth of field grows with the push-in
   S.tod = lerp(sc.tod[0], sc.tod[1], clamp(lt / sc.dur, 0, 1));
   audio.setWind && audio.setWind(hw.g); audio.setNight && audio.setNight(clamp(S.tod - 1, 0, 1));
 }
-function jessiHeadLocal() { const jp = { x: PLACE.jessi.x, y: PLACE.jessi.y, flip: true }, hd = local2world(jp, 4 + Math.sin(S.simT * 2.2) * 1.2, -38.5); const s = us(HS.gy); return [(hd[0] - HS.x) / s, (hd[1] - HS.y) / s]; }
+function jessiHeadLocal() { const jp = { x: PLACE.jessi.x, y: PLACE.jessi.seat, gy: PLACE.jessi.gy, flip: true }, hd = local2world(jp, 4 + Math.sin(S.simT * 2.2) * 1.2, -38.5); const s = us(HS.gy); return [(hd[0] - HS.x) / s, (hd[1] - HS.y) / s]; }
 function boyPose() { const sc = S.scene ? S.scene.n : 0; if (sc === 7 || sc === 8) return 'walk'; if (sc === 4 || sc === 5) return S.boy.pose === 'stand' ? 'stand' : 'light'; if (sc === 6) return 'watch'; return S.boy.pose === 'watch' ? 'watch' : 'hide'; }
 function boyReach(bp) {
   const pose = boyPose(), s = us(bp.y), fl = bp.flip ? -1 : 1, r = bp.rot || 0, toL = (wx, wy) => { const lx = (wx - bp.x) / (s * fl), ly = (wy - bp.y) / s; return [lx * Math.cos(-r) - ly * Math.sin(-r), lx * Math.sin(-r) + ly * Math.cos(-r)]; };
   if (pose === 'light') { const f = LY.crate.fuse; return toL(f[0], f[1]); }
-  if (pose === 'watch') { const k = unitScale(PLACE.tree.y) / unitScale(1004); return toL(PLACE.tree.x - 40 * k, bp.y - 72 * s); }
+  if (pose === 'watch' && S.boy.reachSnow) { const sp = snowAt(S.T); return toL(sp.x + 12 * SN * us(sp.gy), sp.y - 40 * SN * us(sp.gy)); }
+  if (pose === 'watch') { const k = unitScale(PLACE.tree.y) / unitScale(1004); return toL(PLACE.tree.x - 46 * k, bp.y - 64 * s); }
   return null;
 }
 
@@ -365,40 +431,52 @@ function boyReach(bp) {
 const SKYC = [[1.0, 0.886, 0.69], [1.0, 0.76, 0.47], [0.98, 0.64, 0.53], [0.70, 0.43, 0.55], [0.17, 0.16, 0.34]];
 const todMix = (arr, tod) => { const t = clamp(tod, 0, 2) * 2, i = Math.min(arr.length - 2, Math.floor(t)); return mix3(arr[i], arr[i + 1], t - i); };
 function frame() {
-  const W = innerWidth, H = innerHeight, portrait = H > W, tod = S.phase === 'wish' ? 0 : S.tod ?? 0, sun = [PLACE.sun.x, HZ - 66 + tod * 150];
+  const W = innerWidth, H = innerHeight, portrait = H > W, tod = S.phase === 'wish' ? 1.74 : S.tod ?? 1.74, sun = [PLACE.sun.x, HZ - 66 + tod * 150], moon = [PLACE.moon.x, PLACE.moon.y, smoothstep(1.2, 1.6, tod)];
   const sunVis = smoothstep(0.66, 0.4, tod), night = clamp(tod - 0.9, 0, 1);
   const ambL = todMix([[1, 0.97, 0.94], [0.96, 0.84, 0.82], [0.66, 0.64, 0.86], [0.46, 0.44, 0.7], [0.34, 0.36, 0.58]], tod);
   const fogC = todMix(SKYC, tod), emK = smoothstep(0.45, 1.15, tod);
   for (const k in lists) lists[k].reset();
   const clip = clipOn && S.phase === 'film' ? { el: clipOn.el, zoom: 1 + Math.max(0, S.lt - (clipOn.el.duration || 99)) * 0.01 } : null;
-  const F = { clip, view, W, H, pr: q.pr, t: S.real, simT: S.simT, tod, sun, sunVis, amb: ambL, fog: fogC, fogK: 1, emK, focus: S.focus ?? 700, aper: S.aper ?? 0.01, maxBlur: 18, lists,
-    sky: { aurora: rv('aurora') * (1 - smoothstep(TL.scenes[6].start + 6, TL.scenes[7].start + 4, S.T)), stars: smoothstep(1.0, 1.7, tod), cloudK: S.phase === 'wish' ? 0 : rv('cloudK', 1) },
+  const F = { clip, view, W, H, pr: q.pr, t: S.real, simT: S.simT, tod, sun, sunVis, moon, amb: ambL, fog: fogC, fogK: 1, emK, focus: S.focus ?? 700, aper: S.aper ?? 0.01, maxBlur: 18, lists,
+    sky: { aurora: rv('aurora') * (1 - smoothstep(TL.scenes[6].start + 6, TL.scenes[7].start + 4, S.T)), stars: smoothstep(1.0, 1.7, tod), cloudK: (S.phase === 'wish' ? 0 : rv('cloudK', 1)) * 0.7 },
     sea: { night, gustX: wind.front().x, gustA: wind.front().a * 0.8, waveA: S.scene && S.scene.n === 8 ? 0.7 : 1, reflK: 0.65 + 0.6 * rv('refl'), rip: new Float32Array(32) } };
   (S.rip || []).forEach((r, i) => F.sea.rip.set(r, i * 4));
   // lighting for the characters
-  const fwl = fw.light, fwS = view.toScreen(fwl.x, fwl.y, SKY_GY), sunS = view.toScreen(sun[0], sun[1], HZ + 0.5);
-  const keyC = todMix([[1.0, 0.84, 0.58], [1.0, 0.66, 0.48], [0.95, 0.58, 0.6], [0.6, 0.5, 0.8], [0.45, 0.5, 0.85]], tod).map(v => v * (1.1 - night * 0.6));
+  const fwl = fw.light, fwS = view.toScreen(fwl.x, fwl.y, SKY_GY), sunS = view.toScreen(moon[0], moon[1], HZ + 0.5);
+  const keyC = [0.62, 0.7, 1.0].map(v => v * 0.7);
+  const sp = S.snP || snowAt(S.T), snS = view.toScreen(sp.x, sp.y - 55 * SN * us(sp.gy), sp.gy), snK = snow.s.magic.x;
+  const PR = [[LY.jar.light, LY.jar.gy, 46, 1.55, [1, 0.66, 0.36]], [LY.lamp560.light, LY.lamp560.gy, 110, 0.85, [1, 0.74, 0.46]], [LY.lamp60.light, LY.lamp60.gy, 130, 0.85, [1, 0.74, 0.46]],
+    [[LY.tea.steam[0], LY.tea.steam[1] - 30], LY.tea.gy, 90, 0.7, [1, 0.7, 0.42]], [[640, 330], 721, 420, 0.28, [1, 0.8, 0.6]]];
   const charLight = (anc, extra = {}) => {
-    const kd = [sunS[0] - anc[0], sunS[1] - anc[1]], kl = Math.hypot(kd[0], kd[1]) || 1, pls = [];
-    if (fwl.k > 0.02) pls.push([fwS[0], fwS[1], Math.max(W, H) * 0.9, fwl.k * 0.55, 1, 0.82, 0.62]);
-    if (extra.flame) pls.push([extra.flame[0], extra.flame[1], 60 * view.scaleAt(PLACE.boyLight.y), 1.2, 1, 0.6, 0.25]);
+    const kd = [sunS[0] - anc[0], sunS[1] - anc[1]], kl = Math.hypot(kd[0], kd[1]) || 1;
+    const near = PR.map(([p, gy, r, k, c]) => { const s = view.toScreen(p[0], p[1], gy), d = Math.hypot(s[0] - anc[0], s[1] - anc[1]); return [s[0], s[1], r * view.scaleAt(gy), k, c[0], c[1], c[2], d / (r * view.scaleAt(gy))]; }).sort((a, b) => a[7] - b[7]);
+    const pls = [];
+    if (fwl.k > 0.02) pls.push([fwS[0], fwS[1], Math.max(W, H) * 0.9, fwl.k * 0.6, 1, 0.84, 0.66]);
+    if (extra.flame) pls.push([extra.flame[0], extra.flame[1], 60 * view.scaleAt(PLACE.boyLight.y), 1.4, 1, 0.62, 0.28]);
+    if (snK > 0.1 && !extra.self) pls.push([snS[0], snS[1], 70 * view.scaleAt(sp.gy), 0.9 * snK, 1, 0.84, 0.55]);
+    for (const n of near) if (pls.length < 4) pls.push(n.slice(0, 7));
     const a = mix3(ambL, [1, 0.9, 0.8], clamp(fwl.k * 0.25, 0, 0.3));
-    return { amb: extra.amb || a, keyC: extra.keyC || keyC, keyDir: extra.keyDir || [kd[0] / kl, kd[1] / kl], rim: extra.rim ?? (0.9 - night * 0.4), pls };
+    return { amb: extra.amb || a, keyC: extra.keyC || keyC, keyDir: extra.keyDir || [kd[0] / kl, kd[1] / kl], rim: extra.rim ?? 1.0, pls };
   };
-  const shadowDir = [clamp((W * 0.62 - sunS[0]) / W, -0.6, 0.9), 0.45], shA = 0.32 * (1 - night * 0.7) * (1 - smoothstep(0.5, 0.95, tod) * 0.6);
+  const shadowDir = [0.35, 0.5], shA = 0.14;
   const blurOf = gy => Math.min(F.aper * Math.abs(gy - F.focus), F.maxBlur) * q.pr;
   const draw = [{ type: 'layer', layer: LY.ground, y: 0 }, { type: 'layer', layer: LY.wall, y: 1 }];
   const push = (it, y) => { if (it) { it.y = y; draw.push(it); } };
   const tight = smoothstep(2.6, 4.2, view.cam.z * fOf(HS.gy));
-  for (const n of ['lamp60', 'lamp560', 'seller', 'tea', 'wires', 'planter', 'crate', 'tree', 'fg']) { const L = LY[n]; if ((n === 'planter' || n === 'lamp60') && tight > 0.98) continue; push({ type: 'layer', layer: L, wind: (wind.at((L.rect[0] + L.rect[2]) / 2).s - 0.45) * 0.6, sway: 1 + wind.at((L.rect[0] + L.rect[2]) / 2).g * 1.5 }, L.gy); }
+  const boyTight = smoothstep(1.9, 2.4, view.cam.z) * (S.scene && [3, 6].includes(S.scene.n) ? 1 : 0);
+  for (const n of ['lamp60', 'lamp560', 'jar', 'tea', 'wires', 'planter', 'crate', 'tree', 'fg']) { const L = LY[n]; if ((n === 'planter' || n === 'lamp60' || n === 'fg') && tight > 0.98) continue; if (n === 'lamp60' && view.cam.y < 330) continue; if (n === 'fg' && boyTight > 0.5) continue; push({ type: 'layer', layer: L, wind: (wind.at((L.rect[0] + L.rect[2]) / 2).s - 0.45) * 0.6, sway: 1 + wind.at((L.rect[0] + L.rect[2]) / 2).g * 1.5 }, L.gy); }
   if (S.phase !== 'wish') {
     // Helen, Jessi, the gift teddy, the boy
-    const hst = { t: S.simT, expr: S.helen.expr, wind: wind.at(HS.x).s * 90, eyeLights: eyeLights(), pet: S.helen.pet ? jessiHeadLocal() : null };
+    const hst = { t: S.simT, expr: S.helen.expr, wind: wind.at(HS.x).s * 90, eyeLights: eyeLights(), pet: S.helen.pet ? jessiHeadLocal() : null, lap: sp.mode === 'lap' ? lapDraw : null };
     const hi = views.helen.render(F, { x: HS.x, y: HS.y, gy: HS.gy }, hst, { groundY: baseY(HS.x) + 2, shadowA: shA * 0.8, shadowDir: [shadowDir[0] * 0.5, 0.9], shadowLen: 0.5 });
     if (hi) { hi.light = charLight(hi.anc); hi.blur = blurOf(HS.gy); push(hi, HS.gy); }
-    const ji = views.jessi.render(F, { x: PLACE.jessi.x, y: PLACE.jessi.y, gy: PLACE.jessi.y, flip: true }, { t: S.simT, pet: S.jessi.pet, lookUp: S.jessi.lookUp, happy: true }, { shadowA: shA, shadowDir, shadowLen: 0.6 });
-    if (ji) { ji.light = charLight(ji.anc); ji.blur = blurOf(PLACE.jessi.y); push(ji, PLACE.jessi.y); }
-    if (S.giftOn) { const gp = { x: PLACE.launcher.x + 58, y: PLACE.launcher.y + 2, gy: PLACE.launcher.y + 2 }; const gi = views.gift.render(F, gp, { t: S.simT }, { shadowA: shA * 0.7, shadowDir, shadowLen: 0.5 }); if (gi) { gi.light = charLight(gi.anc); gi.blur = blurOf(gp.gy); push(gi, gp.gy); } }
+    const J = PLACE.jessi, ji = views.jessi.render(F, { x: J.x, y: J.seat, gy: J.gy, flip: true }, { t: S.simT, pet: S.jessi.pet, lookUp: S.jessi.lookUp, happy: true }, { shadowA: shA, shadowDir, shadowLen: 0.3 });
+    if (ji) { ji.light = charLight(ji.anc); ji.blur = blurOf(J.gy); push(ji, J.gy); }
+    // Snowki when he is out of her lap: flying, floating in front of the boy, perched on the crate
+    if (sp.mode !== 'lap') {
+      const si = views.snow.render(F, { x: sp.x, y: sp.y, gy: sp.gy }, {}, { scale: SN, shadowA: sp.mode === 'perch' ? shA : 0, shadowDir, shadowLen: 0.3 });
+      if (si) { si.light = charLight(si.anc, { self: true, amb: mix3(ambL, [1, 0.94, 0.86], 0.55 * snK), rim: 1.3 }); si.blur = blurOf(sp.gy) * 0.5; push(si, sp.gy); }
+    }
     const sc = S.scene ? S.scene.n : 0;
     if (sc >= 3 && sc <= 7) {
       const bp = boyPlace(), pose = boyPose(), walking = pose === 'walk';
@@ -412,8 +490,8 @@ function frame() {
         bi.light = charLight(bi.anc, extra); bi.blur = blurOf(bp.y); bi.glow = melt * 0.9; bi.alpha = 1 - smoothstep(10.4, 12.4, S.lt) * (walking ? 1 : 0);
         push(bi, bp.y);
         // the thread: from his chest towards her, stopping short
-        const ch = local2world(bp, walking ? 0 : 1.5, -70), hc = helenW(0.5, -21);
-        thread.set([ch[0], ch[1], bp.y], [hc[0] + 62, hc[1] + 6, HS.gy + 10]);
+        const ch = local2world(bp, walking ? 0 : 1.5, -70);
+        thread.set([ch[0], ch[1], bp.y], [sp.x, sp.y - 45 * SN * us(sp.gy), sp.gy + 1]);
       }
     }
   }
@@ -422,7 +500,8 @@ function frame() {
   fw.draw(lists.emis, S.simT); amb.drawHeart(lists.emis, S.simT);
   if (emK > 0.05) { const lh = [128, HZ - 34], k = 0.6 + 0.4 * Math.max(0, Math.sin(S.real * 2.2)); lists.emis.push(lh[0], lh[1], HZ + 0.5, 0, 6, 6, 0, 0, 1, 0.95, 0.75, emK * k); lists.emis.push(lh[0], lh[1], HZ + 0.5, 0, 24, 24, 0, 0, 1, 0.85, 0.6, emK * k * 0.4); }
   if (tod < 1.25) amb.drawWalkers(lists.mid, atlas, S.simT, ambL.map(v => v * (1 - night * 0.6)), 1 - smoothstep(0.95, 1.25, tod));
-  for (const b of balloons) { const c = b.chain, top = b.top, s = unitScale(640); lists.mid.push(top[0], top[1] + 2.5 * s, 640, 0, 0.35 * s, 0.35 * s, c.x[0] - top[0], c.y[0] - top[1] - 2.5 * s, 0.95, 0.95, 0.95, 0.7 * ambL[0], atlas.uv.white); lists.mid.push(top[0], top[1], 640, Math.atan2(c.x[c.n - 1] - c.x[c.n - 2], -(c.y[c.n - 1] - c.y[c.n - 2])) * 0.5, 5.2 * s, 6 * s, 0, 0, b.color[0] * ambL[0], b.color[1] * ambL[1], b.color[2] * ambL[2], 1, atlas.uv.balloon); }
+  if (S.phase !== 'wish' && snK > 0.03) { const s = us(sp.gy), c = [sp.x, sp.y - 55 * SN * s]; lists.add.push(c[0], c[1], sp.gy + 2, 0, 60 * SN * s, 60 * SN * s, 0, 0, 1, 0.84, 0.55, 0.32 * snK); lists.add.push(c[0], c[1], sp.gy + 2, 0, 150 * SN * s, 150 * SN * s, 0, 0, 1, 0.7, 0.45, 0.12 * snK); }
+  for (const p of S.snTrail) { const s = us(p.gy), a = clamp(p.life / p.ml, 0, 1), tw = 0.6 + 0.4 * Math.sin(S.real * 9 + p.r * 3); lists.add.push(p.x, p.y, p.gy + 2, p.r + S.real, 4.2 * s * (0.4 + a), 4.2 * s * (0.4 + a), 0, 0, 1, 0.9, 0.62, a * 0.9 * tw, atlas.uv.glint); }
   const bulbK = 0.45 + emK * 0.9;
   bulbs.forEach(([x, y, k], i) => { const c = [[1, 0.84, 0.5], [1, 0.66, 0.8], [0.78, 0.9, 1]][k], fl = 0.82 + 0.18 * Math.sin(S.real * 3 + i * 1.7), s = unitScale(721); lists.lights.push(x, y, 721, 0, 1.4 * s, 1.4 * s, 0, 0, 1, 0.98, 0.9, fl * bulbK); lists.lights.push(x, y, 721, 0, 9 * s, 9 * s, 0, 0, c[0], c[1], c[2], 0.32 * fl * bulbK); });
   if (S.phase !== 'wish') { const st = LY.tea.steam; for (let i = 0; i < 3; i++) { const ph = (S.simT * 0.4 + i / 3) % 1, s = unitScale(700); lists.mid.push(st[0] + Math.sin(ph * 6 + i) * 2 * s, st[1] - ph * 26 * s, 700, ph, (3 + ph * 6) * s, (3 + ph * 6) * s, 0, 0, 1, 1, 1, (1 - ph) * 0.35, atlas.uv.smoke); } }
@@ -438,7 +517,7 @@ function frame() {
   // post
   const bright = clamp(fw.light.k, 0, 1.5), fade = S.phase === 'wish' ? 1 : rv('fadeIn');
   const sunUV = sunVis > 0.02 ? [sunS[0] / W, 1 - sunS[1] / H] : null;
-  F.post = { thresh: lerp(0.93, 0.52, night), bloomK: 0.45 + bright * 0.55 + night * 0.35, raysK: q.rays * sunVis * 0.5, sunUV, flareK: q.flare * (0.4 + bright), halK: 0.08, grain: 0.03, vig: 0.6,
+  F.post = { thresh: lerp(0.93, 0.6, night), bloomK: 0.42 + bright * 0.55 + night * 0.12, raysK: q.rays * sunVis * 0.5, sunUV, flareK: q.flare * (0.4 + bright), halK: 0.08, grain: 0.03, vig: 0.6,
     chroma: 0.006, dirtK: 0.55, sat: 1.05 + bright * 0.05, expo: 1.0 + (S.scene && S.scene.n === 7 ? 0.05 : 0), letter: S.phase === 'wish' ? 0 : (portrait ? 0.035 : 0.085) * smoothstep(0, 2.5, S.T), fade, fadeC: [0.165, 0.106, 0.302], motion };
   if (window.__postOverride) Object.assign(F.post, window.__postOverride);
   if (window.__fOverride) window.__fOverride(F);

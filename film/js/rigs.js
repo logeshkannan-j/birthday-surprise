@@ -52,6 +52,43 @@ function hand(ctx, b, c, skin, s, out) {
   cel(ctx, ell(0.9, -0.88, 0.78, 0.34, -0.5), skin, 0, 1.6, { lw: 0.08, lc: out });
   ctx.restore();
 }
+
+// a shaped limb through a -> b -> c (shoulder/hip, elbow/knee, wrist/ankle). prof: widths at [a, mid-upper, b, mid-lower, c].
+// One smooth outline (no stick joints), shaded across its width: lit side warm, shade side cool.
+function limbPath(a, b, c, prof) {
+  const L = [], R = [], seg = (p, q, t0, t1, w0, wm, w1, n) => {
+    const dx = q[0] - p[0], dy = q[1] - p[1], l = Math.hypot(dx, dy) || 1, nx = -dy / l, ny = dx / l;
+    for (let i = 0; i <= n; i++) { const u = i / n; if (t0 > 0 && i === 0) continue;
+      const w = (u < 0.5 ? lerp(w0, wm, u * 2) : lerp(wm, w1, (u - 0.5) * 2)) / 2, x = p[0] + dx * u, y = p[1] + dy * u;
+      L.push([x + nx * w, y + ny * w]); R.push([x - nx * w, y - ny * w]); }
+    return [dx / l, dy / l];
+  };
+  const d0 = seg(a, b, 0, 0.5, prof[0], prof[1], prof[2], 4), d1 = seg(b, c, 0.5, 1, prof[2], prof[3], prof[4], 4);
+  const cap = (p, d, w, k) => { const out = []; for (let i = 1; i < 4; i++) { const an = Math.atan2(d[1], d[0]) + (k ? -Math.PI / 2 + i * Math.PI / 4 : Math.PI / 2 + i * Math.PI / 4); out.push([p[0] + Math.cos(an) * w / 2, p[1] + Math.sin(an) * w / 2]); } return out; };
+  return smooth(L.concat(cap(c, d1, prof[4], true), R.reverse(), cap(a, d0, prof[0], false)), true);
+}
+function limb(ctx, a, b, c, prof, base, out, o = {}) {
+  const p = limbPath(a, b, c, prof), m = [(a[0] + 2 * b[0] + c[0]) / 4, (a[1] + 2 * b[1] + c[1]) / 4];
+  const dx = c[0] - a[0], dy = c[1] - a[1], l = Math.hypot(dx, dy) || 1, nx = -dy / l, ny = dx / l, w = Math.max(...prof) * 0.7, sgn = nx < 0 ? 1 : -1;   // light from the upper left
+  const g = ctx.createLinearGradient(m[0] + nx * w * sgn, m[1] + ny * w * sgn, m[0] - nx * w * sgn, m[1] - ny * w * sgn);
+  g.addColorStop(0, mixc(base, o.light || '#FFE8CF', 0.22)); g.addColorStop(0.5, base); g.addColorStop(1, mixc(base, o.shade || '#6E4E8C', 0.3));
+  ctx.fillStyle = g; ctx.fill(p);
+  if (out !== false) { ctx.lineWidth = o.lw || 0.2; ctx.strokeStyle = out || rgba(mixc(base, '#5A2632', 0.7), 0.8); ctx.stroke(p); }
+  return p;
+}
+// a hand: palm, thumb and four fingers (soft, slightly curled). dir = forearm direction; s = size; side flips the thumb.
+function hand2(ctx, wrist, dir, skin, s, out, side = 1, curl = 0.3) {
+  const ang = Math.atan2(dir[1], dir[0]);
+  ctx.save(); ctx.translate(wrist[0], wrist[1]); ctx.rotate(ang); ctx.scale(s, s * side);
+  const palm = P2('M-0.3 -0.85 C0.6 -1.05 1.6 -1.0 2.2 -0.75 C2.5 -0.3 2.5 0.45 2.15 0.85 C1.4 1.05 0.4 1.0 -0.3 0.8 C-0.6 0.3 -0.6 -0.4 -0.3 -0.85 Z');
+  const fing = [[-0.62, 1.25], [-0.2, 1.42], [0.22, 1.36], [0.6, 1.1]];
+  for (const [fy, fl] of fing) { const f = new Path2D(); f.moveTo(2.0, fy); f.quadraticCurveTo(2.0 + fl * 0.7, fy + curl * 0.35, 2.0 + fl * (1 - curl * 0.25), fy + curl * 0.75); ctx.lineCap = 'round'; ctx.lineWidth = 0.52; ctx.strokeStyle = out; ctx.stroke(f); ctx.lineWidth = 0.38; ctx.strokeStyle = skin; ctx.stroke(f); }
+  cel(ctx, palm, skin, -0.4, 2.5, { lw: 0.08, lc: out });
+  const th = new Path2D(); th.moveTo(0.5, -0.75); th.quadraticCurveTo(1.2, -1.55, 1.95, -1.45);
+  ctx.lineWidth = 0.62; ctx.strokeStyle = out; ctx.stroke(th); ctx.lineWidth = 0.46; ctx.strokeStyle = skin; ctx.stroke(th);
+  ctx.restore();
+}
+
 // big expressive anime eye
 function animeEye(ctx, cx, cy, w, h, st, P, gx, gy, lights) {
   const lash = P.lash;
@@ -118,7 +155,7 @@ export class Helen {
     const bw = head.p(-5.4, -43.6); this.bowT[0].step(dt, bw[0], bw[1], w, t + 2); this.bowT[1].step(dt, bw[0] + 0.3, bw[1] + 0.2, w, t + 2.5);
     this.sashT[0].step(dt, 6.6, -11.4, w * 0.8, t + 3); this.sashT[1].step(dt, 6.9, -11.2, w * 0.8, t + 3.4);
     const anch = [], rest = [];
-    for (let i = 0; i < 9; i++) { const u = i / 8, x = lerp(-10.6, 11.2, u); anch.push([lerp(-9.6, 10.4, u), 5.6 - Math.sin(u * Math.PI) * 1.2]); rest.push([x, 15.6 + Math.sin(u * Math.PI) * 0.8]); }
+    for (let i = 0; i < 9; i++) { const u = i / 8, a = [lerp(-15.0, -1.4, u), lerp(4.6, 7.4, u) + Math.sin(u * Math.PI) * 0.8]; anch.push(a); rest.push([a[0] - 0.5, a[1] + 4.4 + Math.sin(u * Math.PI) * 0.9]); }
     this.hem.step(dt, anch, rest, w * 0.5, t);
     this.headX = head; this.lu = lu; this.la = la;
   }
@@ -143,24 +180,26 @@ export class Helen {
     for (const c of this.bowT) { const pts = []; for (let i = 0; i < c.n; i++) pts.push([c.x[i], c.y[i]]); cel(ctx, ribbon(pts, pts.map((_, i) => 1.1 - i * 0.12)).path, C.sash, -8, 0, { lw: 0.1 }); }
     // sash tails
     for (const c of this.sashT) { const pts = []; for (let i = 0; i < c.n; i++) pts.push([c.x[i], c.y[i]]); cel(ctx, ribbon(pts, pts.map((_, i) => 1.5 + i * 0.08)).path, C.sash, 4, 14, { lw: 0.12 }); }
-    // ---- legs hanging down the wall, idly swinging
-    for (const [kx, ky, ph] of [[-4.4, 6.2, 0], [4.3, 5.8, 1.7]]) {
-      const ax = kx + Math.sin(t * 1.25 + ph) * 0.9 - 0.2, ay = 24.4 - Math.abs(Math.sin(t * 1.25 + ph)) * 0.6;
-      cel(ctx, capsule([kx, ky], [ax, ay], 2.5, 1.9), C.skin, kx - 1.5, kx + 1.5, { lc: C.out });
+    // ---- legs: knees to the side over the edge of the wall, calves hanging down its face, idly swinging
+    for (const [kx, ky, ph, len] of [[-11.8, 4.2, 0, 15.6], [-3.6, 6.4, 1.7, 15.2]]) {
+      const ax = kx + 0.5 + Math.sin(t * 1.25 + ph) * 0.9, ay = ky + len - Math.abs(Math.sin(t * 1.25 + ph)) * 0.6;
+      limb(ctx, [kx, ky - 1.2], [lerp(kx, ax, 0.38), lerp(ky, ay, 0.38)], [ax, ay - 0.4], [2.9, 2.85, 2.5, 1.8, 1.35], C.skin, C.out, { lw: 0.16 });
       const sh = P2(`M${ax - 1.6} ${ay - 0.6} C${ax - 1.9} ${ay + 1.4} ${ax + 0.6} ${ay + 2.2} ${ax + 2.3} ${ay + 1.4} C${ax + 2.6} ${ay + 0.2} ${ax + 1.4} ${ay - 1} ${ax - 1.6} ${ay - 0.6} Z`);
       cel(ctx, sh, C.shoe, ax - 2, ax + 2.4, { lc: C.out, lw: 0.14 });
       line(ctx, P2(`M${ax - 1.2} ${ay - 0.2} L${ax + 1.4} ${ay - 0.4}`), C.sash, 0.4);
     }
     // ---- skirt: over the lap and knees, hanging hem simulated as cloth
     const H = this.hem, hp = []; for (let i = 0; i < H.n; i++) hp.push([H.x[i], H.y[i]]);
-    const skirtPts = [[-5.8, -11.2], [-8.8, -6.5], [-10.0, -1.0], [-10.4, 5.0]].concat(hp, [[10.8, 4.6], [10.2, -1.2], [9.2, -6.6], [6.0, -11.2]]);
+    const skirtPts = [[-6.0, -11.4], [-9.0, -7.0], [-12.0, -3.0], [-14.8, 0.8], [-15.6, 4.2]].concat(hp, [[0.6, 7.0], [4.6, 3.6], [8.8, 1.8], [10.2, -2.4], [9.3, -7.0], [6.2, -11.4]]);
     const skirt = smooth(skirtPts, true);
-    cel(ctx, skirt, C.dress, -10, 11, { lc: C.out, shade: '#4A5AA8' });
+    cel(ctx, skirt, C.dress, -15, 10.5, { lc: C.out, shade: '#4A5AA8' });
     ctx.save(); ctx.clip(skirt);
-    const lap = ctx.createLinearGradient(0, -8, 0, 8); lap.addColorStop(0, 'rgba(255,255,255,0)'); lap.addColorStop(0.55, 'rgba(255,255,255,.28)'); lap.addColorStop(1, 'rgba(60,70,150,.18)');
-    ctx.fillStyle = lap; ctx.fillRect(-12, -10, 24, 18);
-    line(ctx, P2('M0.4 -4 C0.6 0 0.8 4 0.6 7.6'), 'rgba(60,70,150,.35)', 0.5);
-    for (let i = 0; i < 6; i++) { const u = i / 5, x = lerp(-8.4, 9.4, u); line(ctx, P2(`M${x} 6.4 C${x + 0.3} 10 ${hp[Math.round(u * 8)][0]} 12 ${hp[Math.round(u * 8)][0]} ${hp[Math.round(u * 8)][1] - 0.6}`), i % 2 ? 'rgba(255,255,255,.25)' : 'rgba(60,70,150,.25)', 0.45); }
+    // the tops of her thighs catch the light; the fabric falls into shade over the knees and below
+    const lap = ctx.createLinearGradient(2, -9, -6, 9); lap.addColorStop(0, 'rgba(255,255,255,0)'); lap.addColorStop(0.45, 'rgba(255,255,255,.3)'); lap.addColorStop(0.7, 'rgba(255,255,255,.08)'); lap.addColorStop(1, 'rgba(50,60,140,.28)');
+    ctx.fillStyle = lap; ctx.fillRect(-17, -12, 30, 26);
+    line(ctx, P2('M3.5 -6 C0 -2 -4 1 -9 2.4'), 'rgba(255,255,255,.3)', 0.6);                       // where her thighs meet
+    line(ctx, P2('M5.5 1.4 C3 3.6 0 5.4 -2.2 7.2'), 'rgba(60,70,150,.35)', 0.45);                    // the fabric resting on the ledge
+    for (let i = 0; i < 6; i++) { const u = i / 5, k = hp[Math.round(u * 8)], x = lerp(-13.6, -2.4, u); line(ctx, P2(`M${x} ${lerp(3.6, 6.4, u)} C${x - 0.2} ${lerp(6, 9, u)} ${k[0]} ${k[1] - 2} ${k[0]} ${k[1] - 0.6}`), i % 2 ? 'rgba(255,255,255,.25)' : 'rgba(60,70,150,.28)', 0.45); }
     ctx.restore();
     // lace trim
     const lace = ribbon(hp, hp.map(() => 1.3)); fill(ctx, lace.path, C.collar);
@@ -181,8 +220,8 @@ export class Helen {
     cel(ctx, P2('M-2.9 -27.7 C-3.6 -25.6 -2.4 -24.2 -0.6 -24.4 C0.0 -24.8 0.3 -25.2 0.4 -25.5 C-0.7 -26.0 -1.9 -26.8 -2.9 -27.7 Z'), C.collar, -3.6, 0.4, { lc: C.out, lw: 0.12 });
     cel(ctx, P2('M3.5 -27.7 C4.3 -25.6 3.1 -24.2 1.3 -24.4 C0.7 -24.8 0.45 -25.2 0.4 -25.5 C1.5 -26.0 2.6 -26.8 3.5 -27.7 Z'), C.collar, 0.4, 4.3, { lc: C.out, lw: 0.12 });
     ctx.restore();
-    // ---- Snowki in her lap
-    drawTeddy(ctx, -1.6, -3.8, 0.95, t, TEDDY_BLUE);
+    // ---- Snowki in her lap (drawn by the film with his own rig, so he is the same teddy when he comes alive)
+    if (st.lap) st.lap(ctx);
     // ---- head
     ctx.save(); head.apply(ctx);
     this.drawHead(ctx, st);
@@ -191,14 +230,13 @@ export class Helen {
     for (const c of this.locks) { const pts = []; for (let i = 0; i < c.n; i++) pts.push([c.x[i], c.y[i]]); cel(ctx, ribbon(pts, pts.map((_, i) => 2.2 * (1 - i / c.n * 0.6))).path, C.hair, -6, 8, { line: false, shade: '#000000' }); line(ctx, smooth(pts, false), rgba(C.hairHi, 0.6), 0.25); }
     // ---- arms: left hugs Snowki, right pets Jessi (IK) or meets the other hand in wonder
     const sL = [-7.0, -25.2 + breathe * 0.5], sR = [7.4, -25.2 + breathe * 0.5];
-    let aL = [sL, [-9.6, -15.6], [-2.4, -8.6]];
-    let aR = st.pet ? ik(sR, st.pet, 10.6, 9.6, 1) : [sR, [9.6, -15.8], [3.0, -8.2]];
+    let aL = st.lap ? [sL, [-11.4, -16.6], [-9.0, -10.8]] : [sL, [-10.8, -15.6], [-5.6, -6.4]];
+    let aR = st.pet ? ik(sR, st.pet, 10.8, 9.8, 1) : st.lap ? [sR, [10.0, -16.0], [3.4, -9.8]] : [sR, [9.8, -15.6], [2.6, -5.8]];
     if (st.expr === 'surprised' || st.expr === 'teary') { const k = clamp(lu, 0, 1); aR = [sR, [lerp(aR[1][0], 8.4, k), lerp(aR[1][1], -16.5, k)], [lerp(aR[2][0], 1.6, k), lerp(aR[2][1], -20.5, k)]]; }
     for (const [j, side] of [[aL, -1], [aR, 1]]) {
       const [a, b, c] = j;
-      cel(ctx, capsule(b, c, 2.0, 1.5), C.skin, Math.min(b[0], c[0]) - 1, Math.max(b[0], c[0]) + 1, { lc: C.out });
-      hand(ctx, b, c, C.skin, 0.95, C.out);
-      cel(ctx, capsule(a, b, 2.45, 2.0), C.skin, Math.min(a[0], b[0]) - 1.2, Math.max(a[0], b[0]) + 1.2, { lc: C.out });
+      limb(ctx, a, b, c, [2.6, 2.5, 2.05, 2.1, 1.45], C.skin, C.out, { lw: 0.16 });
+      { const d = [c[0] - b[0], c[1] - b[1]], l = Math.hypot(d[0], d[1]) || 1; hand2(ctx, [c[0] - d[0] / l * 0.25, c[1] - d[1] / l * 0.25], d, C.skin, 0.92, C.out, side < 0 ? -1 : 1, st.pet && side > 0 ? 0.1 : 0.45); }
       // puff sleeve
       const m = [a[0] + (b[0] - a[0]) * 0.32, a[1] + (b[1] - a[1]) * 0.32];
       cel(ctx, ell(m[0], m[1] - 0.4, 2.6, 2.9, Math.atan2(b[1] - a[1], b[0] - a[0]) - Math.PI / 2), C.dressL, m[0] - 2.6, m[0] + 2.6, { lc: C.out, lw: 0.15 });
@@ -267,7 +305,7 @@ export class Boy {
     this.curl.step(dt, (st.wind || 0) * 0.004);
     if (st.pose === 'walk') this.walkPh += dt * 4.4;
     const pose = this.pose(st), anch = [], rest = [];
-    for (let i = 0; i < 7; i++) { const u = i / 6, x = lerp(-9.8, 10.0, u); anch.push([x, -60]); rest.push([x, -46.2 + Math.sin(u * Math.PI) * 0.5]); }
+    for (let i = 0; i < 7; i++) { const u = i / 6; anch.push([lerp(-8.8, 8.9, u), -59]); rest.push([lerp(-9.3, 9.4, u), -45.8 + Math.sin(u * Math.PI) * 0.5]); }
     this.hem.step(dt, anch, rest, (st.wind || 0) * 0.55, st.t);
     this.P = pose;
   }
@@ -278,46 +316,56 @@ export class Boy {
       P.lean = 0.25; P.headTilt = 0.3;
       P.legs = [leg(-3.9, [-5.6, -0.2], -1), leg(4.1, [6.2, -0.2], -1)];
     } else if (st.pose === 'walk') {
-      const ph = this.walkPh, side = (hx, p) => { const lift = Math.max(0, Math.sin(p)), sw = Math.cos(p) * 0.1, hip = [hx, -46.5], kn = [hx + Math.sin(sw) * 22.5, -46.5 + 22.5 - lift * 1.8]; return [hip, kn, [kn[0], kn[1] + 21.6 * (1 - lift * 0.42)]]; };
-      P.hip = [0, -46.5 - Math.abs(Math.sin(ph)) * 0.8]; P.legs = [side(-3.8, ph), side(4.0, ph + Math.PI)];
+      const ph = this.walkPh, sway = Math.sin(ph) * 0.9, bob = (1 - Math.abs(Math.cos(ph))) * 1.1;
+      P.hip = [sway, -46.5 - bob]; P.back = true; P.lean = Math.sin(ph) * 0.018;
+      const side = (hx, p) => { const lift = Math.max(0, Math.sin(p)), stance = Math.max(0, -Math.sin(p)), hip = [P.hip[0] + hx, P.hip[1]];
+        const kn = [hip[0] + hx * 0.06 + lift * 0.4, hip[1] + 22.5 - lift * 2.2 + stance * 0.2], an = [kn[0] - lift * 0.3, Math.min(-0.2, kn[1] + 21.6 * (1 - lift * 0.5) - lift * 1.5)];
+        return [hip, kn, an, lift]; };
+      P.legs = [side(-3.8, ph), side(4.0, ph + Math.PI)];
     } else P.legs = [leg(-3.9, [-4.4, -0.2], -1), leg(4.1, [4.8, -0.2], -1)];
     P.c = Math.cos(P.lean); P.s = Math.sin(P.lean);
     P.tp = (x, y) => { const dx = x - 0, dy = y + 46.5; return [P.hip[0] + dx * P.c - dy * P.s, P.hip[1] + dx * P.s + dy * P.c]; };     // torso space -> body
-    const sL = P.tp(-9.2, -80.6), sR = P.tp(9.4, -80.6);
+    const sL = P.tp(-9.6, -80.2), sR = P.tp(9.8, -80.2);
     if (st.pose === 'light') { P.arms = [ik(sL, P.tp(-6, -56), 14.2, 12.4, -1), st.reach ? ik(sR, st.reach, 14.2, 12.4, 1) : ik(sR, [20, -20], 14.2, 12.4, 1)]; }
-    else if (st.pose === 'walk') { const s = Math.sin(this.walkPh) * 0.16; P.arms = [[sL, [-10.7 + s * 9, -67], [-10.3 + s * 16, -55.2]], [sR, [11.0 - s * 9, -67], [10.6 - s * 16, -55.2]]]; }
+    else if (st.pose === 'walk') { const s = Math.sin(this.walkPh), h = P.hip[0]; P.arms = [[sL, [-12.4 + h, -67.2 - s * 0.8], [-12.1 + h, -55.4 - s * 2.2]], [sR, [12.6 + h, -67.2 + s * 0.8], [12.3 + h, -55.4 + s * 2.2]]]; }
     else if (st.pose === 'hide' || st.pose === 'watch') {
-      const back = [sL, P.tp(-11.5, -66), P.tp(-4, -55)];
-      P.arms = [back, st.reach ? ik(sR, st.reach, 14.2, 12.4, 1) : [sR, P.tp(11.0, -66.6), P.tp(10.6, -54.6)]]; P.armsBack = true;
-    } else P.arms = [[sL, P.tp(-10.7, -66.6), P.tp(-10.3, -54.6)], [sR, P.tp(11.0, -66.6), P.tp(10.6, -54.6)]];
+      P.arms = [[sL, P.tp(-12.8, -66.6), P.tp(-12.6, -54.6)], st.reach ? ik(sR, st.reach, 14.2, 12.4, 1) : [sR, P.tp(12.9, -66.4), P.tp(12.5, -54.4)]];
+    } else P.arms = [[sL, P.tp(-12.7, -66.6), P.tp(-12.4, -54.6)], [sR, P.tp(12.9, -66.4), P.tp(12.5, -54.4)]];
     P.head = P.tp(0.3, -86);
     return P;
   }
-  arm(ctx, j) {
+  arm(ctx, j, side) {
     const C = BC, [a, b, c] = j;
-    cel(ctx, capsule(b, c, 2.75, 2.15), C.skin, Math.min(b[0], c[0]) - 1.2, Math.max(b[0], c[0]) + 1.2, { lc: C.out });
-    hand(ctx, b, c, C.skin, 1.2, C.out);
-    cel(ctx, capsule(a, b, 4.1, 3.5), C.shirt, Math.min(a[0], b[0]) - 1.8, Math.max(a[0], b[0]) + 1.8, { lc: C.out, shade: '#8C7EA8' });
-    const r0 = [a[0] + (b[0] - a[0]) * 0.8, a[1] + (b[1] - a[1]) * 0.8];
-    cel(ctx, capsule(r0, b, 4.3, 4.1), C.shirt, Math.min(r0[0], b[0]) - 1.8, Math.max(r0[0], b[0]) + 1.8, { lc: C.out, shade: '#8C7EA8' });
+    ctx.save(); ctx.translate(-(side || 1) * 0.9, 0.7); ctx.fillStyle = 'rgba(70,50,100,.22)'; ctx.fill(limbPath(a, b, c, [4.4, 4.4, 4, 3.6, 2.8])); ctx.restore();   // the arm's shadow on the shirt
+    limb(ctx, a, b, c, [3.6, 3.5, 3.0, 3.1, 2.2], C.skin, C.out, { lw: 0.18 });
+    { const d = [c[0] - b[0], c[1] - b[1]], l = Math.hypot(d[0], d[1]) || 1; hand2(ctx, [c[0] - d[0] / l * 0.3, c[1] - d[1] / l * 0.3], d, C.skin, 1.18, C.out, side || 1, 0.4); }
+    const e = [a[0] + (b[0] - a[0]) * 1.06, a[1] + (b[1] - a[1]) * 1.06], mid = [(a[0] + e[0]) / 2, (a[1] + e[1]) / 2];
+    limb(ctx, a, mid, e, [4.6, 4.5, 4.3, 4.3, 4.5], C.shirt, C.out, { shade: '#8C7EA8', lw: 0.18 });
+    const cd = [b[0] - a[0], b[1] - a[1]], cl = Math.hypot(cd[0], cd[1]) || 1, cn = [-cd[1] / cl * 2.4, cd[0] / cl * 2.4], cu = [cd[0] / cl * 0.9, cd[1] / cl * 0.9];
+    const cuff = P2(`M${e[0] + cn[0] - cu[0]} ${e[1] + cn[1] - cu[1]} L${e[0] + cn[0] + cu[0]} ${e[1] + cn[1] + cu[1]} L${e[0] - cn[0] + cu[0]} ${e[1] - cn[1] + cu[1]} L${e[0] - cn[0] - cu[0]} ${e[1] - cn[1] - cu[1]} Z`);
+    cel(ctx, cuff, '#EDE8F2', e[0] - 2.4, e[0] + 2.4, { lc: C.out, lw: 0.14, shade: '#8C7EA8' });
   }
   legs(ctx) {
     const C = BC;
-    for (const [hip, kn, an] of this.P.legs) {
-      cel(ctx, capsule(kn, an, 5.4, 4.6), C.pant, Math.min(kn[0], an[0]) - 2.2, Math.max(kn[0], an[0]) + 2.2, { lc: 'rgba(10,10,20,.8)', shade: '#000000' });
-      cel(ctx, capsule(hip, kn, 6.8, 5.6), C.pant, Math.min(hip[0], kn[0]) - 2.6, Math.max(hip[0], kn[0]) + 2.6, { lc: 'rgba(10,10,20,.8)', shade: '#000000' });
+    for (const [hip, kn, an, lift] of this.P.legs) {
+      limb(ctx, hip, kn, an, [7.0, 6.4, 5.4, 5.0, 4.5], C.pant, 'rgba(10,10,20,.8)', { shade: '#000000', light: '#8A90A8', lw: 0.22 });
+      line(ctx, P2(`M${lerp(hip[0], kn[0], 0.3)} ${lerp(hip[1], kn[1], 0.3)} L${lerp(kn[0], an[0], 0.8)} ${lerp(kn[1], an[1], 0.8)}`), 'rgba(255,255,255,.07)', 0.5);
+      if (lift > 0.05 && this.P.back) { const so = P2(`M${an[0] - 2.6} ${an[1] - 0.6} C${an[0] - 2.8} ${an[1] + 1.6} ${an[0] + 2.8} ${an[1] + 1.6} ${an[0] + 2.6} ${an[1] - 0.6} C${an[0] + 1.6} ${an[1] - 1.8} ${an[0] - 1.6} ${an[1] - 1.8} ${an[0] - 2.6} ${an[1] - 0.6} Z`);
+        cel(ctx, so, '#3A3236', an[0] - 2.6, an[0] + 2.6, { lc: 'rgba(0,0,0,.6)' }); fill(ctx, P2(`M${an[0] - 1.9} ${an[1] + 0.2} C${an[0] - 1.6} ${an[1] + 1.2} ${an[0] + 1.6} ${an[1] + 1.2} ${an[0] + 1.9} ${an[1] + 0.2} Z`), 'rgba(200,190,180,.55)'); continue; }
       const sh = P2(`M${an[0] - 2.4} ${an[1] - 1.2} C${an[0] - 2.8} ${an[1] + 1.8} ${an[0] + 5.0} ${an[1] + 2.4} ${an[0] + 4.8} ${an[1] + 0.4} C${an[0] + 3.4} ${an[1] - 1.6} ${an[0] + 1} ${an[1] - 2} ${an[0] - 2.4} ${an[1] - 1.2} Z`);
       cel(ctx, sh, C.shoe, an[0] - 2.6, an[0] + 5, { lc: 'rgba(0,0,0,.6)', shade: '#000000' });
     }
   }
   shirt(ctx, t, back) {
     const C = BC, H = this.hem, hp = []; for (let i = 0; i < H.n; i++) hp.push([H.x[i], H.y[i]]);
-    const pts = [[-3.3, -83.6], [-7.0, -83.0], [-9.9, -81.3], [-10.3, -76], [-9.9, -68], [-9.7, -58]].concat(hp, [[9.9, -58], [10.1, -68], [10.5, -76], [10.1, -81.3], [7.4, -83.0], [3.7, -83.6], back ? [0.3, -82.8] : [0.5, -77.8]]);
+    const pts = [[-3.4, -84.6], [-7.2, -83.4], [-10.4, -81.0], [-10.9, -77.2], [-10.2, -72], [-9.2, -64], [-8.8, -58]].concat(hp, [[8.9, -58], [9.3, -64], [10.4, -72], [11.1, -77.2], [10.6, -81.0], [7.6, -83.4], [3.8, -84.6], back ? [0.3, -83.8] : [0.5, -77.8]]);
     const sh = smooth(pts, true);
     cel(ctx, sh, C.shirt, -10.3, 10.5, { lc: C.out, shade: '#8C7EA8' });
     ctx.save(); ctx.clip(sh);
     const g = ctx.createLinearGradient(0, -80, 0, -45); g.addColorStop(0, 'rgba(150,130,190,0)'); g.addColorStop(1, 'rgba(150,130,190,.3)'); ctx.fillStyle = g; ctx.fillRect(-12, -85, 24, 42);
-    for (const [x0, x1] of [[-6.5, -7.2], [6.8, 7.4], [-3, -3.8]]) line(ctx, P2(`M${x0} -73 C${x0 + 0.4} -64 ${x1} -56 ${x1 - 0.2} -47`), 'rgba(140,125,170,.45)', 0.25);
+    for (const [x0, x1] of [[-6.5, -7.2], [6.8, 7.4], [-3, -3.8], [3.4, 4.0]]) line(ctx, P2(`M${x0} -73 C${x0 + 0.4} -64 ${x1} -56 ${x1 - 0.2} -47`), 'rgba(140,125,170,.45)', 0.25);
+    { const sg = ctx.createRadialGradient(0, -70, 2, 0, -66, 13); sg.addColorStop(0, 'rgba(255,255,255,0)'); sg.addColorStop(1, 'rgba(110,95,150,.22)'); ctx.fillStyle = sg; ctx.fillRect(-12, -86, 24, 42); }
+    line(ctx, P2('M-8.6 -50.5 C-3 -49.6 3 -49.6 8.8 -50.5'), 'rgba(140,125,170,.35)', 0.3);
     ctx.restore();
     if (back) { line(ctx, P2('M-9.4 -76.4 C-3 -74.8 3 -74.8 9.8 -76.4'), 'rgba(140,125,170,.6)', 0.22); line(ctx, P2('M-3.4 -83.8 C-1 -85.0 1.4 -85.0 3.8 -83.8'), 'rgba(140,125,170,.9)', 0.55); return; }
     ctx.fillStyle = rgba(C.skinD, 0.95); ctx.beginPath(); ctx.moveTo(-2.9, -83.3); ctx.quadraticCurveTo(-0.6, -80.4, 0.5, -77.9); ctx.quadraticCurveTo(1.6, -80.4, 3.4, -83.3); ctx.closePath(); ctx.fill();
@@ -363,7 +411,7 @@ export class Boy {
   draw(ctx, st) {
     const C = BC, P = this.P, t = st.t, back = st.pose === 'walk';
     if (back) { // walking away, seen from behind; may glance back over his shoulder
-      this.legs(ctx); P.arms.forEach(a => this.arm(ctx, a)); this.shirt(ctx, t, true);
+      this.legs(ctx); P.arms.forEach((a, i) => this.arm(ctx, a, i ? 1 : -1)); ctx.save(); ctx.translate(P.hip[0], P.hip[1] + 46.5); ctx.rotate(P.lean); this.shirt(ctx, t, true);
       cel(ctx, P2('M-2.3 -87.2 L-2.4 -82.4 L2.9 -82.4 L2.8 -87.2 Z'), C.skin, -2.4, 2.9, { line: false });
       const lb = st.lookBack || 0;
       ctx.save(); ctx.translate(0.3, -86); ctx.rotate(-0.08 * lb); ctx.translate(-0.3, 86);
@@ -377,12 +425,8 @@ export class Boy {
       }
       cel(ctx, P2('M5.3 -94.4 C6.6 -94.6 6.8 -91.6 5.5 -90.8 Z'), C.skin, 5.3, 6.8, { lc: C.out, lw: 0.12 });
       this.curls(ctx, t, 0.3 - lb * 0.6, -97.6, true);
-      ctx.restore();
+      ctx.restore(); ctx.restore();
       return;
-    }
-    if (P.armsBack) { // teddy held behind his back: an ear and a paw peek out at his side
-      drawTeddy(ctx, -11.5, -50, 0.95, t, TEDDY_CREAM, true);
-      this.arm(ctx, P.arms[0]);
     }
     this.legs(ctx);
     ctx.save(); ctx.translate(P.hip[0], P.hip[1]); ctx.rotate(P.lean); ctx.translate(0, 46.5);
@@ -391,8 +435,8 @@ export class Boy {
     ctx.translate(0.3, -86); ctx.rotate(P.headTilt + Math.sin(t * 0.8) * 0.01); ctx.translate(-0.3, 86);
     this.face(ctx, st); this.curls(ctx, t, 0.3, -98.8, false);
     ctx.restore();
-    if (!P.armsBack) this.arm(ctx, P.arms[0]);
-    this.arm(ctx, P.arms[1]);
+    this.arm(ctx, P.arms[0], -1);
+    this.arm(ctx, P.arms[1], 1);
     if (st.pose === 'light' && st.flame) { // a tiny lighter flame in his hand
       const c = P.arms[1][2], f = 1 + 0.15 * Math.sin(t * 31) + 0.1 * Math.sin(t * 17);
       const g = ctx.createRadialGradient(c[0] + 1.5, c[1] - 1.5, 0, c[0] + 1.5, c[1] - 1.5, 4 * f); g.addColorStop(0, 'rgba(255,250,220,1)'); g.addColorStop(0.3, 'rgba(255,190,90,.9)'); g.addColorStop(1, 'rgba(255,140,40,0)');

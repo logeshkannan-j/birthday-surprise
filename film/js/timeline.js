@@ -9,43 +9,43 @@ const K = (t, at, o = {}) => ({ t, at, ...o });
 export function buildTimeline(cfg) {
   const d = cfg.timings, scenes = [];
   const sub = n => cfg.text.subtitles[n] || '';
-  // ---- scene 1: golden-hour seaside, slow dolly towards Helen
-  scenes.push({ n: 1, dur: d[1], tod: [0.0, 0.14], sub: [[0.8, sub(1), 6.5]],
-    cam: [K(0, 'wide', { z: 1.0, e: 'inOutSine' }), K(d[1], 'helenWide', { z: 1.55 })],
-    focus: 'helen', aper: 3, helen: { expr: 'calm' } });
-  // ---- scene 2: Helen with Jessi and Snowki; her laugh and her petting send plankton rings across the sea
-  scenes.push({ n: 2, dur: d[2], tod: [0.14, 0.28], sub: [[1.0, sub(2), 5]],
-    cam: [K(0, 'helenMed', { z: 2.5, e: 'inOutSine' }), K(d[2], 'helenMed', { z: 2.9, dx: -6 })],
-    focus: 'helen', aper: 5,
-    ev: [[2.4, 'laugh'], [2.4, 'ripple', 1.0], [5.2, 'pet'], [5.4, 'ripple', 0.8], [7.4, 'ripple', 0.6], [9.6, 'calm']],
+  // ---- scene 1: a quiet night by the sea – moon low over the water, string lights, her jar lantern; slow dolly to Helen
+  scenes.push({ n: 1, dur: d[1], tod: [1.72, 1.75], sub: [[0.8, sub(1), 6.5]],
+    cam: [K(0, 'wide', { z: 1.0, e: 'inOutSine' }), K(d[1], 'helenWide', { lens: 0.4, z: 1.55 })],
+    focus: 'helen', aper: 2, helen: { expr: 'calm' } });
+  // ---- scene 2: her laugh and her petting send plankton rings across the sea; Snowki winks at us, then slips out of her lap
+  scenes.push({ n: 2, dur: d[2], tod: [1.75, 1.78], sub: [[1.0, sub(2), 4.6]],
+    cam: [K(0, 'helenMed', { lens: 0.9, z: 2.5, e: 'inOutSine' }), K(9.2, 'helenMed', { lens: 0.9, z: 2.85, dx: -4, e: 'inOutSine' }), K(d[2], 'snowki', { lens: 0.7, z: 2.3 })],
+    focus: [[0, 'helen'], [9.6, 'helen'], [11.4, 'snowki']], aper: 3,
+    ev: [[2.4, 'laugh'], [2.4, 'ripple', 1.0], [5.2, 'pet'], [5.4, 'ripple', 0.8], [6.4, 'snWink'], [7.4, 'ripple', 0.6], [9.0, 'calm']],
     helen: { expr: 'calm' } });
-  // ---- scene 3: whip pan to the boy hiding behind the tree; his eyes; the golden thread appears
-  scenes.push({ n: 3, dur: d[3], tod: [0.28, 0.48], sub: [],
-    cam: [K(0, 'helenMed', { z: 2.9, e: 'inOutExpo' }), K(0.85, 'boyFace', { z: 4.6, e: 'inOutSine' }), K(5.4, 'boyFace', { z: 5.3, e: 'inOutSine' }), K(8.6, 'threadWide', { z: 1.3, e: 'inOutSine' }), K(d[3], 'threadWide', { z: 1.36 })],
-    focus: [[0, 'boy'], [8.6, 'boy'], [10.5, 'helen']], aper: 6,
-    boy: { pose: 'hide', expr: 'watching' }, ev: [[2.2, 'boyWatch'], [3.4, 'threadOn'], [4.4, 'boySmile']] });
-  // ---- scene 4: he lights the launcher; slow-motion rockets climb on golden trails
-  scenes.push({ n: 4, dur: d[4], tod: [0.48, 0.78], sub: [[3.6, sub(4), 5.5]],
-    cam: [K(0, 'launcher', { z: 2.3, e: 'inOutSine' }), K(4.6, 'launcher', { z: 2.45, e: 'inOutCubic' }), K(d[4], 'skyRise', { z: 1.0 })],
-    focus: [[0, 'boyLight'], [5, 'sky']], aper: 5,
-    boy: { pose: 'light', expr: 'watching', at: 'light' }, ev: [[0.8, 'flame'], [2.0, 'fuse'], [4.6, 'rockets'], [6.0, 'boyStand']] });
-  // ---- scene 5: the sky spells her name; "Look up…"; bullet-time on her face
-  scenes.push({ n: 5, dur: d[5], tod: [0.78, 1.0], sub: [[1.4, sub(5), 4]],
-    cam: [K(0, 'sky', { z: 1.0, e: 'inOutSine' }), K(4.6, 'sky', { z: 1.03, e: 'inOutCubic' }), K(6.8, 'helenUp', { z: 2.7, e: 'inOutSine' }), K(12.6, 'helenFace', { z: 7.2, e: 'inOutSine' }), K(d[5], 'helenFace', { z: 6.4 })],
-    focus: [[0, 'sky'], [5.5, 'helen']], aper: 7,
-    ev: [[0, 'formIfMissing'], [2.0, 'lanterns'], [3.0, 'aurora'], [4.4, 'lookUp'], [6.2, 'wish'], [7.0, 'bulletIn'], [12.0, 'bulletOut'], [13.4, 'teary']],
+  // ---- scene 3: Snowki flies along the promenade to the boy hiding under the bougainvillea; he smiles, the golden thread appears
+  scenes.push({ n: 3, dur: d[3], tod: [1.78, 1.8], sub: [],
+    cam: [K(0, 'snowki', { lens: 0.7, z: 2.3, e: 'inOutSine' }), K(3.9, 'boyMeet', { lens: 0.85, z: 2.5, e: 'inOutSine' }), K(8.2, 'boyMeet', { lens: 0.85, z: 2.75, e: 'inOutSine' }), K(10.4, 'crateWide', { lens: 0.5, z: 1.7, e: 'inOutSine' }), K(d[3], 'crateWide', { lens: 0.5, z: 1.78 })],
+    focus: [[0, 'snowki'], [3.0, 'snowki'], [3.9, 'boy']], aper: 3,
+    boy: { pose: 'hide', expr: 'watching' }, ev: [[3.9, 'snWave'], [4.2, 'boyWatch'], [4.8, 'boySmile'], [5.4, 'boyReach'], [5.9, 'snTouch'], [6.1, 'threadOn'], [7.4, 'snNod'], [8.0, 'boyLetGo']] });
+  // ---- scene 4: he lights the crate while Snowki hides his eyes on top of it; rockets climb on golden trails, Snowki races after them
+  scenes.push({ n: 4, dur: d[4], tod: [1.8, 1.82], sub: [[3.6, sub(4), 5.5]],
+    cam: [K(0, 'launcher', { lens: 0.8, z: 2.3, e: 'inOutSine' }), K(4.6, 'launcher', { lens: 0.8, z: 2.45, e: 'inOutCubic' }), K(d[4], 'skyRise', { z: 1.0 })],
+    focus: [[0, 'boyLight'], [4.4, 'boyLight'], [5.8, 'sky']], aper: 3,
+    boy: { pose: 'light', expr: 'watching', at: 'light' }, ev: [[0.8, 'flame'], [1.5, 'snCover'], [2.0, 'fuse'], [4.6, 'rockets'], [4.65, 'snCheer'], [6.0, 'boyStand']] });
+  // ---- scene 5: the sky spells her name; "Look up…"; Snowki is back in her lap, looking up with her; bullet-time on her face
+  scenes.push({ n: 5, dur: d[5], tod: [1.82, 1.86], sub: [[1.4, sub(5), 4]],
+    cam: [K(0, 'sky', { z: 1.0, e: 'inOutSine' }), K(4.6, 'sky', { z: 1.03, e: 'inOutCubic' }), K(6.8, 'helenUp', { lens: 0.9, z: 2.6, e: 'inOutSine' }), K(12.6, 'helenFace', { lens: 0.95, z: 4.8, e: 'inOutSine' }), K(d[5], 'helenFace', { lens: 0.95, z: 4.4 })],
+    focus: [[0, 'sky'], [4.6, 'sky'], [6.4, 'helen']], aper: 4,
+    ev: [[0, 'formIfMissing'], [2.0, 'lanterns'], [3.0, 'aurora'], [3.2, 'snLookUp'], [4.4, 'lookUp'], [6.2, 'wish'], [7.0, 'bulletIn'], [12.0, 'bulletOut'], [13.4, 'teary']],
     helen: { expr: 'calm' } });
-  // ---- scene 6: his close-up, lit by the glow; he smiles because she smiles
-  scenes.push({ n: 6, dur: d[6], tod: [1.0, 1.1], sub: [[1.4, sub(6), 5]],
-    cam: [K(0, 'boyFace', { z: 4.9, e: 'inOutSine' }), K(d[6], 'boyFace', { z: 5.4 })],
-    focus: 'boy', aper: 7, boy: { pose: 'watch', expr: 'contentment' }, ev: [[0, 'formIfMissing'], [0.5, 'threadWarm']] });
-  // ---- scene 7: he turns and walks away – long-lens silhouette against the last of the sunset; his shadow melts into the light
-  scenes.push({ n: 7, dur: d[7], tod: [1.1, 1.5], sub: [[0.5, sub(7), 4]],
-    cam: [K(0, 'walker', { z: 2.5, lens: 1, e: 'inOutSine' }), K(d[7], 'walker', { z: 2.9, lens: 1 })],
-    focus: 'walker', aper: 4, boy: { pose: 'walk', expr: 'farewell' }, ev: [[0, 'formIfMissing'], [3, 'lettersFade']] });
+  // ---- scene 6: at the tree, lit by the glow, he smiles because she smiles
+  scenes.push({ n: 6, dur: d[6], tod: [1.86, 1.88], sub: [[1.4, sub(6), 5]],
+    cam: [K(0, 'boyMed', { lens: 0.9, z: 2.5, e: 'inOutSine' }), K(d[6], 'boyMed', { lens: 0.9, z: 2.8 })],
+    focus: 'boy', aper: 3, boy: { pose: 'watch', expr: 'contentment' }, ev: [[0, 'formIfMissing'], [0.5, 'threadWarm']] });
+  // ---- scene 7: he walks away under the lamps and looks back once; in her lap, Snowki waves goodbye for her
+  scenes.push({ n: 7, dur: d[7], tod: [1.88, 1.92], sub: [[0.5, sub(7), 4]],
+    cam: [K(0, 'walker', { z: 2.5, pz: 1.7, lens: 1, e: 'inOutSine' }), K(7.6, 'walker', { z: 2.8, pz: 1.9, lens: 1, e: 'inOutSine' }), K(9.8, 'helenSnow', { lens: 0.9, z: 2.6, e: 'inOutSine' }), K(d[7], 'helenSnow', { lens: 0.9, z: 2.75 })],
+    focus: [[0, 'walker'], [8.0, 'walker'], [9.6, 'helen']], aper: 3, boy: { pose: 'walk', expr: 'farewell' }, ev: [[0, 'formIfMissing'], [3, 'lettersFade'], [10.0, 'snWave'], [11.8, 'snHug']] });
   // ---- scene 8: pull up to the night sky; the thread becomes stars that draw a heart; the final words
-  scenes.push({ n: 8, dur: d[8], tod: [1.5, 2.0], sub: [],
-    cam: [K(0, 'walkerEnd', { z: 1.6, lens: 0.6, e: 'inOutCubic' }), K(4.5, 'night', { z: 1.0, lens: 0 }), K(d[8], 'night', { z: 1.04 })],
+  scenes.push({ n: 8, dur: d[8], tod: [1.92, 2.0], sub: [],
+    cam: [K(0, 'helenSnow', { z: 2.75, lens: 0.9, e: 'inOutCubic' }), K(5.0, 'night', { z: 1.0, lens: 0 }), K(d[8], 'night', { z: 1.04 })],
     focus: 'sky', aper: 2, ev: [[0.5, 'softFireworks'], [3.0, 'line', 0], [5.0, 'toStars'], [7.5, 'line', 1], [8.0, 'heartDraw'], [12.5, 'line', 2], [15.0, 'end']] });
 
   let t = 0; for (const s of scenes) { s.start = t; t += s.dur; }

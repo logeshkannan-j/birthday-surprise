@@ -214,6 +214,14 @@ html.dawn #mute{color:#7a5a80;border-color:rgba(90,40,90,.3);background:rgba(255
 .abox{background:#241338;color:#fdeef2;border-radius:18px;padding:20px;width:min(340px,100%);display:flex;flex-direction:column;gap:10px}
 .abox input{font:400 16px Figtree,sans-serif;border:1px solid #6b4f85;border-radius:10px;padding:10px 12px;background:transparent;color:#fdeef2}
 .abox .g{display:grid;grid-template-columns:1fr 1fr;gap:8px}.abox .g .btn{padding:11px 6px;font-size:13px}
+/* Snowki the guide (guide.js): a canvas over the page, a hit area that follows him, a speech bubble */
+#gd{position:fixed;inset:0;width:100%;height:100%;z-index:5;pointer-events:none}
+#gdHit{position:fixed;left:0;top:0;z-index:6;border:0;padding:0;margin:0;background:none;cursor:grab;touch-action:none;border-radius:40%;-webkit-tap-highlight-color:transparent}
+#gdHit:focus-visible{outline:2px dashed var(--gold);outline-offset:2px}
+#gdSay{position:fixed;left:0;top:0;z-index:6;max-width:min(260px,76vw);padding:7px 14px 8px;border-radius:16px;background:rgba(255,250,252,.95);color:#4a2550;font:600 1.18rem/1.2 Caveat,cursive;box-shadow:0 8px 24px -8px rgba(0,0,0,.5);pointer-events:none;opacity:0;transition:opacity .35s;--tx:50%}
+#gdSay.on{opacity:1}#gdSay::after{content:"";position:absolute;left:var(--tx);bottom:-7px;margin-left:-7px;border:7px solid transparent;border-bottom:0;border-top-color:rgba(255,250,252,.95)}
+#gdSay.side::after{display:none}#gdSay.below::after{bottom:auto;top:-7px;border:7px solid transparent;border-top:0;border-bottom-color:rgba(255,250,252,.95)}
+html.guide .s[data-n="1"] .bear,html.guide .s[data-n="4"] .bear,html.guide .s[data-n="5"] .bear,html.guide .trio .tb svg{visibility:hidden}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}.paper p{opacity:1;transform:none;filter:none}}
 </style>
 </head>
@@ -347,6 +355,7 @@ html.dawn #mute{color:#7a5a80;border-color:rgba(90,40,90,.3);background:rgba(255
 <span id="tB" class="tag" hidden></span>
 <div class="ch" id="chG" hidden><svg viewBox="0 0 60 100" aria-hidden="true"><use href="#girl"/></svg><span class="tag" id="bW" hidden>Wow!</span></div>
 <div class="ch" id="chD" hidden><span class="tag"></span><svg viewBox="0 0 100 64" aria-hidden="true"><use href="#dog"/></svg></div>
+<canvas id="gd" aria-hidden="true"></canvas><button id="gdHit" type="button"></button><div id="gdSay" role="status" aria-live="polite"></div>
 <div class="dots" hidden><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
 
 <script>window.MEMORIES=[];window.ALBUM=null;</script>
@@ -424,6 +433,7 @@ function go(n){
   setMode(n===7?"dawn":"night");film(n===6);
   Wall.show(n===2);if(n==="p")resetPast();
   if(n===3)clockScene();if(n===5)wishes();
+  window.Guide&&Guide.step(n);
   if(n===7){$$("#bday p").forEach(p=>p.classList.remove("v"));later(()=>$$("#bday p").forEach(p=>p.classList.add("v")),400);if(on)startMusic()}
 }
 // ---- 7 the film: "Light is the only words he has" (film/), full screen; its Continue button brings her to the reveal
@@ -574,9 +584,9 @@ const Album=(()=>{
     queue.forEach((y,k)=>{if(!y.intro&&y.it.t==="v"&&Math.abs(k-n)>2)drop(y.it.id)})}
   function end(){stopMedia();view("end");q("#alspace").textContent=""}
   // ---------- open / close
-  function open(){ov.hidden=false;window.__albumOpen=true;musicWas=on;if(on)stopMusic(true);setMode("still");fxStart();index();if(flat[0])pre(flat[0].it);
+  function open(){ov.hidden=false;window.__albumOpen=true;window.Guide&&Guide.on("album",true);musicWas=on;if(on)stopMusic(true);setMode("still");fxStart();index();if(flat[0])pre(flat[0].it);
     Promise.all(flat.map((f,k)=>thumb(f.it).then(u=>({src:u,w:f.it.w,h:f.it.h,v:f.it.t==="v",k})).catch(()=>null))).then(l=>Wall.set(l.filter(Boolean)))}
-  function close(){stopMedia();ov.hidden=true;window.__albumOpen=false;fxStop();if(musicWas)startMusic();go(2)}
+  function close(){stopMedia();ov.hidden=true;window.__albumOpen=false;window.Guide&&Guide.on("album",false);fxStop();if(musicWas)startMusic();go(2)}
   q("#alplayall").addEventListener("click",()=>play(null));
   q("#alcovers").addEventListener("click",e=>{const b=e.target.closest(".cover");if(b)play(+b.dataset.s)});
   q("#alprev").addEventListener("click",()=>{if(pos>0)show(pos-1)});q("#alnext").addEventListener("click",next);
@@ -598,10 +608,10 @@ const Album=(()=>{
   const n=A.n||{},what=[n.i?n.i+" photo"+(n.i===1?"":"s"):"",n.v?n.v+" video"+(n.v===1?"":"s"):""].filter(Boolean).join(" and ");
   $("#pinfo").textContent="A small private album"+(what?" of "+what:"")+". Only if you want to.";
   if(A.hint)$("#phint").textContent="Hint: "+A.hint;
-  $("#pyes").addEventListener("click",()=>{if(Album.unlocked){Album.open();return}$("#pask").hidden=true;$("#pform").hidden=false;$("#phint").hidden=!A.hint;$("#pskip").hidden=false;$("#pmsg").textContent="";setTimeout(()=>$("#ppw").focus(),60)});
+  $("#pyes").addEventListener("click",()=>{if(Album.unlocked){Album.open();return}$("#pask").hidden=true;$("#pform").hidden=false;$("#phint").hidden=!A.hint;$("#pskip").hidden=false;$("#pmsg").textContent="";setTimeout(()=>$("#ppw").focus(),60);window.Guide&&Guide.on("ask")});
   const skip=()=>go(2);$("#pno").addEventListener("click",skip);$("#pskip").addEventListener("click",skip);
   $("#pform").addEventListener("submit",async e=>{e.preventDefault();const pw=$("#ppw").value;if(!pw)return;const b=$("#popen");b.disabled=true;$("#pmsg").textContent="Opening…";
-    try{if(await Album.unlock(pw)){$("#pmsg").textContent="";$("#ppw").value="";Album.open()}else{$("#pmsg").textContent="That isn't it. Take your time and try again.";$("#ppw").select()}}
+    try{if(await Album.unlock(pw)){$("#pmsg").textContent="";$("#ppw").value="";Album.open()}else{$("#pmsg").textContent="That isn't it. Take your time and try again.";window.Guide&&Guide.on("wrong");$("#ppw").select()}}
     catch(err){$("#pmsg").textContent=location.protocol==="file:"?"Please open this page from its web address to see the album.":"The album could not be opened on this browser."}
     b.disabled=false});
 })();
@@ -609,10 +619,10 @@ function resetPast(){$("#pask").hidden=false;$("#pform").hidden=true;$("#phint")
 
 // ---- 0 envelope: press and hold
 const seal=$("#seal");let hr=0;
-function openEnv(){cancelAnimationFrame(hr);$("#env").classList.add("open");later(()=>go(1),1000)}
-function hold(e){e.preventDefault();cancelAnimationFrame(hr);const t=performance.now();$("#hint").textContent="Keep holding…";
+function openEnv(){cancelAnimationFrame(hr);window.Guide&&Guide.on("open");$("#env").classList.add("open");later(()=>go(1),1000)}
+function hold(e){e.preventDefault();cancelAnimationFrame(hr);const t=performance.now();$("#hint").textContent="Keep holding…";window.Guide&&Guide.on("hold");
   (function tick(){const p=Math.min((performance.now()-t)/1200,1);seal.style.setProperty("--p",p*360+"deg");if(p>=1){openEnv();return}hr=requestAnimationFrame(tick)})()}
-function rel(){if($("#env").classList.contains("open"))return;cancelAnimationFrame(hr);seal.style.setProperty("--p","0deg");$("#hint").textContent="Press and hold the seal"}
+function rel(){if($("#env").classList.contains("open"))return;if(hr)window.Guide&&Guide.on("release");cancelAnimationFrame(hr);hr=0;seal.style.setProperty("--p","0deg");$("#hint").textContent="Press and hold the seal"}
 seal.addEventListener("pointerdown",hold);["pointerup","pointerleave","pointercancel"].forEach(k=>seal.addEventListener(k,rel));
 seal.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();openEnv()}});
 $("#skip").addEventListener("click",openEnv);
@@ -620,12 +630,12 @@ $("#skip").addEventListener("click",openEnv);
 // ---- 3 the clock rewinds, then rests at twelve
 function clockScene(){const c=$("#cl"),k=$(".clock");c.innerHTML=CONFIG.clock.map(t=>"<p>"+t+"</p>").join("");k.classList.remove("still");$("#to4").hidden=true;
   CONFIG.clock.forEach((_,i)=>later(()=>c.children[i].classList.add("v"),i*2200+500));
-  later(()=>{k.classList.add("still");$("#to4").hidden=false},CONFIG.clock.length*2200+500)}
+  later(()=>{k.classList.add("still");$("#to4").hidden=false;window.Guide&&Guide.on("clockStill")},CONFIG.clock.length*2200+500)}
 
 // ---- 5 wishes, one at a time
 function wishes(){const w=$("#wish");$("#to6").hidden=true;w.textContent="";
-  CONFIG.wishes.forEach((t,i)=>later(()=>{w.style.animation="none";w.offsetWidth;w.style.animation="";w.textContent=t},i*3800+300));
-  later(()=>{$("#to6").hidden=false},CONFIG.wishes.length*3800+300)}
+  CONFIG.wishes.forEach((t,i)=>later(()=>{w.style.animation="none";w.offsetWidth;w.style.animation="";w.textContent=t;window.Guide&&Guide.on("wish",i)},i*3800+300));
+  later(()=>{$("#to6").hidden=false;window.Guide&&Guide.on("to6")},CONFIG.wishes.length*3800+300)}
 
 // ---- 7 reveal extras
 $("#photo").addEventListener("change",e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{$("#phbox").innerHTML='<img alt="A photo we chose" src="'+r.result+'">'};r.readAsDataURL(f)});
@@ -645,6 +655,7 @@ function tick(){const d=T-Date.now();if(d<=0){go(0);return}
   $("#cd").textContent=Math.floor(d/864e5);$("#ch").textContent=Math.floor(d/36e5)%24;$("#cm").textContent=Math.floor(d/6e4)%60;$("#cs").textContent=Math.floor(d/1e3)%60;cdT=setTimeout(tick,1000)}
 if(CONFIG.DEV_PREVIEW||Date.now()>=T)go(0);else{go("c");tick()}
 </script>
+<script type="module" src="guide.js"></script>
 
 </body>
 </html>

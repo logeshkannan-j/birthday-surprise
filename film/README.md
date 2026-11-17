@@ -4,6 +4,11 @@ A ~100-second, hand-painted-looking 2D anime short that runs in the browser: Web
 light and post-processing, painted multiplane layers, rigged characters with real-time hair and cloth physics,
 particle fireworks that spell her name, and a generated score. No 3D models, no three.js.
 
+It all happens at night: the moon low over the sea, string lights, her jar lantern, lamps and fireworks light the
+characters. **Snowki**, her light-blue teddy, is the magical one: he guides her through the birthday page from the
+countdown on, sits beside the candle, and in the film comes alive in her lap, carries the golden thread from the boy
+back to her, and waves him goodbye for her.
+
 Open it on its own at `/film/`, or reach it from the birthday page: the candle step ("Make a birthday wish") now
 opens the film full-screen, and its **Continue** button returns to the reveal.
 
@@ -14,6 +19,7 @@ opens the film full-screen, and its **Continue** button returns to the reveal.
 | `index.html` – countdown → envelope → greeting → album → memories → clock → today → wishes → **candle (three.js)** → **reveal (three.js)** | Same page and flow. Step 7 hosts the film (`#film` iframe → `film/?embed=1`). The reveal keeps its text, trio and photo slot. |
 | three.js r170 from a CDN + 5 GLB models (3.6 MB) + a 90 KB 3D module | Removed. The page is 74 KB again. |
 | `album/`, `update_memories.py`, admin panel ✦ | Unchanged. The admin panel's "7 Film" button jumps straight to the film. |
+| A static teddy picture on some steps | `guide.js`: Snowki, animated, on every step. He finds a free spot beside what she should look at, points, helps hold the seal, covers his eyes while she types the album password, reacts when tapped, dangles when dragged, and hides while the album or the film is open. |
 
 The film talks to the page with one message: `postMessage({type: 'film-done'})` when Continue is pressed.
 
@@ -26,7 +32,8 @@ film/
   js/core.js              easing, randomness, simplex + curl noise, colours
   js/space.js             world space, positions, the multiplane camera projection
   js/world.js             procedurally painted layers (gouache dabs) + sprite atlas, baked once
-  js/rigs.js              Helen, the boy, Jessi, the teddies: 2D skeletal rigs, IK, Verlet hair/ribbons/hem
+  js/rigs.js              Helen, the boy, Jessi: 2D skeletal rigs, IK, shaped limbs and hands, Verlet hair/ribbons/hem
+  js/snowki.js            Snowki, the magical teddy: one rig (24 actions, 12 expressions, springs) for the page and the film
   js/physics.js           wind field with travelling gusts, Verlet chains, cloth hem, balloons, springs
   js/particles.js         fireworks + message sampling, golden thread, lanterns, petals, motes, heart
   js/timeline.js          the master timeline: scenes, camera grammar, bullet-time curve
@@ -37,6 +44,7 @@ film/
   js/film.js              orchestration, scenes' events, input, quality tiers, test API
   clips/clips.json        optional AI clips per scene (written by the tool below)
   tools/generate-clips.mjs + clip-prompts.json   Seedance 2.5 / Veo 3.1 clip generator (not deployed)
+../guide.js               Snowki guiding her through the birthday page (index.html calls Guide.step(n) / Guide.on(event))
 ```
 
 ## 3. Changing things
@@ -52,6 +60,9 @@ All in `film/config.js`:
 - **Character art**: `assets.helen / boy / dog / teddy = { src, height, anchorX, anchorY }`. Your PNG/SVG then
   replaces the drawn rig (it still gets lighting, shadows, depth of field and breathing; the built-in rigs are
   the ones with hair and cloth physics).
+- **Snowki on the page**: what he does and says on each step is the `STEPS` / `EVENTS` table near the top of
+  `guide.js`; tap reactions are `TAPS`. In the film his flight path is `snowKeys()` in `js/film.js` and his
+  actions are the `sn…` events in `js/timeline.js`.
 - **Quality**: `quality: 'auto'` picks high / medium / low from the device and a frame-time test; force one with
   `'high'` etc. or `?q=low` in the URL. `?force2d` forces the Canvas2D fallback.
 
@@ -91,7 +102,12 @@ HeyGen makes talking-avatar videos. The story's rule is that he never speaks, so
 - **Kuwahara painterly filter** runs once when the backgrounds are baked (high/medium quality), not every frame.
 - **Cloth**: hair, side-locks, ribbons, the sash and both hems are Verlet chains; dresses are not full 2D cloth meshes.
 - **Bullet-time** slows physics, particles, the sea and clips; the camera and subtitles keep real time on purpose.
-- **Canvas2D fallback** keeps the whole story but has no shaders or post-processing.
+- **Night light on the painted world** is baked: each painted layer carries an emissive copy of itself lit warm
+  inside soft pools (lamps, string lights, her lantern) plus the moonlit edge of the sea wall. Characters get real
+  point lights (her lantern, lamps, fireworks, Snowki's glow) and a cool moonlight rim in the shader.
+- **Snowki** is drawn procedurally (gradient fur, fuzzy edge strokes, glossy eyes) and animated with springs, so
+  every move eases and overshoots a little; there are no sprite sheets.
+- **Canvas2D fallback** keeps the whole story but has no shaders or post-processing (night is a dimming filter).
 - Tested in desktop Chrome at desktop and phone sizes (WebGL2 and the 2D fallback); not yet on a real iPhone.
 
 ## Test hooks

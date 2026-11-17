@@ -56,7 +56,7 @@ export class GLRenderer {
   }
   common(p, F) {
     const v = F.view, c = v.cam;
-    p.f('uScreen', F.W, F.H).f('uS', v.S).f('uCam', c.x, c.y, c.z, c.lens).f('uRoll', c.roll).f('uTod', F.tod).f('uSun', F.sun[0], F.sun[1]).f('uSunVis', F.sunVis);
+    p.f('uScreen', F.W, F.H).f('uS', v.S).f('uCam', c.x, c.y, c.z, c.lens).f('uRoll', c.roll).f('uTod', F.tod).f('uSun', F.sun[0], F.sun[1]).f('uSunVis', F.sunVis).f('uMoon', ...(F.moon || [0, 0, 0]));
     return p;
   }
   fs() { this.gl.bindVertexArray(this.gl.vao); this.gl.drawArrays(this.gl.TRIANGLES, 0, 3); }

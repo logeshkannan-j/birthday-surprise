@@ -14,7 +14,7 @@ export default {
     micUnavailable: 'Microphone unavailable – just tap the candle',
     // one subtitle per scene (empty = no subtitle). Scene 0 is the candle.
     subtitles: {
-      1: 'A golden evening by the sea…',
+      1: 'A quiet night by the sea…',
       2: 'She had no idea…',
       3: '',
       4: 'Someone came to light the sky for you…',

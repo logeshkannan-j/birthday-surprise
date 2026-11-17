@@ -14,14 +14,14 @@ export class Renderer2D {
   resize(W, H, pr) { const w = Math.round(W * pr), h = Math.round(H * pr); if (this.canvas.width !== w || this.canvas.height !== h) { this.canvas.width = w; this.canvas.height = h; } }
   xf(F, gy) { const v = F.view, f = v.pf(gy), z = v.zf(f), s = v.S * z * F.pr, c = v.cam; return [s, (F.W / 2 - (800 + (c.x - 800) * f) * v.S * z) * F.pr, (F.H / 2 - (500 + (c.y - 500) * f) * v.S * z) * F.pr]; }
   drawLayer(F, L, alpha = 1) {
-    const x = this.ctx, [x0, y0, x1, y1] = L.rect, cw = L.c.width, ch = L.c.height;
+    const x = this.ctx, [x0, y0, x1, y1] = L.rect, cw = L.c.width, ch = L.c.height; x.filter = this.dim;
     if (L.kind === 'ground') { // horizontal strips, each with its own parallax
       const n = 14;
       for (let i = 0; i < n; i++) { // strips overlap generously so neighbouring parallax bands never leave gaps
         const ya = y0 + (y1 - y0) * i / n, h = (y1 - y0) / n, gy = L.gyFn((x0 + x1) / 2, ya + h / 2), [s, tx, ty] = this.xf(F, gy), ov = i ? 0.35 : 0;
         x.setTransform(s, 0, 0, s, tx, ty); x.globalAlpha = alpha; x.drawImage(L.c, 0, ch * (i / n - ov / n), cw, ch * (1 + ov + 0.35) / n, x0, ya - h * ov, x1 - x0, h * (1 + ov + 0.35)); }
-    } else { const [s, tx, ty] = this.xf(F, L.gy); x.setTransform(s, 0, 0, s, tx, ty); x.globalAlpha = alpha; x.drawImage(L.c, x0, y0, x1 - x0, y1 - y0); if (L.em && F.emK > 0.05) { x.globalCompositeOperation = 'lighter'; x.globalAlpha = F.emK; x.drawImage(L.em, x0, y0, x1 - x0, y1 - y0); x.globalCompositeOperation = 'source-over'; } }
-    x.globalAlpha = 1;
+    } else { const [s, tx, ty] = this.xf(F, L.gy); x.setTransform(s, 0, 0, s, tx, ty); x.globalAlpha = alpha; x.drawImage(L.c, x0, y0, x1 - x0, y1 - y0); x.filter = 'none'; if (L.em && F.emK > 0.05) { x.globalCompositeOperation = 'lighter'; x.globalAlpha = F.emK; x.drawImage(L.em, x0, y0, x1 - x0, y1 - y0); x.globalCompositeOperation = 'source-over'; } }
+    x.globalAlpha = 1; x.filter = 'none';
   }
   sprites(F, list, add) {
     if (!list || !list.n) return; const x = this.ctx, d = list.data, v = F.view, a = this.atlas, pt = [0, 0];
@@ -37,7 +37,8 @@ export class Renderer2D {
     x.globalAlpha = 1; x.globalCompositeOperation = 'source-over';
   }
   render(F) {
-    this.resize(F.W, F.H, F.pr); const x = this.ctx, W = this.canvas.width, H = this.canvas.height, v = F.view, pr = F.pr;
+    this.resize(F.W, F.H, F.pr); const x = this.ctx, W = this.canvas.width, H = this.canvas.height, v = F.view, pr = F.pr, nk = Math.min(1, Math.max(0, (F.tod - 1.1) / 0.6));
+    this.dim = nk > 0.01 ? `brightness(${(1 - nk * 0.42).toFixed(3)}) saturate(${(1 - nk * 0.2).toFixed(3)})` : 'none';
     const hz = v.toScreen(800, HZ, HZ + 0.5)[1] * pr, top = v.toScreen(800, HZ - 520, HZ + 0.5)[1] * pr;
     x.setTransform(1, 0, 0, 1, 0, 0);
     if (F.clip) { const v = F.clip.el, A = W / H, B = (v.videoWidth || 16) / (v.videoHeight || 9), z = F.clip.zoom || 1; let w = W, h = H; if (B > A) w = H * B; else h = W / B; w *= z; h *= z; x.drawImage(v, (W - w) / 2, (H - h) / 2, w, h); this.sprites(F, F.lists.emis, true); for (const it of F.draw) if (it.type === 'sprites' && it.overlay) this.sprites(F, it.list, it.add); return this.post2d(F); }
@@ -45,6 +46,7 @@ export class Renderer2D {
     x.fillStyle = g; x.fillRect(0, 0, W, Math.max(hz, 1));
     const sp = v.toScreen(F.sun[0], F.sun[1], HZ + 0.5);
     if (F.sunVis > 0.01) { const r = x.createRadialGradient(sp[0] * pr, sp[1] * pr, 0, sp[0] * pr, sp[1] * pr, 300 * pr); r.addColorStop(0, `rgba(255,246,220,${0.9 * F.sunVis})`); r.addColorStop(0.15, `rgba(255,220,170,${0.5 * F.sunVis})`); r.addColorStop(1, 'rgba(255,200,160,0)'); x.fillStyle = r; x.fillRect(0, 0, W, hz); }
+    if (F.moon && F.moon[2] > 0.01) { const m = v.toScreen(F.moon[0], F.moon[1], HZ + 0.5), r = 14 * v.scaleAt(HZ + 0.5) * pr, g2 = x.createRadialGradient(m[0] * pr, m[1] * pr, r * 0.8, m[0] * pr, m[1] * pr, r * 6); g2.addColorStop(0, 'rgba(190,200,255,.35)'); g2.addColorStop(1, 'rgba(190,200,255,0)'); x.fillStyle = g2; x.fillRect(0, 0, W, hz); x.fillStyle = '#FFF6E2'; x.beginPath(); x.arc(m[0] * pr, m[1] * pr, r, 0, 7); x.fill(); }
     this.sprites(F, F.lists.emis, true);
     for (const it of F.before) this.drawLayer(F, it.layer);
     const sg = x.createLinearGradient(0, hz, 0, H); const t = Math.min(F.tod, 1); sg.addColorStop(0, css(stop(0, F.tod))); sg.addColorStop(0.1, css(mixA([63, 184, 194], [40, 70, 120], t))); sg.addColorStop(1, css(mixA([20, 110, 140], [10, 20, 50], Math.min(1, F.tod / 1.6))));
@@ -52,7 +54,7 @@ export class Renderer2D {
     if (F.sunVis > 0.01) { x.fillStyle = `rgba(255,240,200,${0.5 * F.sunVis})`; for (let i = 0; i < 70; i++) { const yy = hz + Math.pow(i / 70, 1.5) * (H - hz) * 0.6, ww = (6 + i * 0.9) * pr; if (Math.sin(F.simT * 4 + i * 7.1) > 0) x.fillRect(sp[0] * pr + Math.sin(i * 12.9) * (10 + i * 2) * pr - ww / 2, yy, ww, 1.5 * pr); } }
     for (const it of F.draw) {
       if (it.type === 'layer') this.drawLayer(F, it.layer);
-      else if (it.type === 'char' && it.canvas) { const c = it.corners; x.setTransform(1, 0, 0, 1, 0, 0); x.globalAlpha = it.alpha ?? 1; x.drawImage(it.canvas, c[0][0] * pr, c[0][1] * pr, (c[1][0] - c[0][0]) * pr, (c[2][1] - c[0][1]) * pr); x.globalAlpha = 1; }
+      else if (it.type === 'char' && it.canvas) { const c = it.corners; x.setTransform(1, 0, 0, 1, 0, 0); x.globalAlpha = it.alpha ?? 1; x.filter = it.id === 'snow' ? 'none' : this.dim; x.drawImage(it.canvas, c[0][0] * pr, c[0][1] * pr, (c[1][0] - c[0][0]) * pr, (c[2][1] - c[0][1]) * pr); x.filter = 'none'; x.globalAlpha = 1; }
       else if (it.type === 'sprites') this.sprites(F, it.list, it.add);
     }
     this.post2d(F);

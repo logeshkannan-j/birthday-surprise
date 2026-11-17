@@ -44,7 +44,7 @@ vec3 skyGrad(float e, float tod) {
   vec3 h = skyStop(0, tod), l = skyStop(1, tod), m = skyStop(2, tod), z = skyStop(3, tod);
   return e < 0.12 ? mix(h, l, e / 0.12) : e < 0.45 ? mix(l, m, (e - 0.12) / 0.33) : mix(m, z, clamp((e - 0.45) / 0.55, 0.0, 1.0));
 }
-uniform float uTod; uniform vec2 uSun; uniform float uSunVis;
+uniform float uTod; uniform vec2 uSun; uniform float uSunVis; uniform vec3 uMoon;
 vec3 sunCol() { return mix(vec3(1.0, 0.88, 0.62), vec3(1.0, 0.58, 0.40), clamp(uTod * 1.6, 0.0, 1.0)); }
 vec3 skyAt(vec2 wp) {
   float e = clamp((HZ - wp.y) / 520.0, 0.0, 1.0); vec3 c = skyGrad(e, uTod);
@@ -87,6 +87,8 @@ vec4 cloudLayer(vec2 wp, float scale, float sp, float lo, float hi, float seed) 
   float edge = smoothstep(0.50, 0.56, d) - smoothstep(0.56, 0.66, d);
   float sunNear = exp(-length(uSun - wp) / 420.0) * clamp(1.0 - (uTod - 0.8), 0.0, 1.0);
   c += rim * edge * (0.25 + 0.9 * sunNear) * lit;
+  float moonNear = exp(-length(uMoon.xy - wp) / 260.0) * uMoon.z;
+  c += vec3(0.55, 0.6, 0.8) * (edge * 0.9 + lit * 0.12) * moonNear;
   return vec4(c, a);
 }
 vec3 stars(vec2 wp, float cell, float thr, float rad) {
@@ -116,6 +118,14 @@ void main() {
   // sun disc
   float sd = length(wp - uSun);
   c = mix(c, vec3(1.0, 0.98, 0.92) * 1.25, smoothstep(26.0, 23.0, sd) * uSunVis * step(wp.y, HZ));
+  // the moon: a soft halo, then a disc with faint seas on it
+  if (uMoon.z > 0.0) {
+    vec2 mq = unproj(sp, HZ + 0.6); float md = length(mq - uMoon.xy);
+    c += vec3(0.62, 0.66, 0.85) * (0.30 * exp(-md / 34.0) + 0.16 * exp(-md / 140.0) + 0.05 * exp(-md / 420.0)) * uMoon.z;
+    float mare = fbm((mq - uMoon.xy) * 0.09 + 3.0);
+    vec3 disc = mix(vec3(1.0, 0.97, 0.88), vec3(0.80, 0.79, 0.78), smoothstep(0.45, 0.75, mare) * 0.8) * 1.35;
+    c = mix(c, disc, smoothstep(15.0, 13.5, md) * uMoon.z * step(mq.y, HZ - 2.0));
+  }
   // clouds: two depth bands with their own parallax
   vec4 hi = cloudLayer(unproj(sp, HZ + 22.0), 1.0, 0.0045, 0.30, 0.78, 0.0);
   c = mix(c, hi.rgb, hi.a * 0.92 * uCloudK);
@@ -176,6 +186,12 @@ void main() {
   float spec = pow(clamp(dot(r, sdir), 0.0, 1.0), 420.0) * 7.0;
   float col2 = exp(-pow((wp.x - uSun.x) / (20.0 + (gy - HZ) * 0.85), 2.0));
   col += sunCol() * (spec * (0.4 + col2) + col2 * 0.16 * (0.6 + 0.4 * sin(p.x * 3.0 + t * 2.0))) * uSunVis * day;
+  if (uMoon.z > 0.0) {
+    vec3 mdir = normalize(vec3((uMoon.x - wp.x) / (Z * 30.0 + 260.0), max(0.015, (HZ - uMoon.y) / 700.0), 1.0));
+    float mspec = pow(clamp(dot(r, mdir), 0.0, 1.0), 260.0) * 6.0;
+    float mcol = exp(-pow((wp.x - uMoon.x) / (12.0 + (gy - HZ) * 0.55), 2.0));
+    col += vec3(0.92, 0.92, 1.0) * (mspec * (0.25 + mcol * 1.4) + mcol * 0.05 * (0.5 + 0.5 * sin(p.x * 3.0 + t * 2.0))) * uMoon.z;
+  }
   // reflections of fireworks, lanterns, lights and stars, broken up by the waves
   vec2 msp = vec2(sp.x + n.x * 26.0, hy - (sp.y - hy) * 1.05 + n.z * 18.0);
   vec3 em = texture(uEmis, vec2(msp.x / uScreen.x, 1.0 - msp.y / uScreen.y)).rgb;
@@ -241,15 +257,18 @@ void main() {
   float ax = texture(uTex, vUV + vec2(e.x, 0.0)).a - texture(uTex, vUV - vec2(e.x, 0.0)).a;
   float ay = texture(uTex, vUV + vec2(0.0, e.y)).a - texture(uTex, vUV - vec2(0.0, e.y)).a;
   vec3 N = normalize(vec3(-ax, -ay, 0.45));
-  vec3 col = c.rgb * uAmb;
+  vec3 lit = uAmb;
   float rim = pow(max(dot(N.xy, uKeyDir), 0.0), 1.3) * (1.0 - N.z) * uRim;
-  col += uKeyC * rim * c.a;
   vec2 sp = mix(uR0, uR1, vUV);
+  vec3 add = vec3(0.0);
   for (int i = 0; i < 4; i++) {
     if (float(i) >= uNPL) break;
-    vec2 L = uPL[i].xy - sp; float d = length(L), att = uPL[i].w * exp(-d / uPL[i].z);
-    col += uPLC[i] * c.a * att * (0.3 + 0.7 * max(dot(N.xy, L / max(d, 1.0)), 0.0) * (1.0 - N.z * 0.6));
+    vec2 L = uPL[i].xy - sp; float d = length(L), att = uPL[i].w * exp(-d / uPL[i].z), nl = max(dot(N.xy, L / max(d, 1.0)), 0.0);
+    lit += uPLC[i] * att * (0.45 + 0.55 * nl * (1.0 - N.z * 0.6));
+    add += uPLC[i] * att * pow(nl, 3.0) * (1.0 - N.z) * 0.18;          // a little warm edge light on the lit side
   }
+  vec3 alb = c.rgb / max(c.a, 0.001);
+  vec3 col = c.rgb * lit + (uKeyC * rim * mix(alb, vec3(1.0), 0.55) + add) * c.a;
   col = mix(col, uKeyC * c.a * 1.6, uGlow);
   o = vec4(col, c.a) * uAlpha;
 }`;

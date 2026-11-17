@@ -13,14 +13,16 @@ export const unitScale = gy => 6.8 * Math.max(gy - HZ, 1) / 530;     // world un
 // where everyone is
 export const PLACE = {
   helen: { x: 330, seat: capY(330) - 9, gy: baseY(330) },             // sitting on top of the sea wall
-  jessi: { x: 368, y: 715 },                                           // sitting by her feet, within reach
+  jessi: { x: 396, seat: capY(396) - 1, gy: baseY(396) },              // sitting beside her on the wall, within reach of her hand
   boy: { x: 1214, y: 792 },                                            // behind the big tree, leaning out to watch
   boyLight: { x: 1268, y: 828 },                                       // standing by the firework crate
   launcher: { x: 1395, y: 834 },
   tree: { x: 1240, y: 838 },                                          // just in front of where he hides
-  planter: { x: 150, y: 880 },
+  planter: { x: -70, y: 900 },
   sun: { x: 470 },
-  walkFrom: { x: 1236, y: 800 }, walkTo: { x: 1050, y: 556 }
+  moon: { x: 205, y: HZ - 96 },                                       // low over the sea, behind her
+  jar: { x: 262 },                                                     // her little jar lantern on the wall
+  walkFrom: { x: 1196, y: 800 }, walkTo: { x: 1050, y: 556 }
 };
 
 export class View {
