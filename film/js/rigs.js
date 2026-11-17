@@ -94,7 +94,7 @@ const HC = { skin: '#CF8E68', skinD: '#A9664A', hair: '#1A1220', hairHi: '#4E3F6
   collar: '#FFFDF8', sash: '#FF9EC4', sashD: '#E46B9E', shoe: '#FFF8F4', lip: '#B5505A', blush: '#F27E90', iris: '#5A2E1C', irisL: '#E2A060', lash: '#1E1015', out: 'rgba(110,50,60,.75)' };
 export class Helen {
   constructor() {
-    this.hair = []; for (let i = 0; i < 9; i++) this.hair.push(new Chain(9, 3.5 + (i % 3) * 0.25, { drag: 2.0, grav: 230, bend: 0.75, iter: 4, lift: 0.1 }));
+    this.hair = []; for (let i = 0; i < 9; i++) this.hair.push(new Chain(9, 3.5 + (i % 3) * 0.25, { drag: 1.5, grav: 300, bend: 0.8, iter: 4, lift: 0.03 }));
     this.locks = [new Chain(6, 2.9, { drag: 2.4, grav: 240, bend: 0.8 }), new Chain(6, 3.0, { drag: 2.4, grav: 240, bend: 0.8 })];
     this.bowT = [new Chain(4, 1.7, { drag: 2.8, grav: 180, bend: 0.5 }), new Chain(4, 1.9, { drag: 2.8, grav: 180, bend: 0.5 })];
     this.sashT = [new Chain(6, 2.1, { drag: 2.6, grav: 200, bend: 0.5 }), new Chain(6, 2.4, { drag: 2.6, grav: 200, bend: 0.5 })];
@@ -112,7 +112,7 @@ export class Helen {
     const roots = [];
     for (let i = 0; i < 9; i++) { const a = -2.55 + i * 0.2; roots.push(head.p(0.4 + Math.cos(a) * 5.4, -38.6 + Math.sin(a) * 5.6)); }
     const col = (c, i) => { const x = c.x[i], y = c.y[i]; if (y > -27 && y < 0 && x > -6.2 && x < 6.6) { c.x[i] = x < 0.2 ? Math.min(x, -6.2) : Math.max(x, 6.6); } if (y > 2) c.y[i] = 2; };
-    this.hair.forEach((c, i) => c.step(dt, roots[i][0], roots[i][1], w, t + i * 0.3, col));
+    this.hair.forEach((c, i) => c.step(dt, roots[i][0], roots[i][1], w * 0.45, t + i * 0.3, col));   // long hair: heavy, sways rather than flies
     const l0 = head.p(-5.3, -39.8), l1 = head.p(6.1, -39.6);
     this.locks[0].step(dt, l0[0], l0[1], w * 0.6, t); this.locks[1].step(dt, l1[0], l1[1], w * 0.6, t + 1);
     const bw = head.p(-5.4, -43.6); this.bowT[0].step(dt, bw[0], bw[1], w, t + 2); this.bowT[1].step(dt, bw[0] + 0.3, bw[1] + 0.2, w, t + 2.5);
