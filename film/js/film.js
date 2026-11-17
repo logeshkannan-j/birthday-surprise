@@ -5,8 +5,9 @@ import { clamp, lerp, ease, smoothstep, noise2, rand, mix3 } from './core.js';
 import { View, PLACE, HZ, capY, baseY, unitScale, fOf } from './space.js';
 import { bakeWorld, makeAtlas, wireBulbs } from './world.js';
 import { Wind } from './physics.js';
-import { Helen, Boy, Jessi, ImageActor } from './rigs.js';
+import { Helen, Boy, ImageActor } from './rigs.js';
 import { Snowki } from './snowki.js';
+import { Jessi as Pup } from './jessi.js';
 import { SpriteList, Fireworks, sampleMessage, Thread, Ambient, SKY_GY } from './particles.js';
 import { buildTimeline, cameraAt, focusAt, timeScaleAt } from './timeline.js';
 import { FilmAudio } from './audio.js';
@@ -43,7 +44,14 @@ const layers = bakeWorld(q.res), atlas = makeAtlas();
 R.setWorld(layers, atlas);
 const LY = Object.fromEntries(layers.map(l => [l.name, l]));
 const A = CFG.assets || {};
-const helen = A.helen ? new ImageActor(A.helen) : new Helen(), boy = A.boy ? new ImageActor(A.boy) : new Boy(), jessi = A.dog ? new ImageActor(A.dog) : new Jessi();
+// Jessi: the same puppy rig as on the birthday page, sitting beside Helen (0.56 character units per rig unit)
+class FilmJessi {
+  constructor() { this.p = new Pup(); this.k = 0.56; this.bounds = [-21, -32, 19, 3]; this.p.act('happy'); }
+  update(st) { const want = st.pet ? 'pet' : st.lookUp ? 'lookUp' : 'happy'; if (this.p.name !== want) this.p.act(want); this.p.update(st.dt); }
+  draw(ctx) { ctx.save(); ctx.scale(this.k, this.k); this.p.draw(ctx); ctx.restore(); }
+  headTop() { const h = this.p.headTop(); return [h[0] * this.k, h[1] * this.k]; }
+}
+const helen = A.helen ? new ImageActor(A.helen) : new Helen(), boy = A.boy ? new ImageActor(A.boy) : new Boy(), jessi = A.dog ? new ImageActor(A.dog) : new FilmJessi();
 const snow = new Snowki(), SN = 0.2;     // Snowki, the magical teddy: 100 rig units = 20 character units
 const snowRig = { bounds: [-70, -140, 70, 16], draw(ctx) { snow.draw(ctx, { aura: false, sparkle: false }); } };
 const wind = new Wind(), view = new View(), audio = new FilmAudio(CFG);
@@ -417,7 +425,7 @@ function step(dtReal, warm) {
   S.tod = lerp(sc.tod[0], sc.tod[1], clamp(lt / sc.dur, 0, 1));
   audio.setWind && audio.setWind(hw.g); audio.setNight && audio.setNight(clamp(S.tod - 1, 0, 1));
 }
-function jessiHeadLocal() { const jp = { x: PLACE.jessi.x, y: PLACE.jessi.seat, gy: PLACE.jessi.gy, flip: true }, hd = local2world(jp, 4 + Math.sin(S.simT * 2.2) * 1.2, -38.5); const s = us(HS.gy); return [(hd[0] - HS.x) / s, (hd[1] - HS.y) / s]; }
+function jessiHeadLocal() { const jp = { x: PLACE.jessi.x, y: PLACE.jessi.seat, gy: PLACE.jessi.gy, flip: true }, ht = jessi.headTop ? jessi.headTop() : [4, -38.5], hd = local2world(jp, ht[0] + Math.sin(S.simT * 2.2) * 1.2, ht[1]); const s = us(HS.gy); return [(hd[0] - HS.x) / s, (hd[1] - HS.y) / s]; }
 function boyPose() { const sc = S.scene ? S.scene.n : 0; if (sc === 7 || sc === 8) return 'walk'; if (sc === 4 || sc === 5) return S.boy.pose === 'stand' ? 'stand' : 'light'; if (sc === 6) return 'watch'; return S.boy.pose === 'watch' ? 'watch' : 'hide'; }
 function boyReach(bp) {
   const pose = boyPose(), s = us(bp.y), fl = bp.flip ? -1 : 1, r = bp.rot || 0, toL = (wx, wy) => { const lx = (wx - bp.x) / (s * fl), ly = (wy - bp.y) / s; return [lx * Math.cos(-r) - ly * Math.sin(-r), lx * Math.sin(-r) + ly * Math.cos(-r)]; };

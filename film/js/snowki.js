@@ -5,7 +5,7 @@
 //   const s = new Snowki();  s.act('wave');  s.update(dt, { vel: [vx, vy] });  s.draw(ctx, { aura: true });
 //
 // Actions: idle sit stand wave point cheer clap hug cover peek sleep kick push fly dangle spin shy think hold
-//          dance yawn bow lookUp giggle blow nod. Expressions: smile happy giggle wink surprised sleepy love shy
+//          dance yawn bow lookUp giggle blow nod call shh. Expressions: smile happy giggle wink surprised sleepy love shy
 //          determined soft sad blow oops.
 
 const TAU = Math.PI * 2;
@@ -137,6 +137,8 @@ export class Snowki {
       case 'nod': P.nod = Math.sin(a * 6) * 0.6; P.expr = 'happy'; break;
       case 'lookUp': P.nod = -1; P.gaze = [0, -1]; P.tilt = 0.06; P.expr = o.expr || 'surprised'; break;
       case 'giggle': P.lean = Math.sin(a * 22) * 0.04; P.armL = [12, 13]; P.armR = [-12, 13]; P.expr = 'giggle'; P.squash += Math.abs(Math.sin(a * 11)) * 0.04; break;
+      case 'call': P.armL = [13, -19]; P.armR = [-13, -19]; P.turn = -0.45; P.lean = -0.06; P.expr = 'happy'; P.tilt = -0.06; break;
+      case 'shh': P.armR = [-15, -21]; P.expr = 'soft'; P.tilt = 0.12; P.turn = -0.3; break;
       case 'blow': P.lean = dir[0] * 0.1; P.turn = dir[0] * 0.5; P.expr = 'blow'; P.armL = [-6, 18]; P.armR = [6, 18]; break;
     }
     if (o.expr && this.name !== 'dangle') P.expr = o.expr;

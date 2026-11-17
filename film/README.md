@@ -19,6 +19,7 @@ opens the film full-screen, and its **Continue** button returns to the reveal.
 | `index.html` – countdown → envelope → greeting → album → memories → clock → today → wishes → **candle (three.js)** → **reveal (three.js)** | Same page and flow. Step 7 hosts the film (`#film` iframe → `film/?embed=1`). The reveal keeps its text, trio and photo slot. |
 | three.js r170 from a CDN + 5 GLB models (3.6 MB) + a 90 KB 3D module | Removed. The page is 74 KB again. |
 | `album/`, `update_memories.py`, admin panel ✦ | Unchanged. The admin panel's "7 Film" button jumps straight to the film. |
+| A plain countdown | Snowki says hi to Helen and asks "Can I call Jessi?" (OK / Not now). Jessi runs in from the left, barks, flips, spins, rolls over, play-bows, gives a high five, yawns and falls asleep; a thought cloud above her plays five little dreams of her with Helen (beach, ball, cuddle, sleeping together, with Snowki). Tap Jessi for a trick, tap the cloud for the next dream. |
 | A static teddy picture on some steps | `guide.js`: Snowki, animated, on every step. He finds a free spot beside what she should look at, points, helps hold the seal, covers his eyes while she types the album password, reacts when tapped, dangles when dragged, and hides while the album or the film is open. |
 
 The film talks to the page with one message: `postMessage({type: 'film-done'})` when Continue is pressed.
@@ -33,7 +34,8 @@ film/
   js/space.js             world space, positions, the multiplane camera projection
   js/world.js             procedurally painted layers (gouache dabs) + sprite atlas, baked once
   js/rigs.js              Helen, the boy, Jessi: 2D skeletal rigs, IK, shaped limbs and hands, Verlet hair/ribbons/hem
-  js/snowki.js            Snowki, the magical teddy: one rig (24 actions, 12 expressions, springs) for the page and the film
+  js/snowki.js            Snowki, the magical teddy: one rig (26 actions, 12 expressions, springs) for the page and the film
+  js/jessi.js             Jessi, her grey puppy: one side-view rig (run, bark, flip, spin, roll, bow, paw, sit, sleep…) for both
   js/physics.js           wind field with travelling gusts, Verlet chains, cloth hem, balloons, springs
   js/particles.js         fireworks + message sampling, golden thread, lanterns, petals, motes, heart
   js/timeline.js          the master timeline: scenes, camera grammar, bullet-time curve

@@ -220,7 +220,16 @@ html.dawn #mute{color:#7a5a80;border-color:rgba(90,40,90,.3);background:rgba(255
 #gdHit:focus-visible{outline:2px dashed var(--gold);outline-offset:2px}
 #gdSay{position:fixed;left:0;top:0;z-index:6;max-width:min(260px,76vw);padding:7px 14px 8px;border-radius:16px;background:rgba(255,250,252,.95);color:#4a2550;font:600 1.18rem/1.2 Caveat,cursive;box-shadow:0 8px 24px -8px rgba(0,0,0,.5);pointer-events:none;opacity:0;transition:opacity .35s;--tx:50%}
 #gdSay.on{opacity:1}#gdSay::after{content:"";position:absolute;left:var(--tx);bottom:-7px;margin-left:-7px;border:7px solid transparent;border-bottom:0;border-top-color:rgba(255,250,252,.95)}
-#gdSay.side::after{display:none}#gdSay.below::after{bottom:auto;top:-7px;border:7px solid transparent;border-top:0;border-bottom-color:rgba(255,250,252,.95)}
+#gdSay.side::after{display:none}
+#gdPup,#gdDream{position:fixed;left:0;top:0;z-index:6;border:0;padding:0;margin:0;background:none;cursor:pointer;pointer-events:none;-webkit-tap-highlight-color:transparent;border-radius:40%}
+#gdPup:focus-visible,#gdDream:focus-visible{outline:2px dashed var(--gold);outline-offset:2px}
+#gdAsk{position:fixed;left:0;top:0;z-index:7;max-width:min(270px,80vw);padding:9px 14px 11px;border-radius:16px;background:rgba(255,250,252,.97);color:#4a2550;font:600 1.3rem/1.2 Caveat,cursive;box-shadow:0 10px 28px -8px rgba(0,0,0,.55);opacity:0;transition:opacity .35s;text-align:center;--tx:50%}
+#gdAsk.on{opacity:1}#gdAsk p{margin:0 0 8px}#gdAsk .r{display:flex;gap:8px;justify-content:center}
+#gdAsk button{border:0;border-radius:99px;padding:8px 16px;font:600 14px Figtree,sans-serif;background:var(--gold);color:#2b1740;cursor:pointer;box-shadow:0 0 16px -4px rgba(243,201,120,.8)}
+#gdAsk button.q{background:transparent;color:#7a5a80;border:1px solid #dccbe6;box-shadow:none}
+#gdAsk button:focus-visible{outline:2px solid #c2467a;outline-offset:2px}
+#gdAsk::after{content:"";position:absolute;left:var(--tx);bottom:-7px;margin-left:-7px;border:7px solid transparent;border-bottom:0;border-top-color:rgba(255,250,252,.97)}
+#gdAsk.side::after{display:none}#gdAsk.below::after{bottom:auto;top:-7px;border:7px solid transparent;border-top:0;border-bottom-color:rgba(255,250,252,.97)}#gdSay.below::after{bottom:auto;top:-7px;border:7px solid transparent;border-top:0;border-bottom-color:rgba(255,250,252,.95)}
 html.guide .s[data-n="1"] .bear,html.guide .s[data-n="4"] .bear,html.guide .s[data-n="5"] .bear,html.guide .trio .tb svg{visibility:hidden}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}.paper p{opacity:1;transform:none;filter:none}}
 </style>
@@ -238,15 +247,15 @@ html.guide .s[data-n="1"] .bear,html.guide .s[data-n="4"] .bear,html.guide .s[da
 <g style="translate:0 calc(var(--lk,0)*-.1px)"><path d="M21 24.5q4-2 7 0M32 24.5q3-2 7 0" stroke="#150c10" stroke-width="1" fill="none" style="opacity:calc(1 - var(--sd,0))"/><path d="M21 26q4 .5 7-3M32 23q3 3.5 7 3" stroke="#150c10" stroke-width="1.1" fill="none" stroke-linecap="round" style="opacity:var(--sd,0)"/><circle cx="25" cy="28" r="2" fill="#2b1740"/><circle cx="35" cy="28" r="2" fill="#2b1740"/><circle cx="25.7" cy="27.2" r=".7" fill="#fff"/><circle cx="35.7" cy="27.2" r=".7" fill="#fff"/></g>
 <path d="M26 33q4 4 8 0" stroke="#7a3b3b" stroke-width="1.6" fill="none" stroke-linecap="round" style="opacity:calc((1 - var(--op,0))*(1 - var(--sd,0)))"/><path d="M26.5 35.5q3.5-3 7 0" stroke="#7a3b3b" stroke-width="1.5" fill="none" stroke-linecap="round" style="opacity:var(--sd,0)"/><ellipse cx="30" cy="34" rx="3" ry="3.3" fill="#8a2b3c" style="opacity:var(--op,0)"/>
 <circle cx="21" cy="32" r="2.6" fill="#ff8fb0" opacity=".5"/><circle cx="39" cy="32" r="2.6" fill="#ff8fb0" opacity=".5"/><g style="opacity:var(--sd,0)"><path class="tear" d="M21.5 30q-2.2 3.4 0 4.6q2.2-1.2 0-4.6z" fill="#cfeaff" stroke="#8cc0ea" stroke-width=".3"/></g></g></symbol>
-<symbol id="dog" viewBox="0 0 100 64"><defs><radialGradient id="df" cx=".4" cy=".25" r=".9"><stop offset="0" stop-color="#3a3345"/><stop offset=".45" stop-color="#17131e"/><stop offset="1" stop-color="#08060b"/></radialGradient></defs>
+<symbol id="dog" viewBox="0 0 100 64"><defs><radialGradient id="df" cx=".4" cy=".25" r=".9"><stop offset="0" stop-color="#A9A7B4"/><stop offset=".45" stop-color="#6E6D7B"/><stop offset="1" stop-color="#474652"/></radialGradient></defs>
 <ellipse cx="50" cy="62" rx="34" ry="2.6" fill="#000" opacity=".4"/>
-<g class="tail"><path d="M20 27Q4 22 5 7" stroke="#15121a" stroke-width="5.5" stroke-linecap="round" fill="none"/></g>
-<g class="lg2"><rect x="32" y="42" width="8" height="19" rx="4" fill="#07050a"/><rect x="52" y="42" width="8" height="19" rx="4" fill="#07050a"/></g>
-<g class="lg1"><rect x="24" y="42" width="9" height="19" rx="4.5" fill="#0e0b13"/><rect x="62" y="42" width="9" height="19" rx="4.5" fill="#0e0b13"/></g>
+<g class="tail"><path d="M20 27Q4 22 5 7" stroke="#6E6D7B" stroke-width="5.5" stroke-linecap="round" fill="none"/></g>
+<g class="lg2"><rect x="32" y="42" width="8" height="19" rx="4" fill="#4A4955"/><rect x="52" y="42" width="8" height="19" rx="4" fill="#4A4955"/></g>
+<g class="lg1"><rect x="24" y="42" width="9" height="19" rx="4.5" fill="#6E6D7B"/><rect x="62" y="42" width="9" height="19" rx="4.5" fill="#6E6D7B"/></g>
 <ellipse cx="46" cy="34" rx="30" ry="15" fill="url(#df)"/><path d="M26 27q18-7 38 0" stroke="#4a3f5c" stroke-width="1.6" fill="none" opacity=".6" stroke-linecap="round"/>
 <path d="M66 31q7 8 17 0" stroke="#e8457a" stroke-width="3.5" fill="none"/><circle cx="74" cy="39" r="2.4" fill="#f3c978"/>
-<g class="dh"><circle cx="78" cy="24" r="14" fill="url(#df)"/><ellipse cx="90" cy="29" rx="8.5" ry="6.2" fill="#1e1a26"/><circle cx="96.5" cy="27" r="3" fill="#000"/><circle cx="95.6" cy="26" r=".9" fill="#fff" opacity=".7"/>
-<path d="M90 34q3 9 7 2z" fill="#ff7aa5" style="opacity:var(--op,.6)"/><path d="M69 13q-11 5-6 21q9-2 10-13z" fill="#0b0910"/><circle cx="82" cy="21" r="2.6" fill="#000"/><circle cx="83" cy="20" r="1" fill="#fff"/></g></symbol></svg>
+<g class="dh"><circle cx="78" cy="24" r="14" fill="url(#df)"/><ellipse cx="90" cy="29" rx="8.5" ry="6.2" fill="#D2D0DA"/><circle cx="96.5" cy="27" r="3" fill="#000"/><circle cx="95.6" cy="26" r=".9" fill="#fff" opacity=".7"/>
+<path d="M90 34q3 9 7 2z" fill="#ff7aa5" style="opacity:var(--op,.6)"/><path d="M69 15l-3-16 12 11z" fill="#474652"/><path d="M70 12l-1.5-8 6 6z" fill="#E0B4C6"/><circle cx="82" cy="21" r="2.6" fill="#000"/><circle cx="83" cy="20" r="1" fill="#fff"/></g></symbol></svg>
 <svg id="bearS" class="bear" viewBox="0 0 120 130" hidden aria-hidden="true"><use href="#bear"/></svg>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><symbol id="bear" viewBox="0 0 120 130"><defs>
 <radialGradient id="fur" cx=".38" cy=".3" r=".85"><stop offset="0" stop-color="#d6efff"/><stop offset=".5" stop-color="#8ccbf7"/><stop offset="1" stop-color="#4a90d2"/></radialGradient>
@@ -355,7 +364,7 @@ html.guide .s[data-n="1"] .bear,html.guide .s[data-n="4"] .bear,html.guide .s[da
 <span id="tB" class="tag" hidden></span>
 <div class="ch" id="chG" hidden><svg viewBox="0 0 60 100" aria-hidden="true"><use href="#girl"/></svg><span class="tag" id="bW" hidden>Wow!</span></div>
 <div class="ch" id="chD" hidden><span class="tag"></span><svg viewBox="0 0 100 64" aria-hidden="true"><use href="#dog"/></svg></div>
-<canvas id="gd" aria-hidden="true"></canvas><button id="gdHit" type="button"></button><div id="gdSay" role="status" aria-live="polite"></div>
+<canvas id="gd" aria-hidden="true"></canvas><button id="gdHit" type="button"></button><button id="gdPup" type="button"></button><button id="gdDream" type="button"></button><div id="gdSay" role="status" aria-live="polite"></div><div id="gdAsk" role="dialog" aria-live="polite" hidden></div>
 <div class="dots" hidden><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
 
 <script>window.MEMORIES=[];window.ALBUM=null;</script>

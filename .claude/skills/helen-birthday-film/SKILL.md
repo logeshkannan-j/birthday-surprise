@@ -21,6 +21,8 @@ If a change makes him more visible, needier or more central than her happiness, 
   `film.js` (events, input, quality), `shaders.js` + `renderer-gl.js` (WebGL2), `renderer-2d.js` (fallback), `audio.js`.
 - `film/js/snowki.js` + `guide.js` – Snowki, the magical teddy. ONE rig used by the page guide (every step, from the
   countdown) and by the film. Change his look there and both follow.
+- `film/js/jessi.js` – Jessi, her grey puppy (the user's reference: grey, pointed ears, bushy tail, puppy face). ONE
+  side-view rig used by the countdown show in `guide.js` (called by Snowki, tricks, sleep, dream cloud) and the film.
 - `index.html` – the birthday page. Step 7 (`go(6)`) shows the film in `#film`; the film's Continue posts
   `{type:'film-done'}` and the page goes to the reveal. The album (`album/`, `update_memories.py`) is separate and
   encrypted: never weaken it, never commit `memories/`.
@@ -57,8 +59,8 @@ from the sea across the planter tree, Helen's hair, the big tree and his shirt, 
   lace hem, white shoes; Snowki (light-blue teddy, pink bow) in her lap. Expressions: calm, joyful, surprised, teary-happy.
 - **The boy** (never named on screen): curly black hair, white shirt with rolled sleeves, dark trousers. No teddy of
   his own: Snowki (already hers) is his presence by her side. Expressions: watching, contentment, farewell.
-- **Jessi**: black Labrador sitting beside her on the wall; tail wag, ear twitch, looks up at the fireworks, closes
-  her eyes when petted.
+- **Jessi**: grey puppy (pale muzzle and chest, pointed ears with pink insides, fluffy curled tail, pink collar with a
+  gold tag, big shiny eyes). Sits beside her on the wall; wags, looks up at the fireworks, closes her eyes when petted.
 
 ## Rules
 
