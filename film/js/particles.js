@@ -75,8 +75,8 @@ export class Fireworks {
     for (const r of this.rockets) {
       r.t += dt; const u = clamp(r.t / r.dur, 0, 1), e = ease.outCubic(u);
       r.x = lerp(r.x0, r.x1, e) + Math.sin(r.t * 7 + r.wob) * 4 * (1 - u); r.y = lerp(r.y0, r.y1, e); r.gy = lerp(r.gy0, SKY_GY, ease.inOut(u));
-      const s = unitScale(r.gy);
-      if (dt > 0) for (let k = 0; k < 3; k++) this.emit(0, r.x + (Math.random() - 0.5) * 2 * s, r.y + 3 * s, (Math.random() - 0.5) * 12 * s, (10 + Math.random() * 20) * s, 0.6 + Math.random() * 0.6, r.gy, 1.6 * s, 0);
+      const s = r.burst.big ? Math.max(unitScale(r.gy), 1.6) : unitScale(r.gy);   // his big rocket stays bright and visible all the way up
+      if (dt > 0) for (let k = 0; k < (r.burst.big ? 6 : 3); k++) this.emit(0, r.x + (Math.random() - 0.5) * 2 * s, r.y + 3 * s, (Math.random() - 0.5) * 12 * s, (10 + Math.random() * 20) * s, 0.6 + Math.random() * 0.6, r.gy, 1.6 * s, 0);
       if (u >= 1) { r.done = true; this.burst(r); }
     }
     this.rockets = this.rockets.filter(r => !r.done);
@@ -112,7 +112,7 @@ export class Fireworks {
   }
   draw(add, t) {
     const col = [0, 0, 0];
-    for (const r of this.rockets) { const s = unitScale(r.gy); add.push(r.x, r.y, r.gy, 0, 5 * s, 5 * s, 0, 0, 1, 0.92, 0.7, 1); add.push(r.x, r.y, r.gy, 0, 16 * s, 16 * s, 0, 0, 1, 0.7, 0.35, 0.35); }
+    for (const r of this.rockets) { const s = r.burst.big ? Math.max(unitScale(r.gy), 1.6) : unitScale(r.gy); add.push(r.x, r.y, r.gy, 0, 5 * s, 5 * s, 0, 0, 1, 0.92, 0.7, 1); add.push(r.x, r.y, r.gy, 0, 16 * s, 16 * s, 0, 0, 1, 0.7, 0.35, 0.35); }
     for (const f of this.flashes) { const k = Math.exp(-f.t * 3.5); add.push(f.x, f.y, SKY_GY, 0, 260 * (0.6 + f.t), 260 * (0.6 + f.t), 0, 0, 1, 0.85, 0.6, 0.55 * k * f.k); }
     for (let i = 0; i < this.max; i++) {
       if (!this.alive[i]) continue;

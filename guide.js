@@ -326,6 +326,16 @@ function pupBox() { const L = J.L; if (!L) return null; const a = J.x - 26 * L.p
 pupHit.addEventListener('click', tapPup); pupHit.setAttribute('aria-label', 'Jessi the puppy. Tap for a trick');
 dreamHit.addEventListener('click', () => { if (J.dream > 0.5) nextDream(); }); dreamHit.setAttribute('aria-label', 'Jessi’s dream. Tap for the next dream');
 
+// ---------------------------------------------------------------- the reveal's dog is Jessi too: the same rig, sitting and wagging beside Helensnowfia and Snowki
+const tdSvg = $('.trio .td svg'), trioPup = new Jessi(); let trioC = null;
+if (tdSvg) { trioC = document.createElement('canvas'); trioC.setAttribute('aria-hidden', 'true'); tdSvg.replaceWith(trioC); trioPup.act('happy'); }
+function drawTrio(dt) {
+  if (!trioC || G.step !== 7) return; const w = 140, h = 104, d = Math.min(devicePixelRatio || 1, 2);
+  if (trioC.width !== w * d) { trioC.width = w * d; trioC.height = h * d; }
+  const x = trioC.getContext('2d'); x.setTransform(d, 0, 0, d, 0, 0); x.clearRect(0, 0, w, h);
+  trioPup.update(dt); x.save(); x.translate(w * 0.52, h - 4); x.scale(-1.5, 1.5); trioPup.draw(x); x.restore();
+}
+
 // ---------------------------------------------------------------- loop
 function frame(now) {
   requestAnimationFrame(frame);
@@ -347,7 +357,7 @@ function frame(now) {
     if (G.react > 0) { G.react -= dt; if (G.react <= 0) settle(); }
     else if ((G.idle -= dt) < 0 && G.fidget.length && !RM) { const f = G.fidget[(Math.random() * G.fidget.length) | 0]; bear.act(f, { restart: true }); G.react = f === 'yawn' ? 3 : 2.6; G.idle = 8 + Math.random() * 6; }
   }
-  stepPup(dt);
+  stepPup(dt); drawTrio(dt);
   // eyes follow her finger / cursor (or Jessi while she shows off)
   if (['enter', 'show'].includes(J.state) && !G.drag && J.L) bear.look((J.x - G.x) / (W * 0.25), 0.3);
   else if (G.gazeP && !G.drag) { const hx = G.x, hy = G.y - 66 * sc; bear.look((G.gazeP[0] - hx) / (W * 0.4), (G.gazeP[1] - hy) / (H * 0.4)); }

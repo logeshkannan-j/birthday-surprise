@@ -332,7 +332,7 @@ export function blurCopy(c, px) {
   x.filter = `blur(${px}px)`; x.drawImage(c, 0, 0, b.width, b.height); return b;
 }
 export function bakeWorld(res) {
-  const L = [farLayer(res * 0.75), groundLayer(res), wallLayer(res), lamp(60, res), lamp(560, res), jarLantern(res), teaCart(res), wires(res), planter(res), bigTree(res * 0.9), foreground(res * 0.4)];
+  const L = [farLayer(res * 0.75), groundLayer(res), wallLayer(res), lamp(60, res), lamp(560, res), jarLantern(res), teaCart(res), wires(res), planter(res), crate(res), bigTree(res * 0.9), foreground(res * 0.4)];
   for (const l of L) { l.blur = blurCopy(l.c, 7); if (l.em) l.emBlur = blurCopy(l.em, 7); }
   return L;
 }

@@ -89,7 +89,7 @@ const S = {
 };
 function freshActors() {
   S.helen = { expr: 'calm', turn: -0.35, gaze: -0.6, lookUp: 0, handChest: 0 };
-  S.boy = { expr: 'watching', kneel: false, hold: false, reach: false, signal: 0, lookDown: 0, gift: true };
+  S.boy = { expr: 'watching', kneel: false, hold: false, reach: false, signal: 0, lookDown: 0, gift: true, lighting: false, flame: false, gazeUp: 0, watch: false };
   S.jessi = { lookUp: false, happy: false };
 }
 freshActors();
@@ -99,7 +99,7 @@ function stepRamps(dt) { for (const r of Object.values(S.ramps)) { if (r.v < r.t
 const TIMERS = [];
 function resetState() {
   TIMERS.forEach(clearTimeout); TIMERS.length = 0;
-  Object.assign(S, { T: 0, simT: 0, scene: null, lt: 0, fired: new Set(), timeScale: 1, bt: null, shake: 0, ramps: {}, lines: [], ended: false, cloudK: 1, sn: null, snTrail: [], snPrev: null, say: null, snGift: false, softFw: null, _sfw: 0, snKey: null, snGlow: -99 });
+  Object.assign(S, { T: 0, simT: 0, scene: null, lt: 0, fired: new Set(), timeScale: 1, bt: null, shake: 0, ramps: {}, lines: [], ended: false, cloudK: 1, sn: null, snTrail: [], snPrev: null, say: null, snGift: false, softFw: null, _sfw: 0, snKey: null, snGlow: -99, snFront: false, fuseT: -99, flashT: -99 });
   freshActors(); initSystems(); placeMessage(); $('#lines').innerHTML = ''; $('#end').classList.remove('on'); setSub(''); sayHide(); hbShow(false);
 }
 
@@ -111,36 +111,49 @@ function placeMessage() {
 
 // ---------------------------------------------------------------- places and live anchors for the camera grammar
 const us = gy => unitScale(gy);
-const MEET = { x: 716, y: 652 }, SNF = [376, 678, 678], SNM = [674, 654, 654], LAUNCH = [1040, 497, 498];
-function boyPlace() {   // behind the bougainvillea tree, leaning out; when Snowki reaches him he steps out and kneels
-  const s5 = TL.scenes[4].start, u = ease.inOutSine(clamp((S.T - s5) / 1.2, 0, 1));
-  return { x: lerp(PLACE.boy.x, MEET.x, u), y: lerp(PLACE.boy.y, MEET.y, u), flip: true, rot: lerp(0.16, 0, u) };
+const MEET = { x: 1012, y: 806 }, LIGHT = { x: 1118, y: 820 }, AWAY = { x: 1250, y: 606 }, SNF = [400, 666, 666], SNM = [966, 808, 808];
+const sideAt = () => [386, capY(386) - 1, baseY(386) + 0.5];   // Snowki sits beside her on the wall
+const launchPt = () => (LY.crate ? LY.crate.top : [1148, 760, 824]);
+// where the man is: behind the bougainvillea tree; steps out and kneels for Snowki; goes to his crate; watches her; walks away
+function boyPlace() {
+  const s = n => TL.scenes[n - 1].start, T = S.T;
+  if (T < s(5)) return { x: PLACE.boy.x, y: PLACE.boy.y, flip: true, rot: 0.16 };
+  if (T < s(6) + 3.0) { const u = ease.inOutSine(clamp((T - s(5)) / 1.2, 0, 1)); return { x: lerp(PLACE.boy.x, MEET.x, u), y: lerp(PLACE.boy.y, MEET.y, u), flip: true, rot: lerp(0.16, 0, u) }; }
+  if (T < s(9) + 3.6) { const u = ease.inOutSine(clamp((T - s(6) - 3.0) / 1.6, 0, 1)); return { x: lerp(MEET.x, LIGHT.x, u), y: lerp(MEET.y, LIGHT.y, u), flip: T >= s(9), rot: 0 }; }
+  const u = clamp((T - s(9) - 3.6) / 12.4, 0, 1);
+  return { x: lerp(LIGHT.x, AWAY.x, u), y: lerp(LIGHT.y, AWAY.y, u), flip: false, rot: 0, walk: true };
 }
 function local2world(p, lx, ly) { const s = us(p.gy ?? p.y), fl = p.flip ? -1 : 1, r = p.rot || 0; return [p.x + s * fl * (lx * Math.cos(r) - ly * Math.sin(r)), p.y + s * (lx * Math.sin(r) + ly * Math.cos(r))]; }
 const HS = { x: PLACE.helen.x, y: PLACE.helen.seat, gy: PLACE.helen.gy };
 const helenW = (lx, ly) => [HS.x + lx * us(HS.gy), HS.y + ly * us(HS.gy)];
+const boyHead = (bp, dy = 0) => { const h = boy.P && boy.P.head ? boy.P.head : [0.3, -86]; return local2world(bp, h[0], h[1] + dy); };
 function anchor(name, portrait) {
   const bp = boyPlace(), hf = helenW(1, -37.5), hc = helenW(0.5, -20), sp = snowAt(S.T), snc = [sp.x, sp.y - 55 * SN * us(sp.gy)];
   switch (name) {
-    case 'wide': return portrait ? { x: 420, y: 560, gy: 690 } : { x: 548, y: 548, gy: 672 };
-    case 'helenSide': return portrait ? { x: hc[0] + 12, y: hc[1] + 10, gy: HS.gy } : { x: hc[0] + 46, y: hc[1] + 2, gy: HS.gy };
+    case 'wide': return portrait ? { x: 420, y: 540, gy: 700 } : { x: 660, y: 530, gy: 720 };
+    case 'helenBack': return portrait ? { x: hc[0] + 8, y: hc[1] - 10, gy: HS.gy } : { x: hc[0] + 30, y: hc[1] - 14, gy: HS.gy };
+    case 'manPOV': { const c = local2world(bp, 0, -70); return portrait ? { x: hc[0] + 8, y: hc[1] - 12, gy: HS.gy, zk: 1.2 } : { x: lerp(hc[0], c[0], 0.62), y: lerp(hc[1], c[1], 0.5) - 10, gy: lerp(HS.gy, bp.y, 0.6) }; }
+    case 'crate': { const L = launchPt(); return { x: (LIGHT.x + L[0]) / 2 - (portrait ? 0 : 10), y: L[1] - 6, gy: L[2], zk: portrait ? 0.8 : 1 }; }
+    case 'rocket': { const r = fw.rockets[fw.rockets.length - 1]; if (r) return { x: r.x, y: r.y + 60 }; const v = S.msgBox && S.msgBox.v, w = v ? v.toWorld(innerWidth * 0.5, innerHeight * 0.3, SKY_GY) : [520, 300]; return { x: w[0], y: w[1] + 120 }; }
+    case 'manWatch': { const c = boyHead(bp, 12); return { x: c[0] - (portrait ? 0 : 24), y: c[1], gy: bp.y }; }
+    case 'walker': { const c = local2world(bp, 0, -62); return { x: c[0], y: c[1], gy: bp.y }; }
     case 'helenMed': return portrait ? { x: hc[0] + 14, y: hc[1] + 12, gy: HS.gy, zk: 0.85 } : { x: hc[0] + 30, y: hc[1] + 4, gy: HS.gy };
     case 'helenUp': return { x: hf[0] + 8, y: hf[1] + 18, gy: HS.gy };
     case 'helenFace': return { x: hf[0] + (portrait ? 0 : 5), y: hf[1] + 1, gy: HS.gy };
     case 'helenSnow': { const c = helenW(0.5, -18); return { x: c[0] + (portrait ? 6 : 34), y: c[1] + 4, gy: HS.gy }; }
     case 'snowki': return { x: snc[0], y: snc[1], gy: sp.gy };
     case 'snowkiLow': return { x: snc[0] + (portrait ? 10 : 70) * sp.dir, y: snc[1] - 20 * us(sp.gy), gy: sp.gy };
-    case 'treeMan': { const c = local2world(bp, 0.5, -82); return { x: c[0] - (portrait ? 0 : 40), y: c[1] + 10, gy: bp.y }; }
-    case 'meet': { const c = local2world(bp, 1, -64); return { x: (c[0] + snc[0]) / 2, y: (c[1] + snc[1]) / 2 - 6, gy: (bp.y + sp.gy) / 2 }; }
-    case 'meetUp': { const c = local2world(bp, 2, -80); return { x: c[0] - (portrait ? 0 : 14), y: c[1], gy: bp.y }; }
+    case 'treeMan': { const c = boyHead(bp, 4); return { x: c[0] - (portrait ? 0 : 40), y: c[1] + 10, gy: bp.y }; }
+    case 'meet': { const c = boyHead(bp, 22); return { x: (c[0] + snc[0]) / 2, y: (c[1] + snc[1]) / 2 - 6, gy: (bp.y + sp.gy) / 2 }; }
+    case 'meetUp': { const c = boyHead(bp, 10); return { x: c[0] - (portrait ? 0 : 14), y: c[1], gy: bp.y }; }
     case 'twoShot': { const c = local2world(bp, 0, -62); return { x: (hc[0] + c[0]) / 2, y: (hc[1] + c[1]) / 2 - 8, gy: (HS.gy + bp.y) / 2, zk: portrait ? 0.62 : 1 }; }
     case 'skyWide': return portrait ? { x: 470, y: 300 } : { x: 520, y: 320 };
-    case 'finalWide': return portrait ? { x: 470, y: 480 } : { x: 560, y: 470 };
+    case 'finalWide': return portrait ? { x: 440, y: 470 } : { x: 620, y: 460 };
   }
   return { x: 800, y: 500 };
 }
 function focusGy(name) {
-  switch (name) { case 'helen': return PLACE.helen.gy; case 'snowki': return snowAt(S.T).gy; case 'boy': return boyPlace().y; case 'sky': return HZ + 12; }
+  switch (name) { case 'helen': return PLACE.helen.gy; case 'snowki': return snowAt(S.T).gy; case 'boy': return boyPlace().y; case 'crate': return launchPt()[2]; case 'sky': return HZ + 12; }
   return 700;
 }
 
@@ -152,8 +165,10 @@ function ripple(k) {
 function fire(ev, instant) {
   const [, name, arg] = ev;
   switch (name) {
+    case 'snTurn': S.snFront = true; break;
     case 'snAlert': snAct('alert', { dir: [1, -0.15] }, 2.4); break;
     case 'snAlive': snAct('idle', { expr: 'happy' }, 2.0); S.snGlow = S.T; break;
+    case 'snHome': S.snFront = false; break;
     case 'boyLookDown': S.boy.lookDown = 1; break;
     case 'boySmile': S.boy.expr = 'contentment'; break;
     case 'memOn': ramp('mem', 1, 1.1, instant); break;
@@ -163,22 +178,27 @@ function fire(ev, instant) {
     case 'boyHold': S.boy.reach = false; S.boy.hold = true; S.boy.lookDown = 0.6; break;
     case 'say': say(arg, S.evAt ?? S.T); break;
     case 'boyLookHelen': S.boy.lookDown = 0; break;
-    case 'boyStand': S.boy.kneel = false; break;
-    case 'helenNotice': S.helen.gaze = 0.75; break;
-    case 'helenTurn': S.helen.turn = 0.6; break;
-    case 'helenSmile': S.helen.expr = 'smile'; break;
     case 'boyPutDown': S.boy.hold = false; S.boy.gift = false; S.snGift = true; break;
-    case 'boySignal': S.boy.signal = 1; break;
-    case 'boySignalDown': S.boy.signal = 0; break;
-    case 'rockets': if (!instant) fireworksShow(); audio.setIntensity && audio.setIntensity(0.75, 0.5); break;
-    case 'message': hbShow(true, instant); break;
-    case 'messageOff': hbShow(false); break;
-    case 'helenLookUp': S.helen.lookUp = 1; S.helen.turn = 0.12; S.helen.gaze = 0.1; S.helen.expr = 'surprised'; break;
+    case 'boyStand': S.boy.kneel = false; break;
+    case 'boyLight': S.boy.kneel = true; S.boy.lighting = true; S.boy.lookDown = 0.7; break;
+    case 'flame': S.boy.flame = true; break;
+    case 'fuse': S.fuseT = S.T; if (!instant) audio.noise && audio.noise(1.8, 3000, 5000, 0.03, 0.8, 'highpass'); break;
+    case 'launch': if (!instant) { const L = launchPt(), v = S.msgBox.v, w = v.toWorld(innerWidth * 0.5, innerHeight * (innerHeight > innerWidth ? 0.2 : 0.24), SKY_GY); fw.launch([L[0], L[1], L[2]], w, 2.8, { kind: 'peony', n: 360, speed: 600, hue: 0, size: 6, big: true }); } S.boy.flame = false; break;
+    case 'boyBack': S.boy.kneel = false; S.boy.lighting = false; S.boy.lookDown = 0; S.boy.gazeUp = 1; break;
+    case 'crack': S.flashT = S.T; S.shake = RM ? 0 : 10; hbShow(true, instant); if (!instant) fireworksShow(); audio.setIntensity && audio.setIntensity(0.8, 0.5); break;
+    case 'helenLookUp': S.helen.lookUp = 1; S.helen.expr = 'surprised'; break;
     case 'jessiLookUp': S.jessi.lookUp = true; break;
-    case 'handChest': S.helen.handChest = 1; break;
+    case 'messageOff': hbShow(false); break;
+    case 'hSurprised': S.helen.lookUp = 1; S.helen.expr = 'surprised'; S.helen.turn = 0.1; S.helen.gaze = 0; break;
+    case 'hExcited': S.helen.handsUp = 1; break;
+    case 'hHappy': S.helen.handsUp = 0; S.helen.expr = 'joyful'; break;
+    case 'hSmile': S.helen.expr = 'smile'; S.helen.handChest = 1; S.helen.lookUp = 0.7; break;
     case 'snLookUp': snAct('lookUp', { expr: 'love', hold: 'gift' }, 60); break;
-    case 'snHold': snAct('hold', { expr: 'soft', hold: 'gift' }, 60); break;
+    case 'snHold': snAct('hold', { expr: 'soft', hold: 'gift', back: true }, 60); break;
     case 'jessiHappy': S.jessi.lookUp = false; S.jessi.happy = true; break;
+    case 'boyWatch': S.boy.expr = 'contentment'; S.boy.gazeUp = 0; S.boy.watch = true; break;
+    case 'boyLeave': S.boy.watch = false; S.boy.expr = 'farewell'; break;
+    case 'helenSky': S.helen.lookUp = 0.6; S.helen.handChest = 0; break;
     case 'softFireworks': S.softFw = S.T; S._sfw = 0; break;
     case 'line': showLine(arg, instant); break;
     case 'end': showEnd(); break;
@@ -187,46 +207,47 @@ function fire(ev, instant) {
 // his quiet birthday wish: rockets rise from far along the beach and burst over the sea in gold, pink, blue and purple
 function fireworksShow() {
   const v = S.msgBox.v, W = innerWidth, H = innerHeight, portrait = H > W;
-  const spots = portrait ? [[0.5, 0.2], [0.3, 0.28], [0.7, 0.24], [0.45, 0.12], [0.62, 0.32], [0.36, 0.18], [0.55, 0.26], [0.28, 0.12], [0.74, 0.14], [0.5, 0.3], [0.4, 0.22], [0.66, 0.16]]
-    : [[0.55, 0.2], [0.36, 0.26], [0.72, 0.16], [0.46, 0.1], [0.84, 0.28], [0.3, 0.14], [0.62, 0.3], [0.42, 0.2], [0.78, 0.1], [0.52, 0.14], [0.68, 0.24], [0.38, 0.32]];
+  const spots = portrait ? [[0.25, 0.34], [0.75, 0.3], [0.5, 0.42], [0.2, 0.16], [0.8, 0.12], [0.35, 0.4], [0.68, 0.38], [0.5, 0.08]]
+    : [[0.2, 0.32], [0.8, 0.28], [0.36, 0.44], [0.66, 0.42], [0.12, 0.16], [0.9, 0.14], [0.5, 0.48], [0.28, 0.1]];
   spots.forEach(([fx, fy], i) => TIMERS.push(setTimeout(() => {
     if (S.phase !== 'film') return; const w = v.toWorld(W * fx, H * fy, SKY_GY);
-    fw.launch([LAUNCH[0] + rand(-14, 14), LAUNCH[1], LAUNCH[2]], w, 2.1 + rand(0, 0.5), { kind: i % 3 === 2 ? 'willow' : 'peony', n: 240, speed: 470 + rand(0, 110), hue: i % 4, size: 5.2 });
-    if (i % 4 === 1) TIMERS.push(setTimeout(() => { if (S.phase === 'film') fw.launch([LAUNCH[0] + rand(-14, 14), LAUNCH[1], LAUNCH[2]], v.toWorld(W * (1 - fx), H * (fy + 0.05), SKY_GY), 2.3, { kind: 'peony', n: 180, speed: 380, hue: (i + 2) % 4, size: 4.6 }); }, 300));
-  }, i * 820)));
+    const L = launchPt(); fw.launch([L[0] + rand(-3, 3), L[1], L[2]], w, 1.9 + rand(0, 0.5), { kind: i % 3 === 2 ? 'willow' : 'peony', n: 220, speed: 440 + rand(0, 110), hue: (i + 1) % 4, size: 5 });
+  }, 250 + i * 760)));
 }
 
 // ---------------------------------------------------------------- Snowki: in her lap; alive, he walks to the man, is held, carries the gift back. Keys: [time, place, mode of the segment that starts there]
 function snowKeys() {
   const s = n => TL.scenes[n - 1].start;
-  return [[0, 'lap', 'lap'], [s(3) + 0.3, 'lap', 'fly'], [s(3) + 1.5, SNF, 'walk'], [s(3) + 8.6, SNM, 'stand'], [s(5) + 2.6, 'held', 'held'], [s(7) + 0.6, 'held', 'fly'],
-    [s(7) + 1.3, SNM, 'walk'], [s(7) + 8.4, SNF, 'fly'], [s(7) + 9.4, 'lap', 'lap'], [1e9, 'lap', 'lap']];
+  return [[0, 'side', 'side'], [s(3) + 0.3, 'side', 'fly'], [s(3) + 1.3, SNF, 'walk'], [s(3) + 8.8, SNM, 'stand'], [s(5) + 1.9, SNM, 'lift'], [s(5) + 2.8, 'held', 'held'],
+    [s(6) + 0.4, 'held', 'fly'], [s(6) + 1.1, SNM, 'walk'], [s(7) + 3.5, SNF, 'fly'], [s(7) + 4.5, 'side', 'side'], [1e9, 'side', 'side']];
 }
 const lapAt = () => { const p = helenW(-3.4, -2.6); return [p[0], p[1], HS.gy + 0.5]; };
-function heldAt() { const bp = boyPlace(), hp = boy.P && boy.P.holdPt ? boy.P.holdPt : [5, -57.5], w = local2world(bp, hp[0], hp[1] + 4); return [w[0], w[1], bp.y + 1]; }
+function heldAt() { const bp = boyPlace(), hp = boy.P && boy.P.holdPt ? boy.P.holdPt : [7, -57.4], w = local2world(bp, hp[0], hp[1]); return [w[0], w[1], bp.y + 1]; }
 function snowAt(T) {
   const K = SNK || (SNK = snowKeys()); let i = 0; while (i < K.length - 2 && T >= K[i + 1][0]) i++;
-  const a = K[i], b = K[i + 1], mode = a[2], P = k => (k[1] === 'lap' ? lapAt() : k[1] === 'held' ? heldAt() : k[1]);
+  const a = K[i], b = K[i + 1], mode = a[2], P = k => (k[1] === 'side' ? sideAt() : k[1] === 'lap' ? lapAt() : k[1] === 'held' ? heldAt() : k[1]);
   const pa = P(a), u = clamp((T - a[0]) / (b[0] - a[0]), 0, 1);
-  if (mode === 'lap' || mode === 'held' || mode === 'stand') return { x: pa[0], y: pa[1], gy: pa[2], mode, t0: a[0], dir: 1 };
+  if (mode === 'lap' || mode === 'side' || mode === 'held' || mode === 'stand') return { x: pa[0], y: pa[1], gy: pa[2], mode, t0: a[0], dir: 1 };
   const pb = P(b), e = mode === 'walk' ? u : ease.inOutSine(u), hop = mode === 'fly' ? Math.sin(u * Math.PI) * 34 : 0;
   return { x: lerp(pa[0], pb[0], e), y: lerp(pa[1], pb[1], e) - hop, gy: mode === 'fly' ? Math.max(pa[2], pb[2]) : lerp(pa[2], pb[2], e), mode, t0: a[0], dir: Math.sign(pb[0] - pa[0]) || 1 };
 }
 let SNK = null;
 function snAct(name, o, dur) { S.sn = { name, o, t: S.T, until: S.T + dur }; }
-const SN_DEFAULT = { lap: ['sit', {}], fly: ['fly', { expr: 'happy' }], walk: ['walk', {}], stand: ['stand', {}], held: ['sit', { expr: 'happy' }] };
+const SN_DEFAULT = { lap: ['sit', {}], side: ['sit', {}], fly: ['fly', { expr: 'happy' }], walk: ['walk', {}], stand: ['stand', {}], lift: ['sit', { expr: 'happy' }], held: ['sit', { expr: 'happy' }] };
 function stepSnow(dt, warm) {
   const sp = snowAt(S.T), d = SN_DEFAULT[sp.mode], want = S.sn && S.sn.t >= sp.t0 && S.T < S.sn.until ? [S.sn.name, { ...S.sn.o }] : [d[0], { ...d[1] }];
   if (sp.mode === 'walk') want[1].dir = [sp.dir, 0];
+  if (sp.mode === 'side' && !(S.scene && S.scene.rev) && !S.snFront) want[1].back = true;   // facing the sea with her
+  if (S.say && S.say.who === 'snowki' && S.T < S.say.until && want[0] === 'sit') want[0] = 'talk';
   if (S.snGift && !want[1].hold && sp.mode !== 'fly') want[1].hold = 'gift';
   if (S.say && S.say.who === 'snowki' && S.T < S.say.until) want[1].talk = true;
   const key = want[0] + JSON.stringify(want[1]) + sp.mode;
   if (key !== S.snKey) { S.snKey = key; snow.act(want[0], { stand: sp.mode === 'stand' || sp.mode === 'walk', ...want[1] }); }
   const sc = view.toScreen(sp.x, sp.y, sp.gy), prev = S.snPrev; S.snPrev = sc;
   const vel = prev && dt > 0 ? [(sc[0] - prev[0]) / Math.max(dt, 1e-3) * 0.5, (sc[1] - prev[1]) / Math.max(dt, 1e-3) * 0.5] : [0, 0];
-  if (sp.mode === 'stand') snow.look(0.8, -0.7); else if (sp.mode === 'held') snow.look(0.45, -0.9); else if (sp.mode === 'lap') snow.look(want[0] === 'alert' ? 0.9 : 0.1, 0.05); else snow.look(sp.dir * 0.6, 0);
+  if (sp.mode === 'stand' || sp.mode === 'lift') snow.look(0.8, -0.7); else if (sp.mode === 'held') snow.look(0.45, -0.9); else if (sp.mode === 'lap' || sp.mode === 'side') snow.look(want[0] === 'alert' ? 0.9 : 0.1, 0.05); else snow.look(sp.dir * 0.6, 0);
   const glow = S.T - S.snGlow < 3 ? 0.6 : 0;
-  snow.update(warm ? 1 / 60 : dt, { vel: sp.mode === 'fly' ? vel : [0, 0], magic: sp.mode === 'lap' ? glow : 0.45 });
+  snow.update(warm ? 1 / 60 : dt, { vel: sp.mode === 'fly' ? vel : [0, 0], magic: sp.mode === 'lap' || sp.mode === 'side' ? glow : 0.45 });
   // a few sparkles when he moves by magic
   const rate = sp.mode === 'fly' ? 3 : sp.mode === 'walk' ? (Math.random() < 0.35 ? 1 : 0) : glow > 0 ? 1 : 0;
   if (dt > 0) { const s = us(sp.gy); for (let i = 0; i < rate; i++) S.snTrail.push({ x: sp.x + rand(-8, 8) * s * 0.4, y: sp.y - rand(30, 75) * SN * s, gy: sp.gy, vx: rand(-6, 6) * s, vy: rand(-8, 4) * s, life: rand(0.6, 1.3), ml: 1.3, r: rand(0, 6) }); }
@@ -254,7 +275,7 @@ function hbShow(on, instant) {
   else el.classList.remove('on');
 }
 function showLine(i, instant) {
-  const box = $('#lines'), p = document.createElement('p'); p.className = 'l l' + i; p.innerHTML = fill(CFG.text.finalLines[i]).replace(/\n/g, '<br>');
+  const box = $('#lines'); if (box.querySelector('.l' + i)) return; const p = document.createElement('p'); p.className = 'l l' + i; p.innerHTML = fill(CFG.text.finalLines[i]).replace(/\n/g, '<br>');
   box.appendChild(p); requestAnimationFrame(() => requestAnimationFrame(() => p.classList.add('on')));
 }
 function showEnd() { if (S.ended) return; S.ended = true; $('#end').classList.add('on'); $('#cont').hidden = !EMBED; }
@@ -421,14 +442,15 @@ function step(dtReal, warm) {
   const sub = (sc.sub || []).find(s => S.lt >= s[0] && S.lt < s[0] + s[2]); if (!warm) setSub(sub ? sub[1] : '');
   // rigs
   const hw = wind.at(HS.x), bp = boyPlace(), bw = wind.at(bp.x);
-  helen.update({ t: S.simT, dt, wind: hw.s * 90, ...S.helen });
+  helen.update({ t: S.simT, dt, wind: hw.s * 90, ...S.helen, back: !(sc && sc.rev) });
   boy.update(boySt(bp, dt, bw.s * 90 * (bp.flip ? -1 : 1)));
   jessi.update({ t: S.simT, dt, wind: hw.s * 90, ...S.jessi });
   stepSnow(dt, warm);
   // particles
   fw.update(dt, S.simT, wind.at(800).s);
   amb.update(dt, S.simT, wind);
-  if (S.softFw != null) { const k = S.T - S.softFw; while (S._sfw < 4 && k > 0.5 + S._sfw * 3.2) { const v = S.msgBox.v, w = v.toWorld(innerWidth * rand(0.3, 0.8), innerHeight * rand(0.12, 0.28), SKY_GY); fw.launch([LAUNCH[0] + rand(-14, 14), LAUNCH[1], LAUNCH[2]], w, 2.2, { kind: 'willow', n: 160, speed: 330, size: 4, hue: S._sfw % 4 }); S._sfw++; } }
+  if (S.softFw != null) { const k = S.T - S.softFw; while (S._sfw < 4 && k > 0.5 + S._sfw * 3.2) { const v = S.msgBox.v, w = v.toWorld(innerWidth * rand(0.3, 0.8), innerHeight * rand(0.12, 0.28), SKY_GY), L = launchPt(); fw.launch([L[0], L[1], L[2]], w, 2.2, { kind: 'willow', n: 160, speed: 330, size: 4, hue: S._sfw % 4 }); S._sfw++; } }
+  if (S.T - S.fuseT < 1.6 && S.T > S.fuseT && dt > 0 && LY.crate) { const f = LY.crate.fuse, s = us(PLACE.launcher.y); for (let i = 0; i < 3; i++) fw.emit(5, f[0] + rand(-1, 1) * s, f[1], rand(-30, 30) * s, rand(-40, 10) * s, rand(0.2, 0.5), PLACE.launcher.y, 1.2 * s, 0); }
   if (S.T > TL.duration + 2 && !S.ended) showEnd();
   // camera
   const portrait = innerHeight > innerWidth, lt = Math.min(S.lt, sc.dur);
@@ -450,18 +472,21 @@ function step(dtReal, warm) {
 }
 function jessiHeadLocal() { const jp = { x: PLACE.jessi.x, y: PLACE.jessi.seat, gy: PLACE.jessi.gy, flip: true }, ht = jessi.headTop ? jessi.headTop() : [4, -38.5], hd = local2world(jp, ht[0] + Math.sin(S.simT * 2.2) * 1.2, ht[1]); const s = us(HS.gy); return [(hd[0] - HS.x) / s, (hd[1] - HS.y) / s]; }
 // the man: hiding with one hand on the trunk and the little gift in the other; then kneeling, reaching, holding Snowki, talking
-function boyPose() { return S.T < TL.scenes[4].start + 0.6 ? 'hide' : 'stand'; }
+function boyPose() { return S.T < TL.scenes[4].start + 0.6 ? 'hide' : boyPlace().walk ? 'walk' : 'stand'; }
 function boyReach(bp) {
   const s = us(bp.y), fl = bp.flip ? -1 : 1, r = bp.rot || 0, toL = (wx, wy) => { const lx = (wx - bp.x) / (s * fl), ly = (wy - bp.y) / s; return [lx * Math.cos(-r) - ly * Math.sin(-r), lx * Math.sin(-r) + ly * Math.cos(-r)]; };
-  if (S.boy.reach) { const sp = snowAt(S.T); return toL(sp.x + 4 * SN * us(sp.gy), sp.y - 88 * SN * us(sp.gy)); }
+  if (S.boy.lighting && LY.crate) { const f = LY.crate.fuse; return toL(f[0] - 4, f[1] - 2); }
+  if (S.boy.reach) { const sp = snowAt(S.T); return toL(sp.x + 4 * SN * us(sp.gy), sp.y - (sp.mode === 'lift' ? 30 : 88) * SN * us(sp.gy)); }
   if (boyPose() === 'hide') { const k = unitScale(PLACE.tree.y) / unitScale(1004); return toL(PLACE.tree.x - 40 * k, bp.y - 70 * s); }
   return null;
 }
-const heldDraw = (ctx, p) => { ctx.save(); ctx.translate(p[0], p[1]); ctx.scale(SN, SN); snow.draw(ctx, { aura: false, sparkle: false }); ctx.restore(); };
+const heldDraw = (ctx, p) => { ctx.save(); ctx.translate(p[0], p[1]); ctx.scale(SN, SN); ctx.filter = 'brightness(1.5) saturate(1.1)'; snow.draw(ctx, { aura: false, sparkle: false }); ctx.restore(); };
 function boySt(bp, dt, wind) {
   const B = S.boy, sp = S.snP || snowAt(S.T);
-  return { t: S.simT, dt, wind, pose: boyPose(), reach: boyReach(bp), expr: B.expr, kneel: B.kneel, hold: B.hold, signal: B.signal, lookDown: B.lookDown, gift: B.gift,
-    talk: !!(S.say && S.say.who === 'man' && S.T < S.say.until), look: -0.3, gazeY: B.lookDown * 0.8 };
+  const lt = S.lt, sc = S.scene ? S.scene.n : 0, walking = boyPose() === 'walk';
+  return { t: S.simT, dt, wind, pose: boyPose(), reach: boyReach(bp), expr: walking ? 'farewell' : B.expr, kneel: B.kneel, hold: B.hold, signal: B.signal, lookDown: B.lookDown, gift: B.gift, flame: B.flame,
+    talk: !!(S.say && S.say.who === 'man' && S.T < S.say.until), held: sp.mode === 'held' ? heldDraw : null, look: -0.3, gazeY: B.lookDown * 0.8 - B.gazeUp * 0.9,
+    lookBack: walking && sc === 9 ? smoothstep(5.0, 5.6, lt) * (1 - smoothstep(6.6, 7.2, lt)) : 0 };
 }
 
 // ---------------------------------------------------------------- frame description -> renderer
@@ -489,7 +514,7 @@ function frame() {
     const near = PR.map(([p, gy, r, k, c]) => { const s = view.toScreen(p[0], p[1], gy), d = Math.hypot(s[0] - anc[0], s[1] - anc[1]); return [s[0], s[1], r * view.scaleAt(gy), k, c[0], c[1], c[2], d / (r * view.scaleAt(gy))]; }).sort((a, b) => a[7] - b[7]);
     const pls = [];
     if (fwl.k > 0.02) pls.push([fwS[0], fwS[1], Math.max(W, H) * 0.9, fwl.k * 0.6, 1, 0.84, 0.66]);
-    if (extra.flame) pls.push([extra.flame[0], extra.flame[1], 60 * view.scaleAt(PLACE.boyLight.y), 1.4, 1, 0.62, 0.28]);
+    if (extra.flame) pls.push([extra.flame[0], extra.flame[1], 60 * view.scaleAt(PLACE.launcher.y), 1.5, 1, 0.62, 0.28]);
     if (snK > 0.1 && !extra.self) pls.push([snS[0], snS[1], 70 * view.scaleAt(sp.gy), 0.9 * snK, 1, 0.84, 0.55]);
     for (const n of near) if (pls.length < 4) pls.push(n.slice(0, 7));
     const a = mix3(ambL, [1, 0.9, 0.8], clamp(fwl.k * 0.25, 0, 0.3));
@@ -501,23 +526,24 @@ function frame() {
   const push = (it, y) => { if (it) { it.y = y; draw.push(it); } };
   const tight = smoothstep(2.6, 4.2, view.cam.z * fOf(HS.gy));
   const boyTight = smoothstep(1.9, 2.4, view.cam.z) * (S.scene && [2, 3, 4, 5, 6].includes(S.scene.n) ? 1 : 0);
-  for (const n of ['lamp60', 'lamp560', 'jar', 'tea', 'wires', 'tree', 'fg']) { const L = LY[n]; if ((n === 'planter' || n === 'lamp60' || n === 'fg') && tight > 0.98) continue; if (n === 'lamp60' && view.cam.y < 330) continue; if (n === 'fg' && boyTight > 0.5) continue; push({ type: 'layer', layer: L, wind: (wind.at((L.rect[0] + L.rect[2]) / 2).s - 0.45) * 0.6, sway: 1 + wind.at((L.rect[0] + L.rect[2]) / 2).g * 1.5 }, L.gy); }
+  for (const n of ['lamp60', 'lamp560', 'jar', 'tea', 'wires', 'crate', 'tree', 'fg']) { const L = LY[n]; if ((n === 'planter' || n === 'lamp60' || n === 'fg') && tight > 0.98) continue; if (n === 'lamp60' && view.cam.y < 330) continue; if (n === 'fg' && boyTight > 0.5) continue; push({ type: 'layer', layer: L, wind: (wind.at((L.rect[0] + L.rect[2]) / 2).s - 0.45) * 0.6, sway: 1 + wind.at((L.rect[0] + L.rect[2]) / 2).g * 1.5 }, L.gy); }
   if (S.phase !== 'wish') {
     // Helen, Jessi, the gift teddy, the boy
-    const hst = { t: S.simT, ...S.helen, wind: wind.at(HS.x).s * 90, eyeLights: eyeLights(), lap: sp.mode === 'lap' ? lapDraw : null };
+    const hst = { t: S.simT, ...S.helen, back: !(S.scene && S.scene.rev), wind: wind.at(HS.x).s * 90, eyeLights: eyeLights(), lap: sp.mode === 'lap' ? lapDraw : null };
     const hi = views.helen.render(F, { x: HS.x, y: HS.y, gy: HS.gy }, hst, { groundY: baseY(HS.x) + 2, shadowA: shA * 0.8, shadowDir: [shadowDir[0] * 0.5, 0.9], shadowLen: 0.5 });
     if (hi) { hi.light = charLight(hi.anc); hi.blur = blurOf(HS.gy); push(hi, HS.gy); }
     const J = PLACE.jessi, ji = views.jessi.render(F, { x: J.x, y: J.seat, gy: J.gy, flip: true }, { t: S.simT, ...S.jessi }, { shadowA: shA, shadowDir, shadowLen: 0.3 });
     if (ji) { ji.light = charLight(ji.anc); ji.blur = blurOf(J.gy); push(ji, J.gy); }
     // Snowki when he is out of her lap and not in the man's arms: hopping, walking, standing on the promenade
-    if (sp.mode !== 'lap') {
-      const si = views.snow.render(F, { x: sp.x, y: sp.y, gy: sp.gy }, {}, { scale: SN, shadowA: sp.mode === 'fly' ? 0 : shA * 1.4, shadowDir, shadowLen: 0.3 });
+    if (sp.mode !== 'lap' && sp.mode !== 'held') {
+      const si = views.snow.render(F, { x: sp.x, y: sp.y, gy: sp.gy }, {}, { scale: SN, shadowA: sp.mode === 'fly' || sp.mode === 'side' ? 0 : shA * 1.4, shadowDir, shadowLen: 0.3 });
       if (si) { si.light = charLight(si.anc, { self: true, amb: mix3(ambL, [1, 0.94, 0.86], 0.55 * snK), rim: 1.3 }); si.blur = blurOf(sp.gy) * 0.5; push(si, sp.gy); }
     }
     // the man, by the bougainvillea tree
-    { const bp = boyPlace(), bst = { ...boySt(bp, 0, wind.at(bp.x).s * 90 * (bp.flip ? -1 : 1)), t: S.simT, eyeLights: S.scene && S.scene.n >= 7 ? eyeLights(0.7) : null };
+    { const bp = boyPlace(), bst = { ...boySt(bp, 0, wind.at(bp.x).s * 90 * (bp.flip ? -1 : 1)), t: S.simT, eyeLights: S.scene && S.scene.n >= 7 ? eyeLights(0.7) : null }, gone = S.scene && S.scene.n === 10 ? smoothstep(5, 9, S.lt) : 0;
       const bi = views.boy.render(F, { x: bp.x, y: bp.y, gy: bp.y, flip: bp.flip, rot: bp.rot }, bst, { shadowA: shA * 1.1, shadowDir: [Math.abs(shadowDir[0]) + 0.3, 0.4], shadowLen: 1.2 });
-      if (bi) { bi.light = charLight(bi.anc); bi.blur = blurOf(bp.y); push(bi, bp.y); } }
+      if (bi) { const extra = {}; if (S.boy.flame && LY.crate) { const f = LY.crate.fuse; extra.flame = view.toScreen(f[0] - 6, f[1] - 4, PLACE.launcher.y); }
+        bi.light = charLight(bi.anc, extra); bi.blur = blurOf(bp.y); bi.alpha = 1 - gone; bi.glow = gone * 0.6; push(bi, bp.y); } }
   }
   // sprites
   const lightT = [...ambL.map(v => Math.min(1, v * 1.05)), 0.9 * (1 - night * 0.5)];
@@ -538,7 +564,7 @@ function frame() {
   const bright = clamp(fw.light.k, 0, 1.5), fade = S.phase === 'wish' ? 1 : rv('fadeIn');
   const sunUV = sunVis > 0.02 ? [sunS[0] / W, 1 - sunS[1] / H] : null;
   F.post = { thresh: lerp(0.93, 0.6, night), bloomK: 0.42 + bright * 0.55 + night * 0.12, raysK: q.rays * sunVis * 0.5, sunUV, flareK: q.flare * (0.4 + bright), halK: 0.08, grain: 0.03, vig: 0.6,
-    chroma: 0.006, dirtK: 0.55, sat: 1.05 + bright * 0.05, expo: 1.0, letter: S.phase === 'wish' ? 0 : (portrait ? 0.035 : 0.085) * smoothstep(0, 2.5, S.T), fade, fadeC: [0.165, 0.106, 0.302], motion };
+    chroma: 0.006, dirtK: 0.55, sat: 1.05 + bright * 0.05, expo: 1.0 + 0.7 * Math.exp(-Math.max(0, S.T - (S.flashT ?? -99)) * 5), letter: S.phase === 'wish' ? 0 : (portrait ? 0.035 : 0.085) * smoothstep(0, 2.5, S.T), fade, fadeC: [0.165, 0.106, 0.302], motion };
   if (window.__postOverride) Object.assign(F.post, window.__postOverride);
   if (window.__fOverride) window.__fOverride(F);
   return F;

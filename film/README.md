@@ -1,16 +1,17 @@
 # The Memories That Never Fade
 
-A ~92-second, hand-painted-looking 2D anime short that runs in the browser: WebGL2 shaders for the sky, sea,
+A ~97-second, hand-painted-looking 2D anime short that runs in the browser: WebGL2 shaders for the sky, sea,
 light and post-processing, painted multiplane layers, rigged characters with real-time hair and cloth physics,
 fireworks, and a generated score. No 3D models, no three.js.
 
-The story: on a moonlit sea wall after her birthday cake, Helen looks at the sea with Snowki in her lap and Jessi,
-her black Labrador, beside her. Snowki – the teddy a man gave her years ago – notices him hiding behind a
-bougainvillea tree, comes alive and toddles over. A golden flashback shows the day he gave Snowki to her. He kneels,
-picks Snowki up, and they talk in speech bubbles ("Why are you here? Did you come to see her?" – "I came to wish her
-a happy birthday, just like every year."). Helen notices him; they share a small smile. He hands Snowki a gift to
-carry back to her and signals: fireworks rise from far along the beach and "HAPPY BIRTHDAY / HELEN DARLU ❤️" writes
-itself in glowing script. Final line: "Some surprises are not about coming back… They're about remembering."
+The story: on a moonlit sea wall after her birthday cake, Helen sits watching the sea (seen from behind), Snowki
+beside her and Jessi, her black German Shepherd, beside him. Snowki – the teddy a man gave her years ago – turns
+around: the man is hiding behind a big bougainvillea tree. Snowki comes alive and toddles over. A golden flashback
+shows the day he gave Snowki to her. He kneels, lifts Snowki into his arms and they talk in speech bubbles. He gives
+Snowki a gift to carry back to her, looks at her watching the sea, and lights his crate himself: one rocket climbs
+high, cracks, and "HAPPY BIRTHDAY / HELEN DARLU ❤️" appears in the sky. Her face: surprise, excitement, happiness.
+He sees her happy face, smiles and walks away. Final line: "Some surprises are not about coming back… They're
+about remembering."
 
 On the birthday page, Snowki guides her through every step; on the countdown he says hi, asks "Can I call Jessi?",
 and Jessi runs in, does tricks, falls asleep and dreams of Helen in a little cloud.
@@ -38,7 +39,7 @@ film/
   js/world.js             procedurally painted layers (gouache dabs) + sprite atlas, baked once
   js/rigs.js              Helen and the man: 2D skeletal rigs, IK, shaped limbs and hands, Verlet hair/hem; kneel, hold, talk
   js/snowki.js            Snowki, the magical teddy: one rig (26 actions, 12 expressions, springs) for the page and the film
-  js/jessi.js             Jessi, her black Labrador: one side-view rig (run, bark, flip, spin, roll, bow, paw, sit, sleep…) for both
+  js/jessi.js             Jessi, her black German Shepherd: one side-view rig (run, bark, flip, spin, roll, bow, paw, sit, sleep…) for both
   js/physics.js           wind field with travelling gusts, Verlet chains, cloth hem, balloons, springs
   js/particles.js         fireworks + message sampling, golden thread, lanterns, petals, motes, heart
   js/timeline.js          the master timeline: scenes, camera grammar, bullet-time curve

@@ -36,8 +36,8 @@ export default {
     mute: 'Sound off', unmute: 'Sound on'
   },
 
-  // seconds per scene (scene 0 waits for the wish). Total ≈ 92 s.
-  timings: { 1: 10, 2: 7, 3: 9, 4: 7, 5: 13, 6: 9, 7: 14, 8: 7, 9: 16 },
+  // seconds per scene (scene 0 waits for the wish). Total ≈ 97 s.
+  timings: { 1: 10, 2: 7, 3: 9, 4: 7, 5: 13, 6: 8, 7: 12, 8: 9, 9: 8, 10: 14 },
 
   // drop an mp3 here to replace the generated score (waves, wind and firework sounds stay)
   music: '/assets/music.mp3',

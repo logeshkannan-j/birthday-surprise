@@ -145,6 +145,7 @@ export class Snowki {
         P.expr = o.expr || 'happy'; break;
       }
       case 'alert': { const d = o.dir || [1, 0]; P.turn = clamp(d[0], -1, 1) * 0.65; P.nod = clamp(d[1], -1, 1) * 0.3; P.gaze = [clamp(d[0], -1, 1), clamp(d[1], -1, 1) * 0.5]; P.expr = o.expr || 'surprised'; P.squash = -0.04; break; }
+      case 'talk': P.armR = [8 + Math.sin(a * 5) * 3, -6 + Math.sin(a * 7) * 3]; P.palm[1] = true; P.tilt = Math.sin(a * 2.4) * 0.08; P.expr = o.expr || 'smile'; break;
       case 'call': P.armL = [13, -19]; P.armR = [-13, -19]; P.turn = -0.45; P.lean = -0.06; P.expr = 'happy'; P.tilt = -0.06; break;
       case 'shh': P.armR = [-15, -21]; P.expr = 'soft'; P.tilt = 0.12; P.turn = -0.3; break;
       case 'blow': P.lean = dir[0] * 0.1; P.turn = dir[0] * 0.5; P.expr = 'blow'; P.armL = [-6, 18]; P.armR = [6, 18]; break;
@@ -160,7 +161,7 @@ export class Snowki {
     if (ext.vel) this.vel = ext.vel;
     const P = this.pose(), s = this.s; this.P = P;
     s.lift.step(dt, P.lift); s.lean.step(dt, P.lean); const tilt0 = s.tilt.x; s.tilt.step(dt, P.tilt); s.turn.step(dt, P.turn); s.nod.step(dt, P.nod);
-    s.squash.step(dt, P.squash); s.drop.step(dt, P.drop); if (this.name === 'spin' && this.a < 0.9) s.spin.set(P.spin); else s.spin.step(dt, 1); s.magic.step(dt, ext.magic != null ? ext.magic : this.magic);
+    s.squash.step(dt, P.squash); s.drop.step(dt, P.drop); if (this.name === 'spin' && this.a < 0.9) s.spin.set(P.spin); else s.spin.step(dt, this.o.back ? -1 : 1); s.magic.step(dt, ext.magic != null ? ext.magic : this.magic);
     s.armL.step(dt, P.armL); s.armR.step(dt, P.armR); s.legL.step(dt, P.legL); s.legR.step(dt, P.legR); s.gaze.step(dt, P.gaze || this.gaze);
     // ears and bow react to head motion and hops (secondary motion)
     const hv = (s.tilt.x - tilt0) / Math.max(dt, 1e-3), hopV = (P.hop - (this._hop || 0)) / Math.max(dt, 1e-3); this._hop = P.hop;
@@ -186,14 +187,14 @@ export class Snowki {
     const front = s.spin.x >= 0;
     const hipY = -8 - lift, shY = -36 - lift, neckY = -40 - lift, drop = s.drop.x;
     // legs behind the body when standing / flying
-    if (sit < 0.5) this.legs(ctx, hipY, sit);
+    if (sit < 0.5) this.legs(ctx, hipY, sit, front);
     this.body(ctx, lift, front);
-    if (sit >= 0.5) this.legs(ctx, hipY, sit);
+    if (sit >= 0.5) this.legs(ctx, hipY, sit, front);
     // head (with ears), then the bow under the chin
     ctx.save(); ctx.translate(0, neckY + drop); ctx.rotate(s.tilt.x); ctx.translate(0, -neckY - lift);
     this.head(ctx, P, front);
     ctx.restore();
-    this.bow(ctx, neckY + 0.5);
+    if (front) this.bow(ctx, neckY + 0.5);
     // arms (IK from the shoulders), paws, held item
     const sL = [-17.5, shY], sR = [17.5, shY];
     let tL = [sL[0] + s.armL.p[0], sL[1] + s.armL.p[1]], tR = [sR[0] + s.armR.p[0], sR[1] + s.armR.p[1]];
@@ -239,7 +240,7 @@ export class Snowki {
     ctx.restore();
   }
 
-  legs(ctx, hipY, sit) {
+  legs(ctx, hipY, sit, front = true) {
     const C = this.C, s = this.s;
     for (const [side, sp] of [[-1, s.legL], [1, s.legR]]) {
       const hip = [side * 10.5, hipY], foot = sp.p;
@@ -249,7 +250,7 @@ export class Snowki {
       const rx = 9.2, ry = lerp(5.4, 8.6, sit);
       const g = furGrad(ctx, 0, 0, 10, C); ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(0, 0, rx, ry, 0, 0, TAU); ctx.fill();
       ctx.strokeStyle = C.line; ctx.lineWidth = 1; ctx.stroke();
-      if (sit > 0.3) {
+      if (sit > 0.3 && front) {
         ctx.globalAlpha = clamp((sit - 0.3) * 2, 0, 1); ctx.fillStyle = C.pad; ctx.beginPath(); ctx.ellipse(0, 1.6, 5.2, 4.4, 0, 0, TAU); ctx.fill();
         for (const [bx, by] of [[-3.8, -4.2], [0, -5.4], [3.8, -4.2]]) { ctx.beginPath(); ctx.ellipse(bx, by, 1.6, 1.4, 0, 0, TAU); ctx.fill(); }
         ctx.globalAlpha = 1;

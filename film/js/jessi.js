@@ -1,4 +1,4 @@
-// Jessi – her black Labrador (floppy ears, otter tail, pink collar, kind brown eyes). ONE side-view rig used by the birthday page
+// Jessi – her all-black German Shepherd (tall pointed ears, long muzzle, thick neck ruff, long bushy tail, brown eyes). ONE side-view rig used by the birthday page
 // (she runs in, barks, does tricks and falls asleep dreaming of Helen) and by the film (sitting beside Helen).
 // Local units: nose to tail about 80, ear tips about 58 high standing; origin = ground under her body; she faces
 // +x (right). The host flips her with a negative x scale.
@@ -10,7 +10,7 @@ const TAU = Math.PI * 2;
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v), lerp = (a, b, t) => a + (b - a) * t;
 const easeIO = t => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
 
-export const JESSI = { fur: '#2B2932', furD: '#18161D', furL: '#4E4B5C', pale: '#36343F', nose: '#0B0A0E', eye: '#1A1216', inner: '#3A3743', tongue: '#F27C9C', mouth: '#4A1A2C', collar: '#F0559A', tag: '#F2C14E', line: 'rgba(160,152,205,.55)' };
+export const JESSI = { fur: '#211F26', furD: '#111014', furL: '#46434F', pale: '#2C2A33', nose: '#08070A', eye: '#1A1216', inner: '#4A3E4C', tongue: '#F27C9C', mouth: '#4A1A2C', collar: '#F0559A', tag: '#F2C14E', line: 'rgba(160,152,205,.55)' };
 
 class Spring {
   constructor(k, z, x = 0) { this.k = k; this.c = 2 * Math.sqrt(k) * z; this.x = x; this.v = 0; }
@@ -48,14 +48,14 @@ export class Jessi {
   pose() {
     const a = this.a, stand = [[11, 0], [8, 0], [-10, 0], [-13, 0]];
     // tail: absolute direction (radians, canvas convention); 3.6 = up and back, 3.0 = back along the ground
-    const P = { by: -21, pitch: 0, head: 0, mouth: 0, ear: 0, tail: 3.5, wagA: 0.3, wagF: 9, feet: stand, eye: 'open', roll: 0, hop: 0, face: 1, tuck: 0, breathe: 0.6, pant: 0, sit: 0, lie: 0, zz: false };
+    const P = { by: -21, pitch: 0, head: 0, mouth: 0, ear: 0, tail: 2.75, wagA: 0.3, wagF: 9, feet: stand, eye: 'open', roll: 0, hop: 0, face: 1, tuck: 0, breathe: 0.6, pant: 0, sit: 0, lie: 0, zz: false };
     const sitPose = () => { P.sit = 1; P.by = -11.5; P.pitch = -0.82; P.head = 0.62; P.feet = [[10.5, 0], [8, 0], [2, 0], [0, 0]]; P.tail = 3.05; P.wagA = 0.18; };
     const liePose = () => { P.lie = 1; P.by = -8.2; P.pitch = 0.02; P.head = 0.1; P.feet = [[22, -0.6], [19.5, -0.3], [-2, -0.5], [-4.5, -0.3]]; P.tail = 3.0; P.wagA = 0.1; };
     switch (this.name) {
       case 'stand': P.wagA = 0.35; P.pant = 0.4; break;
       case 'happy': sitPose(); P.wagA = 0.4; P.wagF = 13; P.pant = 1; P.eye = 'happy'; break;
       case 'run': {
-        const ph = this.ph, b = Math.abs(Math.sin(ph)); P.by = -21 - b * 3.4; P.pitch = Math.sin(ph) * 0.12; P.head = -0.08 + Math.sin(ph) * 0.06; P.ear = 0.7; P.tail = 3.2; P.wagA = 0.12; P.pant = 1;
+        const ph = this.ph, b = Math.abs(Math.sin(ph)); P.by = -21 - b * 3.4; P.pitch = Math.sin(ph) * 0.12; P.head = -0.08 + Math.sin(ph) * 0.06; P.ear = 0.7; P.tail = 3.05; P.wagA = 0.12; P.pant = 1;
         const st = (x0, p) => [x0 + Math.cos(p) * 8, -Math.max(0, Math.sin(p)) * 6];
         P.feet = [st(12, ph), st(9, ph + 0.5), st(-11, ph + Math.PI), st(-14, ph + Math.PI + 0.5)]; break;
       }
@@ -119,6 +119,7 @@ export class Jessi {
     const body = smooth([[12, -10.5 + X.br * 0.2], [2, -11.6], [-8, -11], [-15.5, -8], [-19, -2], [-18, 5], [-12, 9.6], [-3, 10 + X.br * 0.4], [7, 10.4 + X.br * 0.4], [14, 9.4], [18.5, 3], [17.5, -5]].map(q => B(q[0], q[1])));
     const bb = B(0, -12), bt = B(0, 11), g = ctx.createLinearGradient(bb[0], bb[1], bt[0], bt[1]); g.addColorStop(0, C.furD); g.addColorStop(0.45, C.fur); g.addColorStop(1, C.furL);
     ctx.fillStyle = g; ctx.fill(body); ctx.strokeStyle = C.line; ctx.lineWidth = 0.9; ctx.stroke(body);
+    { ctx.strokeStyle = C.fur; ctx.lineWidth = 1.4; ctx.beginPath(); for (let i = 0; i < 9; i++) { const a = B(13 + i * 0.9, -9 + i * 2.2), b = B(15.6 + i * 0.9 + (i % 2) * 0.8, -8 + i * 2.4); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); } ctx.stroke(); }   // neck ruff
     ctx.save(); ctx.clip(body); ctx.strokeStyle = 'rgba(170,165,215,.22)'; ctx.lineWidth = 2.2; ctx.beginPath(); { const a = B(-14, -9.6), b = B(0, -10.6), c = B(11, -9.2); ctx.moveTo(a[0], a[1]); ctx.quadraticCurveTo(b[0], b[1] - 0.6, c[0], c[1]); } ctx.stroke(); ctx.restore();
     const chest = smooth([[17.8, -3], [18.4, 3.5], [13.5, 9.6], [6, 10.2], [8, 3.5], [12.5, -2]].map(q => B(q[0], q[1])));
     ctx.fillStyle = C.pale; ctx.globalAlpha = 0.9; ctx.fill(chest); ctx.globalAlpha = 1;
@@ -154,22 +155,23 @@ export class Jessi {
   tail(ctx, B, X) {
     const C = this.C, s = this.s, base = B(-16.5, -6), w = Math.sin(this.wag) * s.wagA.x, ang = s.tail.x + w;
     // a fluffy plume that curls up at the end, swelling then tapering to a pale tip
-    const L = 19, pts = [base], N = 8, up = s.tail.x > 3.3 ? 0.35 : 0.15;
+    const L = 24, pts = [base], N = 9, up = s.tail.x > 3.3 ? 0.55 : 0.3;
     for (let i = 1; i <= N; i++) { const u = i / N, a = ang + u * (0.75 * up + w * 0.4); pts.push([pts[i - 1][0] + Math.cos(a) * L / N, pts[i - 1][1] + Math.sin(a) * L / N]); }
-    const wd = u => lerp(6.4, 1.6, Math.pow(u, 0.9)), Lp = [], Rp = [];
+    const wd = u => (u < 0.35 ? lerp(5.5, 10, u / 0.35) : lerp(10, 2.4, (u - 0.35) / 0.65)), Lp = [], Rp = [];
     for (let i = 0; i <= N; i++) { const a0 = pts[Math.max(0, i - 1)], a1 = pts[Math.min(N, i + 1)], dx = a1[0] - a0[0], dy = a1[1] - a0[1], l = Math.hypot(dx, dy) || 1, ww = wd(i / N) / 2; Lp.push([pts[i][0] - dy / l * ww, pts[i][1] + dx / l * ww]); Rp.push([pts[i][0] + dy / l * ww, pts[i][1] - dx / l * ww]); }
     const path = smooth(Lp.concat(Rp.reverse()));
     const g = ctx.createLinearGradient(base[0], base[1], pts[N][0], pts[N][1]); g.addColorStop(0, C.furD); g.addColorStop(0.55, C.fur); g.addColorStop(1, C.pale);
     ctx.fillStyle = g; ctx.fill(path); ctx.strokeStyle = C.line; ctx.lineWidth = 0.8; ctx.stroke(path);
     ctx.strokeStyle = 'rgba(255,255,255,.2)'; ctx.lineWidth = 0.7; ctx.beginPath(); for (let i = 2; i < N; i += 2) { ctx.moveTo(pts[i][0], pts[i][1]); ctx.lineTo(pts[i + 1][0], pts[i + 1][1]); } ctx.stroke();
+    ctx.strokeStyle = C.fur; ctx.lineWidth = 1.2; ctx.beginPath(); for (let i = 2; i < N; i++) for (const P of [Lp[i], Rp[N - i]]) { const c = pts[i], dx = P[0] - c[0], dy = P[1] - c[1]; if (i % 2) continue; ctx.moveTo(P[0] - dx * 0.2, P[1] - dy * 0.2); ctx.lineTo(P[0] + dx * 0.12 - dy * 0.06, P[1] + dy * 0.12 + dx * 0.06); } ctx.stroke();   // a fluffy edge
   }
 
   head(ctx, H, X) {
     const C = this.C, s = this.s, P = this.P, mo = s.mouth.x, ear = s.ear.x, k = HS;
-    // soft floppy ears hanging beside the head; they lift and flap back when she runs
-    const earPath = (dx, back) => { const piv = [6 + dx, -16.5], r = q => { const d = rot([q[0] + dx - piv[0], q[1] - piv[1]], -back * 0.7); return H(piv[0] + d[0], piv[1] + d[1]); };
-      return [smooth([r([3.6, -17]), r([8.6, -18]), r([10.4, -14.5]), r([9.6, -8.2]), r([7.2, -5.6]), r([4.8, -7.4]), r([3.4, -12])]), r]; };
-    { const [p] = earPath(-3.2, ear); ctx.fillStyle = C.furD; ctx.fill(p); ctx.strokeStyle = C.line; ctx.lineWidth = 0.6; ctx.stroke(p); }
+    // tall pointed ears standing up; they fold back when she runs or sleeps
+    const earPath = (bx0, bx1, tipX, tipY, back) => { const piv = [(bx0 + bx1) / 2, -17.5], r = q => { const d = rot([q[0] - piv[0], q[1] - piv[1]], -back * 0.9); return H(piv[0] + d[0], piv[1] + d[1]); };
+      return [smooth([r([bx0, -16]), r([bx0 + 0.4, -23]), r([tipX - 0.8, tipY + 1.6]), r([tipX, tipY]), r([tipX + 1.2, tipY + 2.0]), r([bx1, -22.5]), r([bx1, -16.5])]), r]; };
+    { const [p] = earPath(-0.4, 5.6, 0.4, -31.5, ear); ctx.fillStyle = C.furD; ctx.fill(p); ctx.strokeStyle = C.line; ctx.lineWidth = 0.7; ctx.stroke(p); }
     // round puppy skull
     const skull = smooth([[0.5, -14.5], [6, -19.5], [12.5, -18.5], [16.5, -13.5], [17, -8.5], [13.5, -3.2], [7, -1.4], [1, -3.6], [-1.6, -9.5]].map(q => H(q[0], q[1])));
     const hc = H(8.5, -11), g = ctx.createRadialGradient(hc[0] - 3, hc[1] - 4, 1, hc[0], hc[1], 13 * k); g.addColorStop(0, C.furL); g.addColorStop(0.55, C.fur); g.addColorStop(1, C.furD);
@@ -202,8 +204,10 @@ export class Jessi {
       ctx.beginPath(); ctx.arc(e[0] + gx - 1.0, e[1] + gy + 1.2, 0.5 * big, 0, TAU); ctx.fill();
     }
     // near ear – perks up, folds back when she runs or sleeps
-    { const [p] = earPath(0.4, ear); const g2 = ctx.createLinearGradient(...H(7, -18), ...H(7, -6)); g2.addColorStop(0, C.furL); g2.addColorStop(0.4, C.fur); g2.addColorStop(1, C.furD);
-      ctx.fillStyle = g2; ctx.fill(p); ctx.strokeStyle = C.line; ctx.lineWidth = 0.7; ctx.stroke(p); }
+    { const [p, r] = earPath(4.6, 12.2, 7.6, -33.2, ear); const g2 = ctx.createLinearGradient(...H(8, -17), ...H(7.5, -32)); g2.addColorStop(0, C.fur); g2.addColorStop(1, C.furD);
+      ctx.fillStyle = g2; ctx.fill(p); ctx.strokeStyle = C.line; ctx.lineWidth = 0.8; ctx.stroke(p);
+      ctx.fillStyle = C.inner; ctx.fill(smooth([r([6.6, -17.6]), r([7.1, -23.5]), r([7.8, -28.6]), r([9.2, -23.8]), r([10.6, -18])]));
+      ctx.strokeStyle = 'rgba(120,110,140,.5)'; ctx.lineWidth = 0.5; ctx.beginPath(); for (let i = 0; i < 4; i++) { const a = r([7.4 + i * 0.7, -18.5]), b = r([7.6 + i * 0.4, -22 - i * 0.6]); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); } ctx.stroke(); }
     ctx.strokeStyle = C.furL; ctx.lineWidth = 0.9; ctx.beginPath(); for (let i = 0; i < 4; i++) { const a = H(3.5 + i * 1.6, -2.8 + Math.sin(i) * 0.4), b = H(2.6 + i * 1.6, -0.6); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); } ctx.stroke();
   }
 
