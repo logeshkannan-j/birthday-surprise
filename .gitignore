@@ -6,3 +6,7 @@ memories/
 
 # reference video (private, not for the site)
 ref/
+
+# API keys for the clip generator
+.env
+film/tools/.env

@@ -19,6 +19,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url)), OUT = path.join(HERE, '..', 'clips');
+// keys can live in film/tools/.env (KEY=value lines; ignored by git and never deployed)
+try { for (const line of fs.readFileSync(path.join(HERE, '.env'), 'utf8').split('\n')) { const m = /^\s*([A-Z_]+)\s*=\s*(.*?)\s*$/.exec(line); if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["']|["']$/g, ''); } } catch (e) {}
 const args = process.argv.slice(2), opt = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i + 1] : d; };
 const provider = opt('provider', 'seedance'), resolution = opt('resolution', '720p'), dry = args.includes('--dry');
 const refs = []; args.forEach((a, i) => { if (a === '--ref') { const [name, p] = args[i + 1].split('='); refs.push({ name, path: p }); } });
