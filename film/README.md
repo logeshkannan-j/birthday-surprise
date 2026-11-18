@@ -1,17 +1,25 @@
 # The Memories That Never Fade
 
-A ~97-second, hand-painted-looking 2D anime short that runs in the browser: WebGL2 shaders for the sky, sea,
+A ~114-second, hand-painted-looking 2D anime short that runs in the browser: WebGL2 shaders for the sky, sea,
 light and post-processing, painted multiplane layers, rigged characters with real-time hair and cloth physics,
-fireworks, and a generated score. No 3D models, no three.js.
+background people on the promenade, fireworks, and a generated score. No 3D models, no three.js.
 
-The story: on a moonlit sea wall after her birthday cake, Helen sits watching the sea (seen from behind), Snowki
-beside her and Jessi, her black German Shepherd, beside him. Snowki – the teddy a man gave her years ago – turns
-around: the man is hiding behind a big bougainvillea tree. Snowki comes alive and toddles over. A golden flashback
-shows the day he gave Snowki to her. He kneels, lifts Snowki into his arms and they talk in speech bubbles. He gives
-Snowki a gift to carry back to her, looks at her watching the sea, and lights his crate himself: one rocket climbs
-high, cracks, and "HAPPY BIRTHDAY / HELEN DARLU ❤️" appears in the sky. Her face: surprise, excitement, happiness.
-He sees her happy face, smiles and walks away. Final line: "Some surprises are not about coming back… They're
-about remembering."
+The story (nine scenes after the wish): on a moonlit sea wall after her birthday cake, Helen sits watching the sea
+(seen from behind) – Snowki beside her, Jessi, her black German Shepherd puppy, beside him, the cake, presents and
+balloons on the wall, people strolling far away. Jessi notices someone first (ears up, she turns to the big
+bougainvillea tree); Snowki turns too – the man who gave him to Helen years ago is peeking from behind the trunk, and
+Snowki recognises him (the main emotional beat: wide eyes, a hug of remembering, motes of light). The man steps out;
+Snowki hops down and toddles, glides by magic and toddles again all the way to him, Jessi trotting behind. A real
+animated flashback at golden hour shows the day he gave little Snowki to her: he walks in holding him, offers him with
+both hands, she takes him with both hands, smiles and hugs him. He kneels, cradles Snowki, and they talk in cinematic
+subtitles. He gives Snowki a gift and sets him down; Snowki and Jessi go back to her – and following them she slowly
+notices him: her head turns, then her shoulders; she recognises him and gives a small, gentle smile; he smiles back.
+He lights the long fuse himself at a safe distance: the spark runs to the launcher, a shell climbs on a golden trail,
+cracks, and "HAPPY BIRTHDAY / HELEN DARLU ❤️" appears in the sky with more bursts reflected in the sea; Snowki is back
+in her arms. Her face: surprise, excitement, happiness. The end is one composition with all four: she watches the
+sky with Snowki in her arms, Jessi beside her, the man at a respectful distance; she turns and gives him one last
+gentle smile, he smiles back; a slow pull back, a gentle fade, and the words "Happy Birthday Helen Darlu ❤️" and
+"Some memories never fade, and some smiles are worth surprising every year."
 
 On the birthday page, Snowki guides her through every step; on the countdown he says hi, asks "Can I call Jessi?",
 and Jessi runs in, does tricks, falls asleep and dreams of Helen in a little cloud.
@@ -37,17 +45,20 @@ film/
   js/core.js              easing, randomness, simplex + curl noise, colours
   js/space.js             world space, positions, the multiplane camera projection
   js/world.js             procedurally painted layers (gouache dabs) + sprite atlas, baked once
-  js/rigs.js              Helen and the man: 2D skeletal rigs, IK, shaped limbs and hands, Verlet hair/hem; kneel, hold, talk
+  js/rigs.js              Helen (front + back view, slow head/body turn, cradle, standing poses for the flashback) and the man
+                          (hide, peek, walk, walkHold, offer, kneel, cradle, talk): 2D skeletal rigs, IK, hands, Verlet hair/hem
   js/snowki.js            Snowki, the magical teddy: one rig (26 actions, 12 expressions, springs) for the page and the film
-  js/jessi.js             Jessi, her black German Shepherd: one side-view rig (run, bark, flip, spin, roll, bow, paw, sit, sleep…) for both
+  js/jessi.js             Jessi, her black German Shepherd puppy: one side-view rig (walk, run, alert, sit, bark, flip, …) for both
   js/physics.js           wind field with travelling gusts, Verlet chains, cloth hem, balloons, springs
-  js/particles.js         fireworks + message sampling, golden thread, lanterns, petals, motes, heart
+  js/particles.js         fireworks (launcher, fuse, shells, bursts, sea reflections), petals, motes, heart
+  js/crowd.js             background people on the promenade (couples, joggers, a family, the chai cart…), a pure function of time
   js/timeline.js          the master timeline: scenes, camera grammar, bullet-time curve
   js/audio.js             generated score, waves, wind, whoosh, boom, crackle, heartbeat
   js/shaders.js           GLSL: sky, sea, layers, characters, sprites, bloom, rays, flare, grade, Kuwahara
   js/renderer-gl.js       WebGL2 renderer + post chain
   js/renderer-2d.js       Canvas2D fallback when WebGL2 is missing
-  js/film.js              orchestration, scenes' events, input, quality tiers, test API
+  js/film.js              orchestration: places and paths (the man, Snowki, Jessi), scenes' events, camera anchors,
+                          subtitles, the golden-hour flashback (#mem canvas), quality tiers, test API
   clips/clips.json        optional AI clips per scene (written by the tool below)
   tools/generate-clips.mjs + clip-prompts.json   Seedance 2.5 / Veo 3.1 clip generator (not deployed)
 ../guide.js               Snowki guiding her through the birthday page (index.html calls Guide.step(n) / Guide.on(event))
@@ -59,7 +70,7 @@ All in `film/config.js`:
 
 - **Name**: `recipient: 'Helen Darlu'`. The sky spells it in capitals; the final line uses it as written.
   (The birthday page itself still uses `CONFIG.to` in `index.html` – change both if you rename.)
-- **Text**: `text.subtitles` (by scene), `text.dialogue` (speech bubbles), `text.skyMessage` (the glowing script
+- **Text**: `text.subtitles` (by scene), `text.dialogue` (the conversation, shown as bottom subtitles), `text.skyMessage` (the glowing script
   message over the fireworks), `text.finalLines`, button labels.
 - **Timings**: `timings` – seconds per scene. Events inside a scene keep their positions relative to its start.
 - **Music**: put an mp3 at `/assets/music.mp3` (or change `music`). It replaces the generated score; waves, wind
@@ -68,8 +79,10 @@ All in `film/config.js`:
   replaces the drawn rig (it still gets lighting, shadows, depth of field and breathing; the built-in rigs are
   the ones with hair and cloth physics).
 - **Snowki on the page**: what he does and says on each step is the `STEPS` / `EVENTS` table near the top of
-  `guide.js`; tap reactions are `TAPS`. In the film his flight path is `snowKeys()` in `js/film.js` and his
-  actions are the `sn…` events in `js/timeline.js`.
+  `guide.js`; tap reactions are `TAPS`. In the film his path is `snowKeys()` in `js/film.js` (modes side / fly /
+  walk / glide / stand / held / lap) and his actions are the `sn…` events in `js/timeline.js`. The man's path is
+  `boyAt()`, Jessi's `jessiAt()` (she trails Snowki in scene 3 and leads him home in scene 6); the flashback is
+  `drawMemory()` with its own camera keys `memCam`.
 - **Quality**: `quality: 'auto'` picks high / medium / low from the device and a frame-time test; force one with
   `'high'` etc. or `?q=low` in the URL. `?force2d` forces the Canvas2D fallback.
 
@@ -115,8 +128,12 @@ HeyGen makes talking-avatar videos. The story's rule is that he never speaks, so
 - **Snowki** is drawn procedurally (gradient fur, fuzzy edge strokes, glossy eyes) and animated with springs, so
   every move eases and overshoots a little; there are no sprite sheets.
 - **Canvas2D fallback** keeps the whole story but has no shaders or post-processing (night is a dimming filter).
+- **The flashback** is drawn on its own Canvas2D layer (`#mem`) with the same rigs; the night scene is not rendered while it fully covers the screen.
+- **Background people** are simple 2D figures; far ones redraw at half rate (their quads still move every frame).
+- **Phone portrait** is too narrow for some landscape compositions: there the over-the-shoulder shot in scene 6 follows Snowki home instead, the sky shot of the fireworks shows the launcher end of the promenade, and the moon is out of frame in the final pull back.
 - Tested in desktop Chrome at desktop and phone sizes (WebGL2 and the 2D fallback); not yet on a real iPhone.
 
 ## Test hooks
 
-`/film/?t=55` starts at 55 s; in the console `__film.seek(t)`, `__film.skip()`, `__film.state`.
+`/film/?t=55` starts at 55 s; in the console `__film.seek(t)`, `__film.skip()`, `__film.state`, `__film.boy()`,
+`__film.jessiAt(t)`, `__film.snowAt(t)`, `__film.anchor(name, portrait)`.

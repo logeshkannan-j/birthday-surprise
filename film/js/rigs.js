@@ -28,7 +28,10 @@ function capsule(a, b, w1, w2) {
   p.arc(a[0], a[1], w1 / 2, Math.atan2(-ny, -nx), Math.atan2(-ny, -nx) + Math.PI, true); p.closePath(); return p;
 }
 const ell = (x, y, rx, ry, r = 0) => { const p = new Path2D(); p.ellipse(x, y, rx, ry, r, 0, 7); return p; };
-const hx = c => { const n = parseInt(c.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; };
+// point at u along a -> b, pushed n units along the normal (-dy, dx); smoothstep on 0..1
+const mid = (a, b, u = 0.5, n = 0) => { const dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1; return [a[0] + dx * u - dy / l * n, a[1] + dy * u + dx / l * n]; };
+const ss = x => { x = clamp(x, 0, 1); return x * x * (3 - 2 * x); };
+const hx = c => { if (c[0] !== '#') return c.match(/[\d.]+/g).slice(0, 3).map(Number); const n = parseInt(c.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; };   // '#rrggbb' or 'rgb(r,g,b)'
 const mixc = (a, b, t) => { const A = hx(a), B = hx(b); return `rgb(${Math.round(A[0] + (B[0] - A[0]) * t)},${Math.round(A[1] + (B[1] - A[1]) * t)},${Math.round(A[2] + (B[2] - A[2]) * t)})`; };
 const rgba = (c, a) => { const v = hx(c); return `rgba(${v[0]},${v[1]},${v[2]},${a})`; };
 // soft cel shading: lit side warm, shade side cool, thin warm outline. Light comes from the upper left (the low sun).
@@ -64,7 +67,8 @@ function limbPath(a, b, c, prof) {
     return [dx / l, dy / l];
   };
   const d0 = seg(a, b, 0, 0.5, prof[0], prof[1], prof[2], 4), d1 = seg(b, c, 0.5, 1, prof[2], prof[3], prof[4], 4);
-  const cap = (p, d, w, k) => { const out = []; for (let i = 1; i < 4; i++) { const an = Math.atan2(d[1], d[0]) + (k ? -Math.PI / 2 + i * Math.PI / 4 : Math.PI / 2 + i * Math.PI / 4); out.push([p[0] + Math.cos(an) * w / 2, p[1] + Math.sin(an) * w / 2]); } return out; };
+  // round end caps, walked from the L side to the R side (end) and back (start) so the outline never loops on itself
+  const cap = (p, d, w, k) => { const out = []; for (let i = 1; i < 4; i++) { const an = Math.atan2(d[1], d[0]) + (k ? Math.PI / 2 - i * Math.PI / 4 : -Math.PI / 2 - i * Math.PI / 4); out.push([p[0] + Math.cos(an) * w / 2, p[1] + Math.sin(an) * w / 2]); } return out; };
   return smooth(L.concat(cap(c, d1, prof[4], true), R.reverse(), cap(a, d0, prof[0], false)), true);
 }
 function limb(ctx, a, b, c, prof, base, out, o = {}) {
@@ -86,6 +90,17 @@ function hand2(ctx, wrist, dir, skin, s, out, side = 1, curl = 0.3) {
   cel(ctx, palm, skin, -0.4, 2.5, { lw: 0.08, lc: out });
   const th = new Path2D(); th.moveTo(0.5, -0.75); th.quadraticCurveTo(1.2, -1.55, 1.95, -1.45);
   ctx.lineWidth = 0.62; ctx.strokeStyle = out; ctx.stroke(th); ctx.lineWidth = 0.46; ctx.strokeStyle = skin; ctx.stroke(th);
+  ctx.restore();
+}
+
+// a palm-up hand seen from the side, cupped to carry something: fingers out along dir, tips curling up, thumb on top.
+// "Up" (the open side of the palm) is always screen-up, whichever way the forearm points.
+function cupHand(ctx, wrist, dir, skin, s, out) {
+  const ang = Math.atan2(dir[1], dir[0]), fy = Math.cos(ang) < 0 ? -1 : 1;
+  ctx.save(); ctx.translate(wrist[0], wrist[1]); ctx.rotate(ang); ctx.scale(s, s * fy);
+  cel(ctx, P2('M-0.3 -0.75 C0.8 -0.95 1.9 -0.8 2.6 -0.62 C3.3 -0.5 3.9 -0.62 4.25 -1.15 C4.45 -0.6 4.2 0.2 3.5 0.5 C2.5 0.85 1.0 0.95 -0.3 0.78 C-0.6 0.3 -0.6 -0.35 -0.3 -0.75 Z'), skin, -0.5, 4.3, { lw: 0.09, lc: out });
+  line(ctx, P2('M2.75 -0.25 Q3.45 -0.1 3.95 -0.6'), rgba(mixc(skin, '#5A2632', 0.6), 0.6), 0.08); line(ctx, P2('M2.6 0.2 Q3.3 0.38 3.75 -0.05'), rgba(mixc(skin, '#5A2632', 0.6), 0.5), 0.08);
+  const th = P2('M0.5 -0.7 Q1.25 -1.5 2.15 -1.2'); ctx.lineWidth = 0.62; ctx.strokeStyle = out; ctx.stroke(th); ctx.lineWidth = 0.46; ctx.strokeStyle = skin; ctx.stroke(th);
   ctx.restore();
 }
 
@@ -137,7 +152,14 @@ function sneaker(ctx, ax, ay, C) {
 // =====================================================================================  HELEN (seated on the sea wall)
 const HC = { skin: '#CF8E68', skinD: '#A9664A', hair: '#1A1220', hairHi: '#4E3F6A', sheen: '#A595D0', dress: '#9CCBF2', dressD: '#6FA0D8', dressL: '#D2E9FC',
   collar: '#C9E3FA', sash: '#7FB2EA', sashD: '#5A8FD0', shoe: '#FBFBFF', print: '#FFFFFF', lip: '#B5505A', blush: '#F27E90', iris: '#5A2E1C', irisL: '#E2A060', lash: '#1E1015', out: 'rgba(110,50,60,.75)' };
+// the flashback poses (front view, standing): [elbow, wrist] per arm (near = her right arm, screen left), the teddy's
+// seat p, finger curl, palm-up cupped hands, head tilt toward the teddy
+const STAND_POSES = {
+  standReceive: { near: [[-3.6, -16.6], [6.4, -15.2]], far: [[5.0, -17.4], [11.2, -15.8]], p: [10.6, -16.5], curl: [0.4, 0.4], cup: true, tilt: 0.04 },
+  standHug: { near: [[-8.6, -14.6], [2.6, -12.8]], far: [[9.6, -16.4], [0.2, -17.6]], p: [2.6, -13.2], curl: [0.85, 0.85], cup: false, tilt: 0.12, farOver: true }
+};
 export class Helen {
+  static STAND_GROUND = 32.4;   // standing (st.stand): the soles of her sneakers, in her units (seated: the seat is y = 0)
   constructor() {
     this.hair = []; for (let i = 0; i < 9; i++) this.hair.push(new Chain(9, 3.5 + (i % 3) * 0.25, { drag: 1.5, grav: 300, bend: 0.8, iter: 4, lift: 0.03 }));
     this.locks = [new Chain(6, 2.9, { drag: 2.4, grav: 240, bend: 0.8 }), new Chain(6, 3.0, { drag: 2.4, grav: 240, bend: 0.8 })];
@@ -146,10 +168,29 @@ export class Helen {
     this.hem = new Hem(9, { drag: 3.2, grav: 200, stiff: 0.3 });
     this.blinkT = 2; this.blink = 0; this.look = new Spring(30, 9); this.laugh = new Spring(16, 7); this.turnS = new Spring(22, 8.5); this.gzS = new Spring(70, 14); this.hcS = new Spring(20, 8); this.huS = new Spring(26, 9); this.hu = 0;
     this.bounds = [-34, -56, 40, 36]; this.tn = 0; this.gz = 0; this.hc = 0;
+    // back view: per-lock breeze sway, head / body turn and smile (springs, so a stepped st value still moves softly)
+    this.bk = { sw: Array.from({ length: 9 }, () => new Spring(24, 4.4)), ht: new Spring(14, 7.4), bt: new Spring(10, 6.2), sm: new Spring(14, 7.2) };
+    this.ht = 0; this.bt = 0; this.sm = 0; this.thS = new Spring(14, 7.2); this.th = 0;
   }
-  // st: { t, dt, wind (local units/s), expr: calm|joyful|surprised|teary, lookUp 0..1, pet: [lx,ly]|null, eyeLights }
+  // st: { t, dt, wind (local units/s), expr: calm|smile|joyful|surprised|teary|closed, lookUp 0..1, pet: [lx,ly]|null, eyeLights,
+  //       back: true = seen from behind, sitting on the wall facing the sea (drawBack)
+  //       headTurn 0..1, bodyTurn 0..1, turnDir +1|-1, smile 0..1   (back view: turning toward someone on her right (+1) / left (-1);
+  //            headTurn 1 = lost profile (cheek line, lashes, a hint of nose), bodyTurn adds a little shoulder turn; smile shows on the cheek)
+  //       cradle: fn(ctx, p, o) – Snowki held in her lap / arms, both views (replaces st.lap). The callback translates to p = [x, y]
+  //            (his seat, Helen units) and scales by SN * o.s (o.s = 0.72: a little smaller than beside her, so he sits in her lap);
+  //            o.back = true when she is drawn from behind. Drawing him FACING US reads best in both views (from behind his face peeks
+  //            out beside her right arm; her forearm lies across him, her hand on his side). Her arms are posed for it automatically.
+  //       stand: true + pose 'standReceive' | 'standHug' + held: fn(ctx, p, o) (same contract, o.s = 0.72) – the flashback, standing,
+  //            facing screen right; her soles are at y = +32.4 (Helen.STAND_GROUND). See standArms().
+  //       headTilt (front view, radians, + = toward screen right); front view also: turn -1..1 (+ = toward screen right), gaze -1..1,
+  //            handChest, handsUp, armT: [[x,y],[x,y]] }
   update(st) {
     const dt = st.dt, t = st.t;
+    { const B = this.bk, h = clamp(dt, 0, 0.05), wv = clamp((st.wind || 0) * 0.011, -2.2, 2.2);
+      this.ht = B.ht.step(h, clamp(st.headTurn || 0, 0, 1)); this.bt = B.bt.step(h, clamp(st.bodyTurn || 0, 0, 1));
+      this.sm = B.sm.step(h, clamp(st.smile != null ? st.smile : st.expr === 'smile' || st.expr === 'joyful' ? 1 : 0, 0, 1));
+      B.sw.forEach((s, i) => s.step(h, wv * (0.55 + 0.45 * noise2(i * 0.73, t * 0.45 + i * 1.7))));
+      this.th = this.thS.step(h, st.stand && STAND_POSES[st.pose] ? STAND_POSES[st.pose].tilt : st.headTilt || 0); }
     this.blinkT -= dt; if (this.blinkT < 0) { this.blink = 0.14; this.blinkT = 2.2 + Math.random() * 3.4; } this.blink = Math.max(0, this.blink - dt);
     const lu = this.look.step(dt, st.lookUp || 0), la = this.laugh.step(dt, st.expr === 'joyful' ? 1 : 0);
     this.tn = this.turnS.step(dt, st.turn || 0); this.gz = this.gzS.step(dt, st.gaze != null ? st.gaze : (st.turn || 0)); this.hc = this.hcS.step(dt, st.handChest || 0); this.hu = this.huS.step(dt, st.handsUp || 0);
@@ -158,9 +199,17 @@ export class Helen {
     const roots = [];
     for (let i = 0; i < 9; i++) { const a = -2.55 + i * 0.2; roots.push(head.p(0.4 + Math.cos(a) * 5.4, -38.6 + Math.sin(a) * 5.6)); }
     const col = st.back ? (c, i) => { if (c.y[i] > -4) c.y[i] = -4; } : (c, i) => { const x = c.x[i], y = c.y[i]; if (y > -27 && y < 0 && x > -6.2 && x < 6.6) { c.x[i] = x < 0.2 ? Math.min(x, -6.2) : Math.max(x, 6.6); } if (y > 2) c.y[i] = 2; };
-    this.hair.forEach((c, i) => c.step(dt, roots[i][0], roots[i][1], w * 0.45, t + i * 0.3, col));   // long hair: heavy, sways rather than flies
+    // long hair: heavy, sways rather than flies. On the first frame and whenever the view flips (back <-> front: a cut), the
+    // strands are settled into the new pose without inertia – otherwise the collision would fling them out like wings.
+    const settle = this.lastBack !== !!st.back; this.lastBack = !!st.back;
+    for (let it = 0, n = settle ? 36 : 1; it < n; it++) {
+      this.hair.forEach((c, i) => c.step(settle ? 1 / 60 : dt, roots[i][0], roots[i][1], w * 0.45, t + i * 0.3, col));
+      if (settle) this.hair.forEach(c => { c.px.set(c.x); c.py.set(c.y); });
+    }
     const l0 = head.p(-5.3, -39.8), l1 = head.p(6.1, -39.6);
-    this.locks[0].step(dt, l0[0], l0[1], w * 0.6, t); this.locks[1].step(dt, l1[0], l1[1], w * 0.6, t + 1);
+    { const f = this.tn * 1.3;   // the side-locks frame her face: they never swing across it
+      this.locks[0].step(dt, l0[0], l0[1], w * 0.6, t, (c, i) => { const y = c.y[i], lim = (y < -31 ? -5.4 : -4.7) + f; if (y < -26 && c.x[i] > lim) c.x[i] = lim; });
+      this.locks[1].step(dt, l1[0], l1[1], w * 0.6, t + 1, (c, i) => { const y = c.y[i], lim = (y < -31 ? 6.4 : 5.6) + f; if (y < -26 && c.x[i] < lim) c.x[i] = lim; }); }
     const bw = head.p(-5.4, -43.6); this.bowT[0].step(dt, bw[0], bw[1], w, t + 2); this.bowT[1].step(dt, bw[0] + 0.3, bw[1] + 0.2, w, t + 2.5);
     this.sashT[0].step(dt, 6.6, -11.4, w * 0.8, t + 3); this.sashT[1].step(dt, 6.9, -11.2, w * 0.8, t + 3.4);
     const anch = [], rest = [];
@@ -170,7 +219,7 @@ export class Helen {
   }
   headXf(t, lu, la, tn = 0) {
     const piv = [0.6, -29.6], bob = -Math.abs(Math.sin(t * 9)) * 0.55 * la + Math.sin(t * 1.6) * 0.15;
-    const ang = -0.17 * lu + 0.05 * la * Math.sin(t * 9) + Math.sin(t * 0.8) * 0.015 - 0.04 * la + tn * 0.07;
+    const ang = -0.17 * lu + 0.05 * la * Math.sin(t * 9) + Math.sin(t * 0.8) * 0.015 - 0.04 * la + tn * 0.07 + (this.th || 0);
     const c = Math.cos(ang), s = Math.sin(ang);
     return { ang, bob, p: (x, y) => { const dx = x - piv[0], dy = y - piv[1]; return [piv[0] + dx * c - dy * s, piv[1] + bob + dx * s + dy * c]; }, apply(ctx) { ctx.translate(piv[0], piv[1] + bob); ctx.rotate(ang); ctx.translate(-piv[0], -piv[1]); } };
   }
@@ -237,76 +286,213 @@ export class Helen {
     ctx.restore();
     // ---- Snowki in her lap (drawn by the film with his own rig, so he is the same teddy when he comes alive)
     if (st.lap) st.lap(ctx);
+    if (st.cradle && !st.stand) st.cradle(ctx, [-4.6, -3.0], { back: false, s: 0.72 });   // on her thighs, held in both arms (see the arms below)
     // ---- head
     ctx.save(); head.apply(ctx);
     this.drawHead(ctx, st);
     ctx.restore();
     // front side-locks (simulated) over the shoulders
-    for (const c of this.locks) { const pts = []; for (let i = 0; i < c.n; i++) pts.push([c.x[i], c.y[i]]); cel(ctx, ribbon(pts, pts.map((_, i) => 2.2 * (1 - i / c.n * 0.6))).path, C.hair, -6, 8, { line: false, shade: '#000000' }); line(ctx, smooth(pts, false), rgba(C.hairHi, 0.6), 0.25); }
+    for (const c of this.locks) { const pts = []; for (let i = 0; i < c.n; i++) pts.push([c.x[i], c.y[i]]); cel(ctx, ribbon(pts, pts.map((_, i) => 1.9 * (1 - i / (c.n - 1) * 0.85))).path, C.hair, -6, 8, { line: false, shade: '#000000' }); line(ctx, smooth(pts.slice(0, -1), false), rgba(C.hairHi, 0.45), 0.2); }
     // ---- arms: left hugs Snowki, right pets Jessi (IK) or meets the other hand in wonder
     const sL = [-7.0, -25.2 + breathe * 0.5], sR = [7.4, -25.2 + breathe * 0.5];
-    let aL = st.lap ? [sL, [-11.4, -16.6], [-9.0, -10.8]] : ik(sL, [-6.4, -3.6], 10.8, 9.8, 1);
-    let aR = st.pet ? ik(sR, st.pet, 10.8, 9.8, 1) : st.lap ? [sR, [10.0, -16.0], [3.4, -9.8]] : ik(sR, [-2.2, -5.0], 10.8, 9.8, -1);
+    const crd = st.cradle && !st.stand;   // cradling Snowki: her right hand round his far side, her left forearm across him, the hand on his side
+    let aL = crd ? [sL, [-11.8, -16.2], [-9.8, -7.4]] : st.lap ? [sL, [-11.4, -16.6], [-9.0, -10.8]] : ik(sL, [-6.4, -3.6], 10.8, 9.8, 1);
+    let aR = st.pet ? ik(sR, st.pet, 10.8, 9.8, 1) : crd ? [sR, [8.4, -16.4], [1.4, -9.0]] : st.lap ? [sR, [10.0, -16.0], [3.4, -9.8]] : ik(sR, [-2.2, -5.0], 10.8, 9.8, -1);
     if (st.armT) { aL = ik(sL, st.armT[0], 10.8, 9.8, 1); aR = ik(sR, st.armT[1], 10.8, 9.8, -1); }
     { const k = clamp(Math.max(this.hc, st.expr === 'surprised' || st.expr === 'teary' ? lu : 0), 0, 1); aR = [sR, [lerp(aR[1][0], 8.4, k), lerp(aR[1][1], -16.5, k)], [lerp(aR[2][0], 1.6, k), lerp(aR[2][1], -20.5, k)]]; }
     { const k = clamp(this.hu, 0, 1), tw = Math.sin(t * 7) * 0.25 * k;   // both hands up to her mouth in excitement
       if (k > 0.01) { aL = [sL, [lerp(aL[1][0], -8.8, k), lerp(aL[1][1], -17.6, k)], [lerp(aL[2][0], -1.4, k), lerp(aL[2][1], -31.2 + tw, k)]]; aR = [sR, [lerp(aR[1][0], 9.0, k), lerp(aR[1][1], -17.6, k)], [lerp(aR[2][0], 3.4, k), lerp(aR[2][1], -31.0 - tw, k)]]; } }
-    for (const [j, side] of [[aL, -1], [aR, 1]]) {
-      const [a, b, c] = j;
-      limb(ctx, a, b, c, [2.6, 2.5, 2.05, 2.1, 1.45], C.skin, C.out, { lw: 0.16 });
-      { const d = [c[0] - b[0], c[1] - b[1]], l = Math.hypot(d[0], d[1]) || 1; hand2(ctx, [c[0] - d[0] / l * 0.25, c[1] - d[1] / l * 0.25], d, C.skin, 0.92, C.out, side < 0 ? -1 : 1, st.pet && side > 0 ? 0.1 : 0.45); }
-      // puff sleeve
-      const m = [a[0] + (b[0] - a[0]) * 0.32, a[1] + (b[1] - a[1]) * 0.32];
-      cel(ctx, ell(m[0], m[1] - 0.4, 2.6, 2.9, Math.atan2(b[1] - a[1], b[0] - a[0]) - Math.PI / 2), C.dressL, m[0] - 2.6, m[0] + 2.6, { lc: C.out, lw: 0.15 });
-      const e = [a[0] + (b[0] - a[0]) * 0.55, a[1] + (b[1] - a[1]) * 0.55], ang = Math.atan2(b[1] - a[1], b[0] - a[0]) + Math.PI / 2;
-      line(ctx, P2(`M${e[0] - Math.cos(ang) * 1.5} ${e[1] - Math.sin(ang) * 1.5} L${e[0] + Math.cos(ang) * 1.5} ${e[1] + Math.sin(ang) * 1.5}`), C.collar, 0.5);
-    }
+    if (st.stand && STAND_POSES[st.pose]) { this.standArms(ctx, st, sL, sR); return; }
+    this.frontArm(ctx, aL, -1, 0.45); this.frontArm(ctx, aR, 1, st.pet ? 0.1 : 0.45);
   }
-  // from behind, sitting on the wall facing the sea (her legs hang down the sea side, out of sight)
+  // one front-view arm: shaped limb, a hand (hand2, or a palm-up cupped hand), the puff sleeve and its band
+  frontArm(ctx, j, side, curl = 0.45, cup = false) {
+    const C = HC, [a, b, c] = j;
+    limb(ctx, a, b, c, [2.6, 2.5, 2.05, 2.1, 1.45], C.skin, C.out, { lw: 0.16 });
+    const d = [c[0] - b[0], c[1] - b[1]], l = Math.hypot(d[0], d[1]) || 1, w = [c[0] - d[0] / l * 0.25, c[1] - d[1] / l * 0.25];
+    if (cup) cupHand(ctx, w, d, C.skin, 0.92, C.out); else hand2(ctx, w, d, C.skin, 0.92, C.out, side < 0 ? -1 : 1, curl);
+    const m = [a[0] + (b[0] - a[0]) * 0.32, a[1] + (b[1] - a[1]) * 0.32];
+    cel(ctx, ell(m[0], m[1] - 0.4, 2.6, 2.9, Math.atan2(b[1] - a[1], b[0] - a[0]) - Math.PI / 2), C.dressL, m[0] - 2.6, m[0] + 2.6, { lc: C.out, lw: 0.15 });
+    const e = [a[0] + (b[0] - a[0]) * 0.55, a[1] + (b[1] - a[1]) * 0.55], ang = Math.atan2(b[1] - a[1], b[0] - a[0]) + Math.PI / 2;
+    line(ctx, P2(`M${e[0] - Math.cos(ang) * 1.5} ${e[1] - Math.sin(ang) * 1.5} L${e[0] + Math.cos(ang) * 1.5} ${e[1] + Math.sin(ang) * 1.5}`), C.collar, 0.5);
+  }
+  // The flashback, standing and facing screen right (3/4): st.pose 'standReceive' – both hands forward together at chest
+  // height, palms up, carrying the teddy; 'standHug' – hugging it to her chest (use expr 'joyful' or 'smile').
+  // st.held(ctx, p, o) draws the teddy with its seat at p (Helen units), o = { s: 0.72 } (scale relative to the film's
+  // Snowki). Draw order: far arm, teddy, near arm – so her fingers really wrap / support him.
+  standArms(ctx, st, sL, sR) {
+    const P = STAND_POSES[st.pose], held = st.held;
+    if (!P.farOver) this.frontArm(ctx, [sR, P.far[0], P.far[1]], 1, P.curl[1], P.cup);
+    if (held) held(ctx, P.p, { s: 0.72, back: false });
+    if (P.farOver) this.frontArm(ctx, [sR, P.far[0], P.far[1]], 1, P.curl[1], P.cup);   // hugging: both arms wrap over him
+    this.frontArm(ctx, [sL, P.near[0], P.near[1]], -1, P.curl[0], P.cup);
+  }
+  // ------------------------------------------------------------------ BACK VIEW
+  // From behind, sitting on the sea wall facing the sea. Her knees are turned to her right (screen right): the skirt
+  // bulges over her right thigh and her legs hang down the sea side of the wall, out of sight. Long thick black hair,
+  // middle part, half up with a little blue bow clip; the rest falls in soft separate locks to the waist, so her dress
+  // (collar, puff sleeves, the waist bow, the skirt) and her arms stay visible. headTurn / bodyTurn / smile turn her
+  // toward someone on her right (turnDir +1) or left (-1): the head first (lost profile), then the shoulders.
   drawBack(ctx, st) {
-    const C = HC, t = st.t, breathe = Math.sin(t * 1.6) * 0.22, head = this.headX, w = (st.wind || 0) * 0.004;
-    // the skirt fanned out on the top of the wall
-    const sk = smooth([[-6.2, -11.4], [-9.8, -6.4], [-12.6, -1.4], [-13, 2.2], [-6.2, 3.1], [0.4, 3.3], [7, 3.1], [13.2, 2.1], [12.6, -1.6], [9.8, -6.6], [6.4, -11.4]], true);
-    cel(ctx, sk, C.dress, -13, 13.2, { lc: C.out, shade: '#4A5AA8' });
-    ctx.save(); ctx.clip(sk); for (const [x0, x1] of [[-4, -9.5], [0.3, 0.3], [4.4, 10]]) line(ctx, P2(`M${x0} -10 C${x0} -5 ${x1} -1 ${x1} 3.2`), 'rgba(60,70,150,.32)', 0.45); ctx.restore();
-    line(ctx, P2('M-13 2.2 C-6 3.4 7 3.4 13.2 2.1'), C.collar, 1.0);
-    // forearms reach forward into her lap (behind her body from here)
-    for (const side of [-1, 1]) limb(ctx, [side * 9.0, -16.6], [side * 7.6, -13.4], [side * 5.4, -11.6], [2.1, 2.0, 1.9, 1.7, 1.5], C.skin, C.out, { lw: 0.15 });
-    ctx.save(); ctx.translate(0, breathe * 0.5);
-    cel(ctx, P2('M-1.8 -31.4 L-2.0 -26.4 C-0.8 -25.6 1.6 -25.6 2.6 -26.2 L2.2 -31.0 Z'), C.skin, -2, 2.6, { line: false });
-    const bod = smooth([[-2.8, -27.6], [-6.0, -27.1], [-7.4, -25.6], [-7.3, -21.5], [-6.6, -16.5], [-5.7, -11.6], [5.9, -11.6], [6.9, -16.5], [7.7, -21.5], [7.8, -25.6], [6.4, -27.1], [3.4, -27.6], [0.4, -27.0]], true);
-    cel(ctx, bod, C.dress, -7.4, 7.8, { lc: C.out, shade: '#4A5AA8' });
-    line(ctx, P2('M0.4 -27 L0.5 -12.4'), 'rgba(60,70,150,.35)', 0.3);                                         // back seam
-    line(ctx, P2('M-5.4 -26.8 C-2 -25.6 2.8 -25.6 6.2 -26.8'), C.collar, 0.9);                                  // collar from behind
-    cel(ctx, P2('M-6.2 -12.8 L6.4 -12.8 L6.6 -10.4 L-6.0 -10.4 Z'), C.sash, -6, 6.6, { lc: C.out, lw: 0.15 });  // belt
-    ctx.save(); ctx.translate(0.3, -11.6);                                                                       // bow tied at the back
-    cel(ctx, P2('M0 0 C-1.6 -2.6 -4.4 -2.4 -3.8 0.3 C-3.4 2 -1.4 1.2 0 0 Z'), C.sash, -4.4, 0, { lc: C.out, lw: 0.12 });
-    cel(ctx, P2('M0 0 C1.8 -2.8 4.8 -2.4 4.2 0.4 C3.8 2.2 1.4 1.3 0 0 Z'), C.sash, 0, 4.8, { lc: C.out, lw: 0.12 });
-    cel(ctx, P2(`M-0.4 0.4 L${-1.6 + w * 40} 5.4 L${-0.4 + w * 40} 5.0 Z M0.4 0.4 L${1.8 + w * 40} 5.6 L${0.8 + w * 40} 5.2 Z`), C.sashD, -2, 2, { lc: C.out, lw: 0.1 });
-    fill(ctx, ell(0, 0, 0.9, 0.8), C.sashD); ctx.restore();
-    // upper arms and puff sleeves at her sides
-    for (const side of [-1, 1]) { const a = [side * 7.2, -25.2], b = [side * 9.0, -16.6];
-      limb(ctx, a, [(a[0] + b[0]) / 2 + side * 0.4, (a[1] + b[1]) / 2], b, [2.6, 2.5, 2.2, 2.2, 2.1], C.skin, C.out, { lw: 0.16 });
-      cel(ctx, ell(side * 7.9, -23.2, 2.6, 2.9, side * 0.2), C.dressL, side * 7.9 - 2.6, side * 7.9 + 2.6, { lc: C.out, lw: 0.15 }); }
+    const C = HC, t = st.t, B = this.bk, dir = st.turnDir === -1 ? -1 : 1, ht = this.ht || 0, bt = this.bt || 0, sm = this.sm || 0;
+    const lu = this.lu || 0, la = this.la || 0, breathe = Math.sin(t * 1.6) * 0.22, sh = breathe * 0.5, cr = st.cradle;
+    const phi = (ht * 0.98 + bt * 0.3) * dir, ph = Math.abs(phi), bs = bt * dir, sx = -1.3 * bs;   // head yaw (rad, + = toward screen right), body yaw, spine shift
+    const k = ss((ph - 0.12) / 0.8), kn = clamp((ph - 0.95) / 0.3, 0, 1), sw = i => B.sw[i].x;
+    const hc = [0.5 + sx * 0.35, -38.8 + lu * 0.9 - Math.abs(Math.sin(t * 9)) * 0.4 * la + Math.sin(t * 1.6) * 0.12 + sh];
+    const sL = [-7.2 - bs * 0.2 + sx * 0.3, -25.2 + sh], sR = [7.7 - bs * 0.6 + sx * 0.3, -25.2 + sh];
+    // left hand planted on the wall beside her hip; right hand resting on her right thigh (or round Snowki)
+    const eL = [-10.0 + sx * 0.15, -15.0], wL = [-11.2, -5.2], eR = cr ? [8.8 + sx * 0.2, -14.4] : [10.1 + sx * 0.2 - bs * 0.3, -15.6], wR = cr ? [15.2, -6.0] : [11.0, -6.4];
+    // Snowki on her lap (over her right thigh): farther from us than her back, so her skirt, body and arm come over him –
+    // his head and ears peek out beside her arm, her forearm lies across his tummy / back below his head
+    if (cr) cr(ctx, [12.8, -6.0], { back: true, s: 0.72 });
+    // (her forearms point forward into her lap, straight away from us: hidden behind the elbows and her body)
+    // ---- the skirt on the wall, bulging over her right thigh toward the knee
+    const sk = smooth([[-6.1, -11.6], [-9.2, -7.6], [-11.9, -3.6], [-13.3, -0.2], [-12.7, 2.5], [-6.6, 3.4], [0.6, 3.6], [7.4, 3.3], [12.6, 2.7], [15.5, 1.2], [16.3, -1.3], [15.1, -3.7], [11.6, -6.1], [8.4, -8.4], [6.4, -11.6]], true);
+    cel(ctx, sk, C.dress, -13.3, 16.3, { lc: C.out, shade: '#4A5AA8' });
+    ctx.save(); ctx.clip(sk);
+    { const g = ctx.createLinearGradient(0, -12, 0, -4); g.addColorStop(0, 'rgba(40,50,120,.32)'); g.addColorStop(1, 'rgba(40,50,120,0)'); ctx.fillStyle = g; ctx.fillRect(-14, -12, 31, 8); }
+    for (const [x0, x1] of [[-4.6, -9.6], [-1.8, -3.8], [1.4, 1.8], [4.2, 7.6]]) line(ctx, P2(`M${x0} -10.6 C${x0 * 1.05} -5 ${x1} -1 ${x1} 3.4`), 'rgba(60,70,150,.3)', 0.42);
+    line(ctx, P2('M6.2 -8.6 C9.6 -6.4 12.6 -4.2 15.2 -1.8'), 'rgba(255,255,255,.28)', 0.5);
+    line(ctx, P2('M-8.6 -6.6 C-10.4 -3.6 -11.6 -0.8 -12.0 1.8'), 'rgba(255,255,255,.22)', 0.45);
     ctx.restore();
-    // the back of her head: the hair partly tied back with a small band, the rest falling down her back
-    ctx.save(); head.apply(ctx);
-    for (const side of [-1, 1]) fill(ctx, ell(side * 6.1 + 0.5, -37.4, 0.9, 1.5), C.skin);
-    const hg = ctx.createLinearGradient(-6, -46, 6, -30); hg.addColorStop(0, '#3A2E48'); hg.addColorStop(0.5, C.hair); hg.addColorStop(1, '#0C080E');
-    ctx.fillStyle = hg; ctx.fill(ell(0.5, -38.8, 7.3, 8.0));
-    for (let i = 0; i < 7; i++) line(ctx, P2(`M${-5.4 + i * 1.9} -44.6 Q${-3 + i * 1.1} -41 ${0.2 + i * 0.12} -38.6`), rgba(C.hairHi, 0.55), 0.18);   // gathered toward the tie
-    fill(ctx, P2('M-5.8 -42.6 C-3 -45.8 4 -45.8 6.8 -42.6 C4 -44.4 -3 -44.4 -5.8 -42.6 Z'), rgba(C.sheen, 0.45));
-    fill(ctx, ell(0.5, -38.4, 1.3, 0.75), '#6FA0D8'); fill(ctx, ell(0.5, -36.6, 1.1, 1.6), C.hair);           // the little blue band and the twist under it
+    line(ctx, P2('M-12.7 2.5 C-6.6 3.5 7.4 3.4 12.6 2.7'), C.collar, 1.0);                                    // lace trim resting on the wall
+    for (let i = 0; i < 12; i++) { const u = (i + 0.5) / 12; line(ctx, ell(lerp(-12.2, 12.2, u), 3.1 + Math.sin(u * Math.PI) * 0.8, 0.5, 0.32), 'rgba(120,150,210,.5)', 0.1); }
+    // ---- bodice (turns a little with her shoulders), collar, belt
+    ctx.save(); ctx.translate(sx * 0.4 + 0.5, sh); ctx.scale(1 - Math.abs(bs) * 0.05, 1); ctx.translate(-0.5, 0);
+    const bod = smooth([[-2.9, -28.0], [-5.9, -27.5], [-7.4, -25.9], [-7.4, -22.6], [-7.0, -18.6], [-6.3, -14.6], [-5.9, -11.8], [6.1, -11.8], [6.6, -14.6], [7.3, -18.6], [7.9, -22.6], [8.0, -25.9], [6.6, -27.5], [3.6, -28.0], [0.5, -28.5]], true);
+    cel(ctx, bod, C.dress, -7.4, 8.0, { lc: C.out, shade: '#4A5AA8' });
+    ctx.save(); ctx.clip(bod);
+    { const g = ctx.createLinearGradient(0, -20, 0, -11.5); g.addColorStop(0, 'rgba(40,50,120,0)'); g.addColorStop(1, 'rgba(40,50,120,.22)'); ctx.fillStyle = g; ctx.fillRect(-8, -20, 17, 9); }
+    line(ctx, P2(`M${0.5 - sx * 0.3} -28.3 L${0.5 - sx * 0.3} -12`), 'rgba(60,70,150,.4)', 0.28);          // centre back seam
+    line(ctx, P2('M-4.2 -27.4 C-3.4 -22 -3.8 -16 -3.4 -12'), 'rgba(60,70,150,.22)', 0.26); line(ctx, P2('M5.2 -27.4 C4.4 -22 4.8 -16 4.4 -12'), 'rgba(60,70,150,.22)', 0.26);
+    line(ctx, P2('M-7.0 -24.5 C-6.2 -21 -6.4 -17 -6.0 -13'), 'rgba(255,255,255,.18)', 0.5);                   // moonlight on her left side
     ctx.restore();
-    // long hair down her back, swaying a little in the breeze
-    const top = head.p(0.5, -36), sway = Math.sin(t * 1.3) * 0.6 + w * 120;
-    const curtain = smooth([[top[0] - 7.4, top[1] - 2], [-7.8, -24], [-7.6 + sway * 0.5, -14], [-5.4 + sway, -7.6], [0.6 + sway, -6.4], [6.4 + sway, -7.6], [8.4 + sway * 0.5, -14], [8.4, -24], [top[0] + 8.2, top[1] - 2]], true);
-    const cg = ctx.createLinearGradient(0, -36, 0, -6); cg.addColorStop(0, C.hair); cg.addColorStop(1, '#0C080E');
-    ctx.fillStyle = cg; ctx.fill(curtain);
-    const strands = this.hair.map(c => { const pts = []; for (let i = 0; i < c.n; i++) pts.push([c.x[i], c.y[i]]); return pts; });
-    for (let k = 0; k < strands.length; k++) { const pts = strands[k]; cel(ctx, ribbon(pts, pts.map((_, i) => 3.0 * (1 - i / pts.length * 0.6))).path, C.hair, -8, 8, { line: false, shade: '#000000' }); }
-    for (let k = 0; k < strands.length; k++) line(ctx, smooth(strands[k], false), rgba(C.hairHi, 0.45), 0.25);
-    for (const c of this.locks) { const pts = []; for (let i = 0; i < c.n; i++) pts.push([c.x[i], c.y[i]]); cel(ctx, ribbon(pts, pts.map((_, i) => 2.0 * (1 - i / c.n * 0.6))).path, C.hair, -6, 8, { line: false, shade: '#000000' }); }
+    cel(ctx, P2('M-6.4 -27.3 C-5.4 -29.2 -2.2 -30.1 0.5 -30.1 C3.2 -30.1 6.4 -29.2 7.3 -27.3 C6.0 -26.6 4.6 -27.5 3.4 -27.9 C1.6 -28.4 -0.6 -28.4 -2.4 -27.9 C-3.6 -27.5 -5.2 -26.6 -6.4 -27.3 Z'), C.collar, -6.4, 7.3, { lc: C.out, lw: 0.13 });
+    cel(ctx, P2('M-6.2 -12.9 Q0.5 -12.4 6.4 -12.9 L6.6 -10.4 Q0.5 -9.9 -6.0 -10.4 Z'), C.sash, -6, 6.6, { lc: C.out, lw: 0.15 });
+    ctx.restore();
+    // ---- arms (shoulder, elbow, wrist, a real hand), puff sleeves over the shoulders. With Snowki her right forearm
+    // goes across his back and the hand curls round his side.
+    for (const [s, e, w, side] of [[sL, eL, wL, -1], [sR, eR, wR, 1]]) {
+      limb(ctx, s, e, w, [2.5, 2.35, 1.95, 2.05, 1.45], C.skin, C.out, { lw: 0.16 });
+      const d = [w[0] - e[0], w[1] - e[1]], l = Math.hypot(d[0], d[1]) || 1;   // palm down: the thumb lies on the inner side
+      hand2(ctx, [w[0] - d[0] / l * 0.3, w[1] - d[1] / l * 0.3], d, C.skin, 0.92, C.out, -side, cr && side > 0 ? 0.9 : 0.35);
+    }
+    this.backSleeve(ctx, sL, -1); this.backSleeve(ctx, sR, 1);
+    // ---- the big bow tied at the back of her waist, its tails on the skirt
+    ctx.save(); ctx.translate(0.5 + sx * 0.75, -11.6 + sh * 0.5); { const f = sw(8) * 0.5;
+      cel(ctx, P2(`M-0.5 0.5 C-1.1 2.4 -1.9 4.4 ${-2.6 + f} 6.6 L${-1.5 + f} 6.2 L${-1.0 + f} 7.0 C-0.6 4.8 -0.1 2.6 0.2 0.7 Z`), C.sashD, -2.6, 0.2, { lc: C.out, lw: 0.1 });
+      cel(ctx, P2(`M0.4 0.5 C1.0 2.6 1.6 4.6 ${2.1 + f} 6.9 L${1.0 + f} 6.6 L${0.5 + f} 7.3 C0.3 5.0 0 2.8 -0.1 0.7 Z`), C.sashD, -0.1, 2.1, { lc: C.out, lw: 0.1 });
+      cel(ctx, P2('M0 0 C-1.4 -2.7 -5.0 -2.9 -4.7 -0.2 C-4.5 2.0 -1.7 1.4 0 0 Z'), C.sash, -5, 0, { lc: C.out, lw: 0.12 });
+      cel(ctx, P2('M0 0 C1.4 -2.7 5.0 -2.9 4.7 -0.2 C4.5 2.0 1.7 1.4 0 0 Z'), C.sash, 0, 5, { lc: C.out, lw: 0.12 });
+      line(ctx, P2('M-0.9 -0.3 C-2.0 -1.3 -3.3 -1.3 -3.9 -0.5'), rgba(C.sashD, 0.8), 0.28); line(ctx, P2('M0.9 -0.3 C2.0 -1.3 3.3 -1.3 3.9 -0.5'), rgba(C.sashD, 0.8), 0.28);
+      cel(ctx, ell(0, 0, 1.0, 0.95), C.sashD, -1, 1, { lc: C.out, lw: 0.1 }); fill(ctx, ell(-0.3, -0.35, 0.35, 0.22), 'rgba(255,255,255,.35)'); }
+    ctx.restore();
+    // ---- head and hair (the head is drawn in its own frame, mirrored when she turns to her left)
+    const inHead = fn => { ctx.save(); ctx.translate(hc[0], hc[1]); if (dir < 0) ctx.scale(-1, 1); fn(); ctx.restore(); };
+    const earP = (x, y, s) => P2(`M${x - 0.5 * s} ${y - 1.7} C${x + 0.7 * s} ${y - 2.3} ${x + 1.3 * s} ${y - 0.6} ${x + 0.9 * s} ${y + 0.9} C${x + 0.6 * s} ${y + 1.8} ${x - 0.1 * s} ${y + 2.0} ${x - 0.5 * s} ${y + 1.3} Z`);
+    const re = [lerp(6.6, 3.7, k), 0.7], rs = lerp(0.6, 1, k);
+    inHead(() => {
+      fill(ctx, ell(-0.3, 1.0, 6.9, 7.4), '#120C15');   // the hair at the back of her skull, under everything (no gaps behind the ear when she turns)
+      cel(ctx, ell(-6.7 + 2.6 * k, 0.8, 0.9 * (1 - k * 0.6), 1.5), C.skin, -7.6, -5.8, { lc: C.out, lw: 0.12 });   // her left ear turns away behind the hair
+      cel(ctx, earP(re[0], re[1], rs), C.skin, re[0] - 0.6, re[0] + 1.3, { lc: C.out, lw: 0.12 });
+      if (k > 0.01) { // the lost profile: cheek, jaw and the side of her neck come round as she turns
+        const F = [[5.1, -5.4], [6.2, -3.8], [6.75, -1.6], [6.6, 0.2], [6.85, 1.8], [6.85 + 0.55 * kn, 2.9], [6.5 + 0.3 * sm, 3.7 - 0.25 * sm], [5.5, 5.8], [3.9, 7.5], [2.2, 8.0], [2.0, 8.8], [0.4, 8.8], [0.4, 7.2], [2.0, 4.0], [2.9, 0.0], [4.0, -3.4]];
+        const face = smooth(F.map(([x, y]) => [x * lerp(0.7, 1, k), y]), true);
+        const fg = ctx.createLinearGradient(1.5, 0, 7.2, 0); fg.addColorStop(0, mixc(C.skin, C.skinD, 0.55)); fg.addColorStop(0.6, C.skin); fg.addColorStop(1, mixc(C.skin, '#FFE8CF', 0.18));
+        ctx.fillStyle = fg; ctx.fill(face); line(ctx, face, C.out, 0.16);
+        ctx.save(); ctx.clip(face);
+        { const g = ctx.createLinearGradient(0, 6.8, 0, 8.8); g.addColorStop(0, 'rgba(90,40,50,0)'); g.addColorStop(0.3, 'rgba(90,40,50,.35)'); g.addColorStop(1, 'rgba(90,40,50,.15)'); ctx.fillStyle = g; ctx.fillRect(0, 6.8, 7, 2.2); }   // under the jaw
+        { const r = 1.5, g = ctx.createRadialGradient(5.7, 2.7, 0, 5.7, 2.7, r); g.addColorStop(0, rgba(C.blush, (0.22 + 0.3 * sm) * k)); g.addColorStop(1, rgba(C.blush, 0)); ctx.fillStyle = g; ctx.fillRect(5.7 - r, 2.7 - r, r * 2, r * 2); }
+        ctx.restore();
+        const a = ss((k - 0.45) / 0.4);
+        if (a > 0.01) { ctx.globalAlpha = a;
+          line(ctx, P2('M5.6 -2.3 Q6.3 -2.55 6.85 -2.2'), '#2A161C', 0.36);                                                        // the end of her brow
+          fill(ctx, P2(`M6.1 ${-0.15 - 0.1 * sm} Q6.5 ${-0.4 - 0.12 * sm} 6.8 ${-0.08 - 0.1 * sm} Q6.62 ${0.38 - 0.15 * sm} 6.2 ${0.32 - 0.12 * sm} Z`), '#2A1410');   // a sliver of her eye, edge on
+          fill(ctx, ell(6.55, -0.08 - 0.1 * sm, 0.1, 0.1), 'rgba(255,255,255,.85)');
+          line(ctx, P2(`M6.0 ${0.05 - 0.1 * sm} Q6.45 ${-0.25 - 0.15 * sm} 6.8 ${-0.05 - 0.1 * sm}`), C.lash, 0.34);                         // lid
+          for (const [x0, y0, x1, y1] of [[6.45, -0.15, 7.45, -0.85], [6.6, -0.02, 7.6, -0.38]]) line(ctx, P2(`M${x0} ${y0 - 0.15 * sm} Q${(x0 + x1) / 2 + 0.1} ${(y0 + y1) / 2 + 0.15 - 0.2 * sm} ${x1} ${y1 - 0.3 * sm}`), C.lash, 0.3);   // lashes past the cheek
+          if (sm > 0.02) { ctx.globalAlpha = a * sm; line(ctx, P2('M5.0 5.55 Q5.55 5.6 5.95 4.95'), C.lip, 0.26); line(ctx, P2('M5.85 3.5 Q6.3 3.2 6.6 3.4'), rgba(C.skinD, 0.6), 0.16); }   // the corner of a smile, the cheek lifting
+          ctx.globalAlpha = 1; }
+      }
+    });
+    // ---- the lower hair: from under the half-up part, round the back of her head, down her back in soft separate locks
+    // (outer locks first, so the inner ones lie over them; one shared gradient so it reads as one head of hair)
+    const LK = [[-1.15, 2.8, -4.2, [[-3.9, -29.6], [-4.3, -26.2], [-4.3, -22.0], [-3.8, -18.6], [-3.2, -16.4]]], [1.15, 2.8, 4.7, [[4.7, -29.8], [5.3, -26.4], [5.3, -22.2], [4.8, -18.8], [4.2, -16.8]]],
+      [-0.6, 3.0, -2.2, [[-1.9, -29.6], [-2.3, -26.0], [-2.4, -21.6], [-2.0, -16.8], [-1.4, -14.0]]], [0.6, 3.0, 2.8, [[2.7, -29.6], [3.1, -26.0], [3.2, -21.6], [2.9, -16.8], [2.4, -14.2]]], [0, 3.2, 0.3, [[0.4, -29.6], [0.4, -25.8], [0.4, -21.0], [0.6, -16.0], [0.8, -13.0]]]];
+    const lockPts = [], hairAll = new Path2D(), lockPaths = [];
+    const hg = ctx.createLinearGradient(hc[0] - 3, hc[1] + 1, hc[0] + 3, -13); hg.addColorStop(0, '#100B13'); hg.addColorStop(0.35, C.hair); hg.addColorStop(0.55, '#1E1626'); hg.addColorStop(1, '#09060B');
+    LK.forEach(([th, w, nx, p], i) => {
+      const a0 = clamp(th, -1.5, 1.5), a1 = clamp(th - phi, -1.5, 1.5), d = 4.6 * (Math.sin(a1) - Math.sin(a0)) * 0.85;
+      const pts = [[hc[0] + 6.4 * Math.sin(a1), hc[1] - 0.6 + (1 - Math.cos(a1)) * 1.1], [hc[0] + nx + d, hc[1] + 7.0]];
+      p.forEach(([x, y], j) => pts.push([x + d * [0.75, 0.42, 0.18, 0.06, 0][j] + sx * [0.2, 0.5, 0.75, 0.9, 1][j] + sw(i) * 1.3 * ((j + 1) / 5) ** 2, y + (j < 2 ? sh : 0)]));
+      lockPts.push(pts);
+      const r = ribbon(pts, [w, w * 0.88, w * 0.95, w, w * 0.92, w * 0.6, 0.12]); lockPaths.push(r.path); hairAll.addPath(r.path);
+      ctx.fillStyle = hg; ctx.fill(r.path); line(ctx, r.path, 'rgba(5,2,8,.5)', 0.13);
+      line(ctx, smooth(pts.slice(1, 6).map(q => [q[0] - w * 0.2, q[1]]), false), rgba(C.hairHi, 0.32), 0.14);   // a strand catching the light
+      if (i === 4) line(ctx, smooth(pts.slice(1, 6).map(q => [q[0] + w * 0.25, q[1]]), false), rgba(C.hairHi, 0.22), 0.12);
+      // glossy streaks where this lock curves over her shoulder blade (each at its own height, so they never read as a band)
+      const hd = [pts[3][0] - pts[2][0], pts[3][1] - pts[2][1]], hn = Math.hypot(hd[0], hd[1]) || 1, ux = hd[0] / hn, uy = hd[1] / hn;
+      ctx.save(); ctx.clip(r.path);
+      for (let q = 0; q < 3; q++) { const o = (q - 1) * w * 0.22 - w * 0.08, c0 = [lerp(pts[2][0], pts[3][0], 0.3) + o, lerp(pts[2][1], pts[3][1], 0.3) + [0.6, 0.9, -0.2, 0.2, -0.6][i] + (q === 1 ? -0.5 : 0.3)], L = q === 1 ? 2.2 : 1.4;
+        line(ctx, P2(`M${c0[0] - ux * L} ${c0[1] - uy * L} L${c0[0] + ux * L} ${c0[1] + uy * L}`), rgba(C.sheen, q === 1 ? 0.3 : 0.2), q === 1 ? 0.2 : 0.14); }
+      ctx.restore();
+    });
+    // ---- the back of her head: the half-up part gathered into a little blue bow clip
+    inHead(() => {
+      const Q = [-6.1 * Math.sin(ph) * 0.92, -2.6 + 0.5 * lu], rc = [lerp(6.6, 3.3, k), lerp(1.3, -0.2, k)];
+      const capPts = [[-0.25 * k, -8.1], [-5.2, -5.75], [-7.35, -0.6], [-6.5, 1.3], [(-6.5 + Q[0]) / 2 - 0.3, (1.3 + Q[1]) / 2 + 0.9], [Q[0], Q[1] + 0.8], [(rc[0] + Q[0]) / 2 + 0.3, (rc[1] + Q[1]) / 2 + 0.9], rc, [lerp(7.35, 4.5, k), lerp(-0.6, -2.4, k)], [lerp(5.2, 5.0, k), lerp(-5.75, -5.2, k)], [2.8, -7.6]];
+      const cap = smooth(capPts, true);
+      const cg = ctx.createRadialGradient(-2.6, -4.8, 0.5, 0, -2, 9.5); cg.addColorStop(0, '#3C3150'); cg.addColorStop(0.6, C.hair); cg.addColorStop(1, '#150F19');
+      ctx.fillStyle = cg; ctx.fill(cap); line(ctx, cap, 'rgba(8,4,12,.22)', 0.12);
+      line(ctx, smooth([capPts[3], capPts[2], capPts[1], capPts[0], capPts[10], capPts[9], capPts[8], capPts[7]], false), 'rgba(8,4,12,.6)', 0.14);   // the outer silhouette
+      ctx.save(); ctx.clip(cap);
+      ctx.lineCap = 'butt';
+      for (const [a0, a1, r0] of [[1.14, 1.3, 6.3], [1.35, 1.6, 6.45], [1.65, 1.84, 6.3]]) { ctx.beginPath(); ctx.arc(-0.3 * k, -0.9, r0, Math.PI * a0, Math.PI * a1); ctx.strokeStyle = rgba(C.sheen, 0.2); ctx.lineWidth = 0.7; ctx.stroke(); }   // the shine on the crown
+      ctx.lineCap = 'round';
+      const top = [capPts[2], capPts[1], capPts[0], capPts[10], capPts[9], capPts[8]], seg = [];
+      for (let i = 1; i < top.length; i++) seg.push(Math.hypot(top[i][0] - top[i - 1][0], top[i][1] - top[i - 1][1]));
+      const tot = seg.reduce((a, b) => a + b, 0);
+      for (let i = 0; i < 10; i++) { // strands swept from her hairline back to the clip
+        let d = tot * (i + 0.5) / 10, j = 0; while (j < seg.length - 1 && d > seg[j]) { d -= seg[j]; j++; }
+        const u = clamp(d / seg[j], 0, 1), S = [lerp(top[j][0], top[j + 1][0], u) * 0.96, lerp(top[j][1], top[j + 1][1], u) * 0.96], E = [lerp(S[0], Q[0], 0.72), lerp(S[1], Q[1], 0.72)];
+        line(ctx, P2(`M${S[0]} ${S[1]} Q${(S[0] + E[0]) * 0.5 + S[0] * 0.16} ${(S[1] + E[1]) * 0.5 + S[1] * 0.1} ${E[0]} ${E[1]}`), rgba(C.hairHi, i % 2 ? 0.22 : 0.34), 0.14);
+      }
+      fill(ctx, P2(`M-7.1 0.2 Q-5.8 -4.4 ${Q[0] - 0.6} ${Q[1] - 0.6} Q-4.6 -1.6 -7.1 0.2 Z`), rgba(C.sheen, 0.12));
+      ctx.beginPath(); ctx.arc(0, -0.4, 7.1, Math.PI * 0.95, Math.PI * 1.32); ctx.strokeStyle = 'rgba(170,160,225,.22)'; ctx.lineWidth = 0.4; ctx.stroke();   // moonlit rim
+      ctx.restore();
+      // the twist under the clip, then the clip
+      const tw = [[Q[0], Q[1] + 0.4], [Q[0] + 0.3, Q[1] + 2.4], [Q[0] + 0.2 + sw(4) * 0.2, Q[1] + 4.6], [Q[0] + 0.5 + sw(4) * 0.4, Q[1] + 6.8]];
+      cel(ctx, ribbon(tw, [1.5, 1.4, 1.1, 0.35]).path, C.hair, Q[0] - 0.8, Q[0] + 0.9, { line: false, shade: '#000000' });
+      for (let i = 0; i < 3; i++) line(ctx, P2(`M${Q[0] - 0.55} ${Q[1] + 1.3 + i * 1.6} L${Q[0] + 0.65} ${Q[1] + 0.6 + i * 1.6}`), rgba(C.hairHi, 0.45), 0.13);
+      ctx.save(); ctx.translate(Q[0], Q[1]); ctx.scale(Math.max(0.35, Math.cos(ph * 0.9)), 1);
+      cel(ctx, P2('M0 0 C-0.7 -1.3 -2.3 -1.4 -2.2 -0.1 C-2.1 1.0 -0.8 0.7 0 0 Z'), '#8FC2F2', -2.3, 0, { lc: C.out, lw: 0.1 });
+      cel(ctx, P2('M0 0 C0.7 -1.3 2.3 -1.4 2.2 -0.1 C2.1 1.0 0.8 0.7 0 0 Z'), '#8FC2F2', 0, 2.3, { lc: C.out, lw: 0.1 });
+      fill(ctx, ell(0, 0, 0.55, 0.5), '#5A8FD0'); fill(ctx, ell(-1.2, -0.5, 0.4, 0.2, -0.3), 'rgba(255,255,255,.55)');
+      ctx.restore();
+      // her right ear in front of the hair behind it, and a few hairs in front of it, once she has turned
+      if (k > 0.1) { ctx.globalAlpha = ss((k - 0.1) / 0.3);
+        cel(ctx, earP(re[0], re[1], rs), C.skin, re[0] - 0.6, re[0] + 1.3, { lc: C.out, lw: 0.12 }); line(ctx, P2(`M${re[0] + 0.05 * rs} ${re[1] - 1.0} C${re[0] + 0.7 * rs} ${re[1] - 0.9} ${re[0] + 0.6 * rs} ${re[1] + 0.6} ${re[0] + 0.2 * rs} ${re[1] + 0.9}`), rgba(C.skinD, 0.7), 0.15);
+        const sl = [[4.6, -4.8], [4.95, -3.2], [4.9, -1.6], [4.6 + sw(5) * 0.15, -0.4]];   // a few hairs at her temple
+        cel(ctx, ribbon(sl, [0.6, 0.55, 0.35, 0.06]).path, C.hair, 4, 5.6, { line: false, shade: '#000000' });
+        ctx.globalAlpha = 1; }
+    });
+    // ---- a few fine strands lifting in the breeze (small: never a sheet of hair)
+    { const s1 = sw(6), s2 = sw(7), e = lockPts[1], b = [e[2][0] + dir * 0.6, e[2][1] - 0.6];
+      const f1 = smooth([b, [b[0] + dir * 0.5 + s1 * 0.6, b[1] + 3.4], [b[0] + dir * 0.4 + s1 * 1.5, b[1] + 6.6]], false);
+      line(ctx, f1, C.hair, 0.26); line(ctx, f1, rgba(C.hairHi, 0.4), 0.08);
+      const p4 = e[5], f2 = smooth([[p4[0] - 0.3, p4[1] - 2.2], [p4[0] + 0.5 + s2 * 0.6, p4[1] + 0.6], [p4[0] + 0.8 + s2 * 1.4, p4[1] + 2.8]], false);
+      line(ctx, f2, C.hair, 0.2);
+      const p3 = lockPts[0][5], f3 = smooth([[p3[0] + 0.3, p3[1] - 2.0], [p3[0] - 0.5 + s1 * 0.4, p3[1] + 0.8], [p3[0] - 0.5 + s1 * 1.0, p3[1] + 2.8]], false);
+      line(ctx, f3, C.hair, 0.18); }
+  }
+  backSleeve(ctx, s, side) {   // a puff sleeve seen from behind: gathered at the shoulder seam, a band at the hem
+    const C = HC, cx = s[0] + side * 0.7, cy = s[1] + 0.9;
+    const p = smooth([[cx - side * 1.9, cy - 2.6], [cx + side * 0.6, cy - 3.3], [cx + side * 2.5, cy - 1.9], [cx + side * 3.0, cy + 0.6], [cx + side * 2.2, cy + 2.6], [cx + side * 0.2, cy + 3.1], [cx - side * 1.7, cy + 2.4], [cx - side * 2.4, cy + 0.2]], true);
+    cel(ctx, p, C.dressL, cx - 3, cx + 3, { lc: C.out, lw: 0.15 });
+    ctx.save(); ctx.clip(p);
+    for (let i = 0; i < 3; i++) line(ctx, P2(`M${cx + side * (-1.0 + i * 1.1)} ${cy - 3.2} Q${cx + side * (-0.4 + i * 1.2)} ${cy - 1.2} ${cx + side * (-0.2 + i * 1.3)} ${cy + 0.2}`), 'rgba(90,120,190,.35)', 0.22);
+    ctx.restore();
+    line(ctx, P2(`M${cx - side * 1.8} ${cy + 2.3} Q${cx + side * 0.4} ${cy + 3.4} ${cx + side * 2.3} ${cy + 2.4}`), C.collar, 0.55);
   }
   // standing (the memory of the day he gave her Snowki): straight legs, the skirt falling to mid-calf
   standLower(ctx, t, st) {
@@ -362,7 +548,7 @@ export class Helen {
       [5.7, -35.6 + fx], [5.4, -39.4], [3.7, -42.9], [pt + 0.1, -44.7], [-2.5, -43.1], [-4.5, -39.6], [-5.3, -35.7 + fx]], true);
     cel(ctx, front, C.hair, -6, 7, { lc: 'rgba(40,20,40,.8)', lw: 0.18, shade: '#000000' });
     ctx.save(); ctx.clip(front);
-    fill(ctx, P2(`M-5.6 -43.6 C-3 -45.6 3.6 -45.8 6.4 -43.4 L6.2 -42.4 C3.6 -44.4 -2.8 -44.3 -5.4 -42.6 Z`), rgba(C.sheen, 0.6));   // the sheen across the crown
+    fill(ctx, P2(`M-5.6 -43.6 C-3 -45.6 3.6 -45.8 6.4 -43.4 L6.2 -42.4 C3.6 -44.4 -2.8 -44.3 -5.4 -42.6 Z`), rgba(C.sheen, 0.26));   // the sheen across the crown
     for (let i = 0; i < 5; i++) { line(ctx, P2(`M${pt - 0.4} -46.4 Q${-2 - i * 0.9} -43 ${-4.6 - i * 0.3} ${-36 - i * 0.6}`), rgba(C.hairHi, 0.5), 0.15); line(ctx, P2(`M${pt + 0.4} -46.4 Q${3 + i * 0.9} -43 ${5.8 + i * 0.3} ${-36 - i * 0.6}`), rgba(C.hairHi, 0.5), 0.15); }
     ctx.restore();
     // two loose strands across her temples
@@ -371,14 +557,28 @@ export class Helen {
 }
 
 // =====================================================================================  THE BOY (standing / hiding / lighting / walking)
+const WALK_W = 5.2;   // walkHold cadence (rad/s of the gait cycle): ~1.65 steps a second
 const BC = { skin: '#A8694A', skinD: '#7E4A30', hair: '#141011', hairHi: '#4E3A32', shirt: '#3A4A74', shirtD: '#232D4A', pant: '#24262E', shoe: '#3E302A', lip: '#7A3A34', iris: '#3A1F15', irisL: '#C08050', lash: '#130A0A', out: 'rgba(90,45,40,.75)' };
 export class Boy {
-  constructor() { this.hem = new Hem(7, { drag: 3.5, grav: 150, stiff: 0.45 }); this.blinkT = 3; this.blink = 0; this.curl = new Spring(40, 6); this.bounds = [-30, -116, 34, 6]; this.walkPh = 0; this.knS = new Spring(16, 7.5); this.kn = 0; this.tiltS = new Spring(20, 8); }
+  constructor() { this.hem = new Hem(7, { drag: 3.5, grav: 150, stiff: 0.45 }); this.blinkT = 3; this.blink = 0; this.curl = new Spring(40, 6); this.bounds = [-30, -116, 34, 6]; this.walkPh = 0; this.knS = new Spring(16, 7.5); this.kn = 0; this.tiltS = new Spring(20, 8); this.leanS = new Spring(12, 6.6); this.legBlend = 1; this.lastPose = null; }
+  // st: { t, dt, wind, pose, expr: watching|contentment|smile|farewell, look (gaze x), gazeY, lookDown 0..1, talk, kneel, hold + held (cradle),
+  //       reach: [x,y] right-hand target (lighter / the tree trunk), signal, gift, flame, lookBack (walk), armT,
+  //       pose 'hide'   – hidden behind a tree trunk on his +x side: body upright and compact, head and near-trunk shoulder leaning
+  //                        out a little, his left hand on the trunk at st.reach (default: head height, in front);
+  //       pose 'peek'   – leaning out farther, the front foot stepping out (blend hide -> peek -> stand / walkHold: legs and lean ease);
+  //       pose 'offer'  – standing, both arms forward offering the teddy: st.held(ctx, P.holdPt, { s: 0.72 }) draws it between his hands;
+  //       pose 'walkHold' – walking toward +x (3/4 front view) holding the teddy in front of his chest with both hands (same held
+  //                        callback); move him at st.speed char units/s (default 26) – the planted foot then never slides }
+  // He faces +x (screen right); the film mirrors him (flip) to face left.
   update(st) {
     const dt = st.dt; this.blinkT -= dt; if (this.blinkT < 0) { this.blink = 0.13; this.blinkT = 2.6 + Math.random() * 3; } this.blink = Math.max(0, this.blink - dt);
     this.curl.step(dt, (st.wind || 0) * 0.004); this.kn = clamp(this.knS.step(dt, st.kneel ? 1 : 0), 0, 1.05); this.tilt = this.tiltS.step(dt, st.lookDown || 0);
     if (st.pose === 'walk') this.walkPh += dt * 4.4;
+    if (st.pose === 'walkHold' && st.speed !== 0) this.walkPh += dt * WALK_W;
+    if (st.pose !== this.lastPose) { this.legFrom = this.P && this.lastPose != null ? this.P.legs.map(L => L.slice(0, 3).map(q => q.slice())) : null; this.legBlend = 0; this.lastPose = st.pose; }
+    this.legBlend = Math.min(1, this.legBlend + Math.max(0, dt) / 0.5);
     const pose = this.pose(st), anch = [], rest = [];
+    if (this.legFrom && this.legBlend < 1) { const e = ss(this.legBlend); pose.legs = pose.legs.map((L, i) => L.map((q, j) => (j < 3 && this.legFrom[i] ? [lerp(this.legFrom[i][j][0], q[0], e), lerp(this.legFrom[i][j][1], q[1], e)] : q))); }
     for (let i = 0; i < 7; i++) { const u = i / 6; anch.push([lerp(-8.8, 8.9, u), -59]); rest.push([lerp(-9.3, 9.4, u), -45.8 + Math.sin(u * Math.PI) * 0.5]); }
     this.hem.step(dt, anch, rest, (st.wind || 0) * 0.55, st.t);
     if (this.armP && dt > 0 && dt < 0.2) { const k = 1 - Math.exp(-dt * 11); pose.arms = pose.arms.map((arm, i) => arm.map((q, j) => (j === 0 || !this.armP[i] ? q : [lerp(this.armP[i][j][0], q[0], k), lerp(this.armP[i][j][1], q[1], k)]))); }
@@ -398,6 +598,21 @@ export class Boy {
         const kn = [hip[0] + hx * 0.06 + lift * 0.4, hip[1] + 22.5 - lift * 2.2 + stance * 0.2], an = [kn[0] - lift * 0.3, Math.min(-0.2, kn[1] + 21.6 * (1 - lift * 0.5) - lift * 1.5)];
         return [hip, kn, an, lift]; };
       P.legs = [side(-3.8, ph), side(4.0, ph + Math.PI)];
+    } else if (st.pose === 'walkHold') {   // a gentle walk toward +x: the planted foot slides back at exactly st.speed, the hip rides over it
+      const S = clamp((st.speed ?? 26) * Math.PI / WALK_W, 4, 24), u = this.walkPh / (Math.PI * 2);
+      const foot = v => { v = ((v % 1) + 1) % 1; if (v < 0.5) return [S / 2 - S * v * 2, 0]; const w = (v - 0.5) * 2; return [-S / 2 + S * ss(w), Math.sin(w * Math.PI) * 3.2]; };
+      const fB = foot(u), fF = foot(u + 0.5), dx = Math.max(fB[1] === 0 ? Math.abs(fB[0] + 3.1) : 0, fF[1] === 0 ? Math.abs(fF[0] - 3.3) : 0);   // planted foot vs its hip
+      P.hip = [0, -(Math.sqrt(Math.max(1, 44.1 * 44.1 - dx * dx)) + 2.25)]; P.lean = 0.05; P.headTilt = 0.04;
+      P.legs = [leg(-3.9, [-0.8 + fB[0], -2.25 - fB[1]], -1), leg(4.1, [0.8 + fF[0], -2.25 - fF[1]], -1)]; P.legOrder = [1, 0];   // feet nearly in line; his near (right) leg in front
+    } else if (st.pose === 'offer') {
+      P.lean = 0.2; P.headTilt = 0.02;   // a slight bow toward her as he holds the teddy out
+      P.legs = [leg(-3.9, [-3.2, -0.2], -1), leg(4.1, [8.2, -0.2], -1)];
+    } else if (st.pose === 'hide' || st.pose === 'peek') {   // behind the trunk (on his +x side): upright and compact, leaning out to look
+      const pk = st.pose === 'peek';
+      // (trunk edge expected at local x ≈ +10: his body stays behind it; the face – centre x ≈ 11 hiding, ≈ 16 peeking – and
+      // the +x shoulder lean out past it; the film should not add its own rot for these poses)
+      P.lean = pk ? 0.36 : 0.24; P.headTilt = pk ? 0.14 : 0.1;
+      P.legs = [leg(-3.9, [-5.2, -0.2], -1), leg(4.1, [pk ? 10.6 : 4.6, -0.2], -1)];
     } else { const k = clamp(this.kn, 0, 1), e = k * k * (3 - 2 * k); P.hip = [e * 2, -46.5 + e * 24.5]; P.lean = e * 0.1;
       const hipB = [P.hip[0] - 3.9, P.hip[1]], hipF = [P.hip[0] + 4.1, P.hip[1]], standB = ik(hipB, [-4.4, -0.2], 22.5, 21.6, -1), standF = ik(hipF, [4.8, -0.2], 22.5, 21.6, -1);
       if (e < 0.02) P.legs = [standB, standF];
@@ -405,26 +620,48 @@ export class Boy {
         const kB = [hipB[0] + 0.5, -1.4], aB = [kB[0] - 20.5, -1.6], kF = [hipF[0] + 19.6, hipF[1] + 2.4], aF = [kF[0] + 0.6, -0.4];
         const mix = (A, Bq) => A.map((p, i) => [lerp(p[0], Bq[i][0], e), lerp(p[1], Bq[i][1], e)]);
         P.legs = [mix(standB, [hipB, kB, aB]), mix(standF, [hipF, kF, aF])]; } }
+    if (st.pose !== 'walk') P.lean = this.leanS.step(clamp(st.dt || 0, 0, 0.05), P.lean); else this.leanS.x = P.lean;   // poses ease into each other
     P.headTilt += this.tilt * 0.28;
     P.c = Math.cos(P.lean); P.s = Math.sin(P.lean);
     P.tp = (x, y) => { const dx = x - 0, dy = y + 46.5; return [P.hip[0] + dx * P.c - dy * P.s, P.hip[1] + dx * P.s + dy * P.c]; };     // torso space -> body
     const sL = P.tp(-9.6, -80.2), sR = P.tp(9.8, -80.2);
+    P.holdPt = P.tp(7.6, -66.4);   // Snowki sits on the cradling forearm
     if (st.pose === 'light') { P.arms = [ik(sL, P.tp(-6, -56), 14.2, 12.4, -1), st.reach ? ik(sR, st.reach, 14.2, 12.4, 1) : ik(sR, [20, -20], 14.2, 12.4, 1)]; }
     else if (st.pose === 'walk') { const s = Math.sin(this.walkPh), h = P.hip[0]; P.arms = [[sL, [-12.4 + h, -67.2 - s * 0.8], [-12.1 + h, -55.4 - s * 2.2]], [sR, [12.6 + h, -67.2 + s * 0.8], [12.3 + h, -55.4 + s * 2.2]]]; }
+    else if (st.pose === 'walkHold' && st.armsFree) { // the same 3/4 walk with his arms swinging gently (each opposite its leg)
+      const u = this.walkPh / (Math.PI * 2), sw = Math.sin(u * Math.PI * 2) * (st.speed ? 2.6 : 0);
+      P.arms = [[sL, P.tp(-12.4 + sw * 0.5, -66.8), P.tp(-11.6 + sw, -54.8)], [sR, P.tp(12.8 - sw * 0.5, -66.6), P.tp(12.2 - sw, -54.6)]]; }
+    else if (st.pose === 'walkHold') { // both hands round the teddy in front of his chest
+      P.arms = [ik(sL, P.tp(4.4, -59.6), 14.2, 12.4, 1), ik(sR, P.tp(11.4, -60.4), 14.2, 12.4, 1)]; P.holdPt = P.tp(7.9, -59.2); P.twoHand = true; }
+    else if (st.pose === 'offer') { // arms out in front, offering the teddy on both hands
+      P.arms = [ik(sL, P.tp(12.8, -63.2), 14.2, 12.4, 1), ik(sR, P.tp(20.0, -64.2), 14.2, 12.4, 1)]; P.holdPt = P.tp(16.4, -63.8); P.twoHand = true; }
     else if (st.armT) P.arms = [ik(sL, st.armT[0], 14.2, 12.4, -1), ik(sR, st.armT[1], 14.2, 12.4, 1)];
     else if (st.hold) { P.arms = [[sL, P.tp(-12.7, -66.6), P.tp(-12.2, -54.4)], [sR, P.tp(13.6, -66.8), P.tp(2.4, -64.8)]]; P.cradle = true; }
     else if (st.signal) P.arms = [[sL, P.tp(-12.7, -66.6), P.tp(-12.4, -54.6)], ik(sR, P.tp(17, -92 - st.signal * 6), 14.2, 12.4, 1)];
-    else if (st.pose === 'hide' || st.pose === 'watch') {
-      P.arms = [[sL, P.tp(-12.8, -66.6), P.tp(-12.6, -54.6)], st.reach ? ik(sR, st.reach, 14.2, 12.4, 1) : [sR, P.tp(12.9, -66.4), P.tp(12.5, -54.4)]];
+    else if (st.pose === 'hide' || st.pose === 'peek' || st.pose === 'watch') { // the near arm hangs out of sight; the other hand holds the trunk
+      // default grip: the trunk's edge (local x ≈ 10) at chest height; the film can pass st.reach = the real edge point
+      const pk = st.pose === 'peek', tr = st.reach || (st.pose === 'watch' ? null : [pk ? 11.4 : 10.4, pk ? -70 : -75]);
+      const lowElbow = (a, g) => { const A = ik(a, g, 14.2, 12.4, 1), Bq = ik(a, g, 14.2, 12.4, -1); return A[1][1] >= Bq[1][1] ? A : Bq; };
+      P.arms = [[sL, P.tp(-11.9, -66.8), P.tp(-11.4, -54.8)], tr ? (st.pose === 'watch' ? ik(sR, tr, 14.2, 12.4, 1) : lowElbow(sR, tr)) : [sR, P.tp(12.9, -66.4), P.tp(12.5, -54.4)]];
+      P.grip = !!tr && st.pose !== 'watch';
     } else P.arms = [[sL, P.tp(-12.7, -66.6), P.tp(-12.4, -54.6)], st.reach ? ik(sR, st.reach, 14.2, 12.4, 1) : [sR, P.tp(12.9, -66.4), P.tp(12.5, -54.4)]];
-    P.head = P.tp(0.3, -86); P.holdPt = P.tp(7.6, -66.4);   // Snowki sits on the cradling forearm
+    P.head = P.tp(0.3, -86);
     return P;
   }
-  arm(ctx, j, side) {
+  // Optional overlay for 'hide' / 'peek': only the hand gripping the trunk, to be drawn IN FRONT of the tree layer (a second
+  // actor view at the tree's depth, same place / flip / rot), so his fingers curl round the front of the trunk. Draws nothing otherwise.
+  drawGrip(ctx) {
+    const P = this.P; if (!P || !P.grip) return;
+    const [, b, c] = P.arms[1], d = [c[0] - b[0], c[1] - b[1]], l = Math.hypot(d[0], d[1]) || 1;
+    ctx.save(); ctx.lineJoin = ctx.lineCap = 'round';
+    hand2(ctx, [c[0] - d[0] / l * 0.3, c[1] - d[1] / l * 0.3], d, BC.skin, 1.18, BC.out, 1, 0.95);
+    ctx.restore();
+  }
+  arm(ctx, j, side, curl = 0.4) {
     const C = BC, [a, b, c] = j;
     ctx.save(); ctx.translate(-(side || 1) * 0.9, 0.7); ctx.fillStyle = 'rgba(70,50,100,.22)'; ctx.fill(limbPath(a, b, c, [4.4, 4.4, 4, 3.6, 2.8])); ctx.restore();   // the arm's shadow on the shirt
     limb(ctx, a, b, c, [3.6, 3.5, 3.0, 3.1, 2.2], C.skin, C.out, { lw: 0.18 });
-    { const d = [c[0] - b[0], c[1] - b[1]], l = Math.hypot(d[0], d[1]) || 1; hand2(ctx, [c[0] - d[0] / l * 0.3, c[1] - d[1] / l * 0.3], d, C.skin, 1.18, C.out, side || 1, 0.4); }
+    { const d = [c[0] - b[0], c[1] - b[1]], l = Math.hypot(d[0], d[1]) || 1; hand2(ctx, [c[0] - d[0] / l * 0.3, c[1] - d[1] / l * 0.3], d, C.skin, 1.18, C.out, side || 1, curl); }
     const e = [a[0] + (b[0] - a[0]) * 1.06, a[1] + (b[1] - a[1]) * 1.06], mid = [(a[0] + e[0]) / 2, (a[1] + e[1]) / 2];
     limb(ctx, a, mid, e, [4.6, 4.5, 4.3, 4.3, 4.5], C.shirt, C.out, { shade: '#0E1226', light: '#7F90C8', lw: 0.18 });
     const cd = [b[0] - a[0], b[1] - a[1]], cl = Math.hypot(cd[0], cd[1]) || 1, cn = [-cd[1] / cl * 2.4, cd[0] / cl * 2.4], cu = [cd[0] / cl * 0.9, cd[1] / cl * 0.9];
@@ -445,8 +682,8 @@ export class Boy {
     cel(ctx, cuff, '#4E5F92', e[0] - 2.4, e[0] + 2.4, { lc: C.out, lw: 0.14, shade: '#0E1226' });
   }
   legs(ctx) {
-    const C = BC;
-    for (const [hip, kn, an, lift] of this.P.legs) {
+    const C = BC, L = this.P.legs;
+    for (const [hip, kn, an, lift] of (this.P.legOrder ? this.P.legOrder.map(i => L[i]) : L)) {
       limb(ctx, hip, kn, an, [7.0, 6.4, 5.4, 5.0, 4.5], C.pant, 'rgba(10,10,20,.8)', { shade: '#000000', light: '#8A90A8', lw: 0.22 });
       line(ctx, P2(`M${lerp(hip[0], kn[0], 0.3)} ${lerp(hip[1], kn[1], 0.3)} L${lerp(kn[0], an[0], 0.8)} ${lerp(kn[1], an[1], 0.8)}`), 'rgba(255,255,255,.07)', 0.5);
       if (lift > 0.05 && this.P.back) { const so = P2(`M${an[0] - 2.6} ${an[1] - 0.6} C${an[0] - 2.8} ${an[1] + 1.6} ${an[0] + 2.8} ${an[1] + 1.6} ${an[0] + 2.6} ${an[1] - 0.6} C${an[0] + 1.6} ${an[1] - 1.8} ${an[0] - 1.6} ${an[1] - 1.8} ${an[0] - 2.6} ${an[1] - 0.6} Z`);
@@ -474,7 +711,7 @@ export class Boy {
     cel(ctx, P2('M3.9 -83.8 C4.3 -82.4 3.7 -80.6 1.2 -77.7 L2.0 -82.2 L2.7 -84.4 Z'), C.shirt, 1.2, 4.3, { lc: C.out, lw: 0.14 });
   }
   curls(ctx, t, cx, cy, back) {
-    const C = BC, jig = this.curl.x + Math.sin(t * 1.8) * 0.05, base = [];
+    const C = BC, jig = clamp(this.curl.x, -0.16, 0.16) + Math.sin(t * 1.8) * 0.04, base = [];   // (a breeze stirs the curls; it never sweeps them into a crest)
     const a0 = back ? 0.25 : Math.PI * 1.03, a1 = back ? Math.PI * 2.75 : Math.PI * 2.02, N = back ? 15 : 12;
     for (let i = 0; i <= N; i++) { const a = a0 + (a1 - a0) * i / N; base.push([cx + Math.cos(a) * 6.4 + jig * (1 - Math.sin(a)) * 6, cy + Math.sin(a) * 5.8]); }
     const hl = back ? [[cx + 3.4, cy + 5.4], [cx, cy + 6.2], [cx - 3.4, cy + 5.4]] : [[5.0, -95.4], [3.4, -96.9], [1.6, -97.4], [-0.3, -97.3], [-2.2, -97.5], [-3.8, -96.6], [-4.9, -94.6]];
@@ -495,7 +732,7 @@ export class Boy {
     cel(ctx, face, C.skin, -4.9, 5.4, { lc: C.out });
     ctx.save(); ctx.clip(face); const sh = ctx.createLinearGradient(0, -100, 0, -85); sh.addColorStop(0, 'rgba(40,15,20,.32)'); sh.addColorStop(0.28, 'rgba(40,15,20,0)'); ctx.fillStyle = sh; ctx.fillRect(-6, -101, 12, 16);
     const g = ctx.createRadialGradient(-2.6, -90.8, 0, -2.6, -90.8, 1.7); g.addColorStop(0, 'rgba(220,90,90,.22)'); g.addColorStop(1, 'rgba(220,90,90,0)'); ctx.fillStyle = g; ctx.fillRect(-4.6, -93, 4, 4); ctx.restore();
-    let es = ex === 'contentment' ? 'soft' : ex === 'farewell' ? 'happy' : 'open'; if (this.blink > 0 && es !== 'happy') es = 'closed';
+    let es = ex === 'contentment' || ex === 'smile' ? 'soft' : ex === 'farewell' ? 'happy' : 'open'; if (this.blink > 0 && es !== 'happy') es = 'closed';
     const gx = st.look || 0, gy = st.gazeY || 0;
     animeEye(ctx, -1.55, -93.1, 2.9, 3.0, es, C, gx, gy, st.eyeLights);
     animeEye(ctx, 2.95, -93.2, 2.45, 2.85, es, C, gx, gy, st.eyeLights);
@@ -503,7 +740,7 @@ export class Boy {
     fill(ctx, P2(`M-3.4 ${-95.6 + bu} C-2.3 ${-96.8 + bu} -0.6 ${-96.9 + bu} 0.35 ${-96.25 + bu} L0.25 ${-95.65 + bu} C-0.8 ${-96.15 + bu} -2.3 ${-95.95 + bu} -3.4 ${-95.6 + bu} Z`), '#150D0D');
     fill(ctx, P2(`M1.75 ${-96.3 + bu} C2.7 ${-96.95 + bu} 4.0 ${-96.75 + bu} 4.75 ${-95.7 + bu} L4.6 ${-95.3 + bu} C3.8 ${-96.05 + bu} 2.7 ${-95.95 + bu} 1.75 ${-95.7 + bu} Z`), '#150D0D');
     line(ctx, P2('M2.3 -92.0 C2.8 -90.9 3.2 -90.1 2.75 -89.5 C2.25 -89.0 1.5 -89.2 1.15 -89.5'), rgba(C.skinD, 1), 0.24);
-    const sm = ex === 'watching' ? 0.15 : ex === 'contentment' ? 0.7 : 0.9;
+    const sm = ex === 'watching' ? 0.15 : ex === 'contentment' ? 0.7 : ex === 'smile' ? 1.0 : 0.9;
     if (st.talk && Math.sin(st.t * 15) + Math.sin(st.t * 9.7) > 0) { fill(ctx, ell(1.25, -87.6, 1.2, 0.55 + 0.25 * Math.abs(Math.sin(st.t * 15)), 0), '#5A2026'); fill(ctx, ell(1.25, -87.3, 0.7, 0.18), '#C8606A'); }
     else line(ctx, P2(`M-0.3 ${-87.9} C0.6 ${-87.9 + 0.65 * sm} 1.9 ${-87.9 + 0.65 * sm} 2.75 ${-87.95}`), C.lip, 0.34);
     line(ctx, P2('M0.4 -86.9 C0.9 -86.7 1.5 -86.7 2.0 -86.9'), rgba(C.skinD, 0.6), 0.16);
@@ -535,12 +772,16 @@ export class Boy {
     ctx.translate(0.3, -86); ctx.rotate(P.headTilt + Math.sin(t * 0.8) * 0.01); ctx.translate(-0.3, 86);
     this.face(ctx, st); this.curls(ctx, t, 0.3, -98.8, false);
     ctx.restore();
+    if (P.twoHand) { // offer / walkHold: far arm, the teddy between his hands, near arm – the fingers wrap round it
+      this.arm(ctx, P.arms[1], 1, 0.85); if (st.held) st.held(ctx, P.holdPt, { s: 0.72, back: false }); this.arm(ctx, P.arms[0], -1, 0.85);
+      return;
+    }
     const cradle = P.cradle && st.held;
     if (cradle) { this.armUpper(ctx, P.arms[1]); st.held(ctx, P.holdPt); this.armLower(ctx, P.arms[1], 1); }
     else if (st.held) st.held(ctx, P.holdPt);
     this.arm(ctx, P.arms[0], -1);
     if (st.gift) { const h = P.arms[0][2]; ctx.save(); ctx.translate(h[0] + 0.6, h[1] + 1.2); const g = ctx.createLinearGradient(-2.4, -2.4, 2.4, 2.4); g.addColorStop(0, '#FF9DC0'); g.addColorStop(1, '#D9437A'); ctx.fillStyle = g; ctx.fillRect(-2.4, -1.8, 4.8, 4); fill(ctx, P2('M-0.5 -1.8 h1 v4 h-1 Z M-2.4 -0.2 h4.8 v0.9 h-4.8 Z'), '#FFE4A0'); fill(ctx, ell(-0.9, -2.4, 1.0, 0.6, -0.5), '#FFE4A0'); fill(ctx, ell(0.9, -2.4, 1.0, 0.6, 0.5), '#FFE4A0'); ctx.restore(); }
-    if (!cradle) this.arm(ctx, P.arms[1], 1);
+    if (!cradle) this.arm(ctx, P.arms[1], 1, P.grip ? 0.95 : 0.4);   // hiding: fingers curled round the trunk
     if (st.flame && !P.back) { // a tiny lighter flame in his hand
       const c = P.arms[1][2], f = 1 + 0.15 * Math.sin(t * 31) + 0.1 * Math.sin(t * 17);
       const g = ctx.createRadialGradient(c[0] + 1.5, c[1] - 1.5, 0, c[0] + 1.5, c[1] - 1.5, 4 * f); g.addColorStop(0, 'rgba(255,250,220,1)'); g.addColorStop(0.3, 'rgba(255,190,90,.9)'); g.addColorStop(1, 'rgba(255,140,40,0)');

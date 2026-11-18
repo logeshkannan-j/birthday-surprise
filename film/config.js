@@ -28,7 +28,7 @@ export default {
     skyHeart: true,                // ❤️ after the name
     finalLines: [
       'Happy Birthday {name} ❤️',
-      'Some surprises are not about coming back…\nThey’re about remembering.'
+      'Some memories never fade,\nand some smiles are worth surprising every year.'
     ],
     watchAgain: 'Watch again',
     continue: 'Continue',
@@ -36,8 +36,10 @@ export default {
     mute: 'Sound off', unmute: 'Sound on'
   },
 
-  // seconds per scene (scene 0 waits for the wish). Total ≈ 100 s.
-  timings: { 1: 10, 2: 7, 3: 9, 4: 7, 5: 16, 6: 8, 7: 12, 8: 9, 9: 8, 10: 14 },
+  // seconds per scene (scene 0 waits for the wish). Total ≈ 114 s.
+  // 1 opening · 2 Jessi and Snowki notice him · 3 he steps out, Snowki goes to him · 4 the memory · 5 the conversation
+  // 6 Snowki comes back, she notices him · 7 the fireworks · 8 her face · 9 all four, a last smile, the pull back
+  timings: { 1: 12, 2: 10, 3: 13, 4: 10, 5: 16, 6: 12, 7: 14, 8: 9, 9: 18 },
 
   // drop an mp3 here to replace the generated score (waves, wind and firework sounds stay)
   music: '/assets/music.mp3',

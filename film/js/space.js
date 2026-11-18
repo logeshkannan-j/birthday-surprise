@@ -10,19 +10,40 @@ export const capY = x => lineY(WALL.cap, x), baseY = x => lineY(WALL.base, x);
 export const fOf = gy => FH + (1 - FH) * (gy - HZ) / (H0 - HZ);
 export const unitScale = gy => 6.8 * Math.max(gy - HZ, 1) / 530;     // world units per character unit at ground y
 
-// where everyone is
+// The promenade as a floor plan: X = metres-ish sideways (0 = the camera axis, the sea wall's inner face is X ≈ -5.5,
+// + is towards the town side), Z = depth from the camera. 1 unit ≈ 0.55 m (the man is ≈ 3.3 units tall); one character
+// unit is CU units everywhere. A ground point (x, gy) and (X, Z) convert exactly (the same mapping the sea ripples use).
+export const ZK = 2400, XK = 900, CU = 6.8 * ZK / (530 * XK);
+export const toXZ = (x, gy) => { const Z = ZK / Math.max(gy - HZ, 0.5); return [(x - 800) * Z / XK, Z]; };
+export const fromXZ = (X, Z) => [800 + X * XK / Z, HZ + ZK / Z];
+
+// the big bougainvillea tree, in character units around its trunk base (shared by world.js and the man's hiding pose)
+export const TREE = { x: 1360, gy: 578, h: 318, trunkW: 40, chestW: 38, canopy: [-160, -318, 240, -110] };
+const tu = unitScale(TREE.gy), tw = (lx, ly) => [TREE.x + lx * tu, TREE.gy + ly * tu];
+
+// where everyone is. Helen on the wall (X -5.5, Z 10.5); the man ≈ 12 m away along the promenade behind his tree
+// (X 13.8, Z 22); the launcher ≈ 11 m from him and 13 m from her, at the far end of the promenade by the sea wall
+// (X -3.5, Z 34), so rockets go up over the water. See scratchpad plan/world_layout.md.
 export const PLACE = {
   helen: { x: 330, seat: capY(330) - 9, gy: baseY(330) },             // sitting on top of the sea wall
   jessi: { x: 444, seat: capY(444) - 1, gy: baseY(444) },              // sitting beside her on the wall, within reach of her hand
-  boy: { x: 1084, y: 776 },                                             // hidden behind the bougainvillea tree, leaning out
-  boyLight: { x: 1268, y: 828 },                                       // standing by the firework crate
-  launcher: { x: 1148, y: 824 },
-  tree: { x: 1060, y: 790 },                                           // just in front of where he hides
+  tree: { x: TREE.x, y: TREE.gy,                                       // trunk base (ground contact) of the big bougainvillea
+    hand: tw(-TREE.chestW / 2 + 1, -70),                               // a point on the trunk's left edge at his shoulder height (his hand while hiding)
+    trunk: [tw(-TREE.chestW / 2, -70)[0], tw(TREE.chestW / 2, -70)[0]], // trunk edges (world x) at chest height
+    canopy: [tw(TREE.canopy[0], 0)[0], tw(0, TREE.canopy[1])[1], tw(TREE.canopy[2], 0)[0], tw(0, TREE.canopy[3])[1]] },  // world box petals fall from
+  boy: { x: TREE.x - 8 * tu, y: TREE.gy - 4 },                         // hidden right behind the trunk (deeper than it), leaning out on its left
+  meet: { x: 1288, y: 592 },                                           // stepped out, kneeling for Snowki in front-left of the tree, clear of the trunk
+  boyLight: { x: 1250, y: 586 },                                       // kneeling at the end of the long fuse, by his tree
+  launcher: { x: 706, y: 541 },                                        // the firework launcher: far end of the promenade, inside the sea wall
+  fuse: [[1236, 587], [1130, 578], [1010, 566], [890, 555], [790, 547], [722, 542]],   // ground points (x, gy) of a fuse cord from his hand to the launcher
+  stay: { x: 1296, y: 590 },                                           // where he can stand at a respectful distance for the ending
+  away: { x: 1155, y: 533 },                                           // if he walks away: deeper along the promenade, left of the tree
   planter: { x: -70, y: 900 },
   sun: { x: 470 },
   moon: { x: 205, y: HZ - 230 },                                      // upper left, over the sea
   jar: { x: 262 },                                                     // her little jar lantern on the wall
-  walkFrom: { x: 1196, y: 800 }, walkTo: { x: 1050, y: 556 }
+  party: { cake: 206, gift: 156 },                                     // on the wall left of her: the cake by her jar lantern, the presents with the balloons by the lamp
+  walkFrom: { x: 1250, y: 586 }, walkTo: { x: 1155, y: 533 }
 };
 
 export class View {

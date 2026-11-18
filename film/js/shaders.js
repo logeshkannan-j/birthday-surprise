@@ -137,6 +137,7 @@ void main() {
 // ---------------------------------------------------------------- the sea: Gerstner waves, Fresnel sky, glitter, caustics, foam, plankton, reflections
 export const FS_SEA = HEAD + `
 uniform vec2 uTarget; uniform float uTime, uNight, uGustX, uGustA, uWaveA; uniform sampler2D uEmis; uniform vec4 uRip[8]; uniform float uReflK;
+uniform vec4 uFwL[4]; uniform vec3 uFwC[4]; uniform float uFwN;   // firework bursts: screen x, y, intensity, half-width (px); colour
 in vec2 vUV; out vec4 o;
 float baseY(float x) { return 1010.0 + (x + 300.0) * (-516.0 / 1045.0); }
 float solveGy(float sy) { float lo = HZ + 0.02, hi = 1700.0; for (int i = 0; i < 22; i++) { float m = 0.5 * (lo + hi); if (proj(vec2(uCam.x, m), m).y < sy) lo = m; else hi = m; } return 0.5 * (lo + hi); }
@@ -196,6 +197,17 @@ void main() {
   vec2 msp = vec2(sp.x + n.x * 26.0, hy - (sp.y - hy) * 1.05 + n.z * 18.0);
   vec3 em = texture(uEmis, vec2(msp.x / uScreen.x, 1.0 - msp.y / uScreen.y)).rgb;
   col += em * (0.30 + 0.55 * fres) * uReflK * smoothstep(0.0, 6.0, sp.y - hy);
+  // each firework burst lays a long shimmering column of its colour on the water, broken into dashes by the waves
+  for (int i = 0; i < 4; i++) {
+    if (float(i) >= uFwN) break;
+    vec4 L = uFwL[i]; float dsp = sp.y - hy, el = max(hy - L.y, 20.0);
+    float wc = L.w * 0.3 + dsp * 0.16 + 6.0, dx = (sp.x + n.x * (18.0 + dsp * 0.3) - L.x) / wc;
+    float vert = smoothstep(0.0, 8.0, dsp) * exp(-max(0.0, dsp - el * 0.9) / (el * 1.4 + 60.0));
+    float dash = 0.2 + 0.8 * smoothstep(0.35, 0.85, vnoise(vec2(p.x * 1.3 + float(i) * 7.0, p.y * 4.0 - t * 1.7)));
+    float glint = smoothstep(0.6, 0.95, vnoise(vec2(sp.x * 0.09 + n.x * 3.0, p.y * 10.0 - t * 2.6 + float(i) * 3.0)));
+    float cw = exp(-dx * dx);
+    col += uFwC[i] * L.z * vert * (cw * dash * 1.8 + exp(-dx * dx * 0.35) * glint * 2.6) * (0.5 + 0.5 * fres) * uReflK;
+  }
   // caustic shimmer and foam where the water meets the wall
   col += vec3(0.9, 1.0, 0.95) * caustic(p * vec2(0.9, 2.4) * 0.6, t * 0.6) * shallow * 0.22 * day;
   float foam = smoothstep(0.55, 1.0, vnoise(p * vec2(1.4, 3.0) + vec2(t * 0.4, 0.0)) + wv.x * 3.0) * smoothstep(0.65, 1.0, shallow) * 0.55;

@@ -79,7 +79,7 @@ export class GLRenderer {
   char(F, it) {
     const gl = this.gl, cv = it.canvas; gl.bindVertexArray(gl.vao);
     let tex = this.charTex.get(it.id); if (!tex) { tex = texture(gl, null, { mip: false }); this.charTex.set(it.id, tex); }
-    tex.upload(cv);
+    if (it.fresh !== false || !tex.w) tex.upload(cv);   // (a reused extra's canvas is unchanged: no re-upload)
     const p = this.common(this.p.char.use(), F).tex('uTex', tex).f('uTexSize', cv.width, cv.height);
     const flat = c => [c[0][0], c[0][1], c[1][0], c[1][1], c[2][0], c[2][1], c[3][0], c[3][1]];
     if (it.shadow && it.shadow.alpha > 0.003) {
@@ -108,6 +108,8 @@ export class GLRenderer {
     for (const it of F.before) this.layer(F, it.layer, it);                                   // far shore
     const s = F.sea, sp = this.common(this.p.sea.use(), F).f('uTarget', this.scene.w, this.scene.h).f('uTime', F.simT).f('uNight', s.night).f('uGustX', s.gustX).f('uGustA', s.gustA)
       .f('uWaveA', s.waveA).f('uReflK', s.reflK).fv('uRip', s.rip, 4).tex('uEmis', this.emis);
+    const fwl = s.fw || this.noFw || (this.noFw = { L: new Float32Array(16), C: new Float32Array(12), n: 0 });   // firework columns on the water
+    sp.fv('uFwL', fwl.L, 4).fv('uFwC', fwl.C, 3).f('uFwN', fwl.n);
     gl.disable(gl.BLEND); this.fs(); gl.enable(gl.BLEND);
     for (const it of F.draw) {
       if (it.type === 'layer') this.layer(F, it.layer, it);
