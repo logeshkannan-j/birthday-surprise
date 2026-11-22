@@ -15,7 +15,8 @@ export default {
     // one subtitle per scene (empty = no subtitle). Scene 0 is the candle.
     subtitles: {
       1: 'After the cake and the candles… a quiet night by the sea.',
-      4: 'A long time ago, he gave her Snowki…'
+      4: 'A long time ago, he gave her Snowki…',
+      8: 'The sea holds the light. She turns, searching for who sent it.'
     },
     // what Snowki and he say (cinematic subtitles at the bottom). dur = seconds on screen
     dialogue: {
@@ -23,12 +24,11 @@ export default {
       man1: { who: 'man', text: 'I came to wish her a happy birthday, just like every year.', dur: 3.6 },
       man2: { who: 'man', text: 'Every birthday, I wanted to make her smile with a little surprise. Today, I wanted to do the same.', dur: 4.8 }
     },
-    // the birthday message over the fireworks (HTML script lettering). {NAME} becomes the recipient in capitals.
+    // the birthday message written into the fireworks. {NAME} becomes the recipient in capitals.
     skyMessage: ['HAPPY BIRTHDAY', '{NAME}'],
     skyHeart: true,                // ❤️ after the name
     finalLines: [
-      'Happy Birthday {name} ❤️',
-      'Some memories never fade,\nand some smiles are worth surprising every year.'
+      'She follows her friends into the night.\nHe stays behind the tree, hiding what it costs him.'
     ],
     watchAgain: 'Watch again',
     continue: 'Continue',
@@ -38,7 +38,7 @@ export default {
 
   // seconds per scene (scene 0 waits for the wish). Total ≈ 114 s.
   // 1 opening · 2 Jessi and Snowki notice him · 3 he steps out, Snowki goes to him · 4 the memory · 5 the conversation
-  // 6 Snowki comes back, she notices him · 7 the fireworks · 8 her face · 9 all four, a last smile, the pull back
+  // 6 Snowki returns while he hides · 7 he lights the fuse · 8 she searches the shore · 9 friends arrive; he watches unseen
   timings: { 1: 12, 2: 10, 3: 13, 4: 10, 5: 16, 6: 12, 7: 14, 8: 9, 9: 18 },
 
   // drop an mp3 here to replace the generated score (waves, wind and firework sounds stay)

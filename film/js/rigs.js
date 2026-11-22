@@ -150,8 +150,31 @@ function sneaker(ctx, ax, ay, C) {
 }
 
 // =====================================================================================  HELEN (seated on the sea wall)
-const HC = { skin: '#CF8E68', skinD: '#A9664A', hair: '#1A1220', hairHi: '#4E3F6A', sheen: '#A595D0', dress: '#9CCBF2', dressD: '#6FA0D8', dressL: '#D2E9FC',
-  collar: '#C9E3FA', sash: '#7FB2EA', sashD: '#5A8FD0', shoe: '#FBFBFF', print: '#FFFFFF', lip: '#B5505A', blush: '#F27E90', iris: '#5A2E1C', irisL: '#E2A060', lash: '#1E1015', out: 'rgba(110,50,60,.75)' };
+// Helen after the user's character sheet: peach skin, long wavy dark-brown hair half-up in a twist, winged liner, pink lips,
+// stud earrings, a cream long-sleeve top with a small floral print, high-waisted wide-leg blue jeans, white sneakers, a brown watch
+const HC = { skin: '#E8B48E', skinD: '#C2845F', hair: '#2B1C17', hairHi: '#7A5644', sheen: '#C79A7C', top: '#F7F0E4', topD: '#D8CCBB', topL: '#FFFDF8',
+  jean: '#5276AE', jeanD: '#3A5A8E', jeanL: '#7898CC', stitch: '#D2A65C', strap: '#6B4226', flowers: ['#EF9FB4', '#B3A3E6', '#93B3EA', '#F4B8C6'], leaf: '#9FB37C',
+  dress: '#F7F0E4', dressL: '#FFFDF8', collar: '#EFE6D6', shoe: '#FBFBFF', lip: '#D26E78', blush: '#F28E96', iris: '#5A3420', irisL: '#D9A070', lash: '#120C0A', out: 'rgba(96,52,40,.7)' };
+// a few little flowers of the print, clipped to a garment path by the caller
+function floralPrint(ctx, x0, y0, x1, y1, n, seed, s = 0.55) {
+  let r = seed * 9301 + 49297;
+  const rnd = () => { r = (r * 9301 + 49297) % 233280; return r / 233280; };
+  for (let i = 0; i < n; i++) {
+    const x = x0 + (x1 - x0) * rnd(), y = y0 + (y1 - y0) * rnd(), c = HC.flowers[Math.floor(rnd() * 4)];
+    for (let k = 0; k < 5; k++) { const a = k * 1.2566 + rnd(); fill(ctx, ell(x + Math.cos(a) * s * 0.75, y + Math.sin(a) * s * 0.75, s * 0.52, s * 0.52), c); }
+    fill(ctx, ell(x, y, s * 0.3, s * 0.3), '#F2CF72');
+    const a = rnd() * 6.28; fill(ctx, ell(x + Math.cos(a) * s * 1.5, y + Math.sin(a) * s * 1.5, s * 0.55, s * 0.26, a), HC.leaf);
+  }
+}
+// a back pocket of the jeans: a pentagon with gold top-stitching
+function jeanPocket(ctx, cx, cy, w, h) {
+  const p = P2(`M${cx - w / 2} ${cy - h / 2} L${cx + w / 2} ${cy - h / 2} L${cx + w * 0.46} ${cy + h * 0.28} L${cx} ${cy + h / 2} L${cx - w * 0.46} ${cy + h * 0.28} Z`);
+  fill(ctx, p, rgba(HC.jeanD, 0.35)); line(ctx, p, HC.stitch, 0.16);
+}
+// wavy hair: offset a strand's centre line sideways with a soft wave that grows toward the tip
+function waveStrand(pts, amp, ph) {
+  return pts.map((q, i) => { const u = i / Math.max(1, pts.length - 1); return [q[0] + Math.sin(u * 7.0 + ph) * amp * (0.25 + 0.75 * u), q[1]]; });
+}
 // the flashback poses (front view, standing): [elbow, wrist] per arm (near = her right arm, screen left), the teddy's
 // seat p, finger curl, palm-up cupped hands, head tilt toward the teddy
 const STAND_POSES = {
@@ -229,60 +252,49 @@ export class Helen {
     // ---- back hair (behind everything): thick tapered ribbons per strand + the back of the skull
     const head = this.headX;
     ctx.save(); head.apply(ctx); fill(ctx, ell(0.5, -38.6, 7.0, 7.3), C.hair); ctx.restore();
-    const strands = this.hair.map(c => { const pts = []; for (let i = 0; i < c.n; i++) pts.push([c.x[i], c.y[i]]); return pts; });
+    const strands = this.hair.map((c, k) => { const pts = []; for (let i = 0; i < c.n; i++) pts.push([c.x[i], c.y[i]]); return waveStrand(pts, 0.75, k * 1.3); });
     for (let k = 0; k < strands.length; k++) {
-      const pts = strands[k], wd = pts.map((_, i) => 4.0 * (1 - i / pts.length * 0.7)); const r = ribbon(pts, wd);
-      cel(ctx, r.path, C.hair, -10, 14, { line: false, shade: '#000000' });
+      const pts = strands[k], wd = pts.map((_, i) => 4.2 * (1 - i / pts.length * 0.68)); const r = ribbon(pts, wd);
+      cel(ctx, r.path, k % 2 ? C.hair : mixc(C.hair, '#3B2620', 0.6), -10, 14, { line: false, shade: '#120806' });
     }
     for (let k = 0; k < strands.length; k += 2) line(ctx, smooth(strands[k], false), rgba(C.hairHi, 0.5), 0.3);
-    // sash tails
-    for (const c of this.sashT) { const pts = []; for (let i = 0; i < c.n; i++) pts.push([c.x[i], c.y[i]]); cel(ctx, ribbon(pts, pts.map((_, i) => 1.5 + i * 0.08)).path, C.sash, 4, 14, { lw: 0.12 }); }
     if (st.stand) this.standLower(ctx, t, st);
     else {
-    // ---- legs: knees to the side over the edge of the wall, calves hanging down its face, idly swinging
+    // ---- legs in wide-leg jeans: knees to the side over the edge of the wall, the hems swinging idly over the sneakers
     for (const [kx, ky, ph, len] of [[-11.8, 4.2, 0, 15.6], [-3.6, 6.4, 1.7, 15.2]]) {
       const ax = kx + 0.5 + Math.sin(t * 1.25 + ph) * 0.9, ay = ky + len - Math.abs(Math.sin(t * 1.25 + ph)) * 0.6;
-      limb(ctx, [kx, ky - 1.2], [lerp(kx, ax, 0.38), lerp(ky, ay, 0.38)], [ax, ay - 0.4], [2.9, 2.85, 2.5, 1.8, 1.35], C.skin, C.out, { lw: 0.16 });
-      sneaker(ctx, ax, ay, C);
+      limb(ctx, [kx, ky - 1.2], [lerp(kx, ax, 0.38), lerp(ky, ay, 0.38)], [ax, ay - 0.9], [3.6, 3.45, 3.3, 3.35, 3.5], C.jean, C.out, { lw: 0.16 });
+      line(ctx, P2(`M${kx + 1.2} ${ky} L${ax + 1.4} ${ay - 1.2}`), rgba(C.jeanL, 0.55), 0.35);                    // the crease catching the light
+      sneaker(ctx, ax, ay + 0.3, C);
     }
-    // ---- skirt: over the lap and knees, hanging hem simulated as cloth
-    const H = this.hem, hp = []; for (let i = 0; i < H.n; i++) hp.push([H.x[i], H.y[i]]);
-    const skirtPts = [[-6.0, -11.4], [-9.0, -7.0], [-12.0, -3.0], [-14.8, 0.8], [-15.6, 4.2]].concat(hp, [[0.6, 7.0], [4.6, 3.6], [8.8, 1.8], [10.2, -2.4], [9.3, -7.0], [6.2, -11.4]]);
-    const skirt = smooth(skirtPts, true);
-    cel(ctx, skirt, C.dress, -15, 10.5, { lc: C.out, shade: '#4A5AA8' });
-    ctx.save(); ctx.clip(skirt);
-    // the tops of her thighs catch the light; the fabric falls into shade over the knees and below
-    const lap = ctx.createLinearGradient(2, -9, -6, 9); lap.addColorStop(0, 'rgba(255,255,255,0)'); lap.addColorStop(0.45, 'rgba(255,255,255,.3)'); lap.addColorStop(0.7, 'rgba(255,255,255,.08)'); lap.addColorStop(1, 'rgba(50,60,140,.28)');
+    // ---- the lap: high-waisted jeans over her thighs, knees turned to the side
+    const lapP = smooth([[-6.4, -11.6], [-8.6, -7.4], [-11.6, -3.4], [-14.4, 0.6], [-14.6, 4.4], [-11.0, 5.2], [-5.6, 7.4], [-1.8, 7.6], [1.4, 5.2], [5.4, 2.4], [8.8, 0.8], [9.8, -3.0], [8.6, -7.4], [6.4, -11.6]], true);
+    cel(ctx, lapP, C.jean, -14.6, 9.8, { lc: C.out, shade: '#2C3E72' });
+    ctx.save(); ctx.clip(lapP);
+    const lap = ctx.createLinearGradient(2, -9, -6, 9); lap.addColorStop(0, 'rgba(255,255,255,0)'); lap.addColorStop(0.45, 'rgba(200,220,255,.28)'); lap.addColorStop(0.7, 'rgba(255,255,255,.06)'); lap.addColorStop(1, 'rgba(20,30,80,.3)');
     ctx.fillStyle = lap; ctx.fillRect(-17, -12, 30, 26);
-    line(ctx, P2('M3.5 -6 C0 -2 -4 1 -9 2.4'), 'rgba(255,255,255,.3)', 0.6);                       // where her thighs meet
-    line(ctx, P2('M5.5 1.4 C3 3.6 0 5.4 -2.2 7.2'), 'rgba(60,70,150,.35)', 0.45);                    // the fabric resting on the ledge
-    for (let i = 0; i < 6; i++) { const u = i / 5, k = hp[Math.round(u * 8)], x = lerp(-13.6, -2.4, u); line(ctx, P2(`M${x} ${lerp(3.6, 6.4, u)} C${x - 0.2} ${lerp(6, 9, u)} ${k[0]} ${k[1] - 2} ${k[0]} ${k[1] - 0.6}`), i % 2 ? 'rgba(255,255,255,.25)' : 'rgba(60,70,150,.28)', 0.45); }
+    line(ctx, P2('M3.5 -6 C0 -2 -4 1 -9 2.4'), rgba(C.jeanD, 0.85), 0.42);                          // where her thighs meet
+    line(ctx, P2('M5.2 -10.4 C4.8 -7 2.8 -4.6 0.6 -3.4'), C.stitch, 0.16);                             // front pocket and fly stitching
+    line(ctx, P2('M0.6 -10.6 C0.4 -8 0.2 -6.4 -0.4 -5.0'), C.stitch, 0.14);
+    for (const [x0, y0, x1, y1] of [[-12.0, -0.6, -9.2, 2.8], [-6.2, 2.8, -3.0, 5.4]]) line(ctx, P2(`M${x0} ${y0} Q${(x0 + x1) / 2 - 0.6} ${(y0 + y1) / 2 + 0.8} ${x1} ${y1}`), rgba(C.jeanL, 0.6), 0.32);   // folds at the knees
     ctx.restore();
-    // lace trim
-    const lace = ribbon(hp, hp.map(() => 1.3)); fill(ctx, lace.path, C.collar);
-    for (let i = 0; i < hp.length - 1; i++) { const a = hp[i], b = hp[i + 1]; for (let k = 0; k < 2; k++) { const u = (k + 0.5) / 2; line(ctx, ell(lerp(a[0], b[0], u), lerp(a[1], b[1], u) + 0.55, 0.55, 0.35), 'rgba(120,150,210,.5)', 0.1); } }
     }
-    // ---- torso (bodice), sash, collar, sleeves
+    // ---- torso: the cream top (crew neck, long sleeves, little flowers), tucked into the jeans' waistband
     ctx.save(); ctx.translate(0, breathe * 0.5);
     cel(ctx, P2('M-1.8 -31.4 L-2.0 -26.4 C-0.8 -25.6 1.6 -25.6 2.6 -26.2 L2.2 -31.0 Z'), C.skin, -2, 2.6, { line: false });
     fill(ctx, ell(0.5, -30.6, 2.6, 0.9), 'rgba(110,50,40,.3)');
-    const bod = smooth([[-2.8, -27.6], [-6.0, -27.1], [-7.4, -25.6], [-7.3, -21.5], [-6.6, -16.5], [-5.7, -11.6], [5.9, -11.6], [6.9, -16.5], [7.7, -21.5], [7.8, -25.6], [6.4, -27.1], [3.4, -27.6], [0.4, -25.4]], true);
-    cel(ctx, bod, C.dress, -7.4, 7.8, { lc: C.out, shade: '#4A5AA8' });
-    line(ctx, P2('M-3.4 -24 C-3.0 -19 -3.4 -15 -3.6 -11.8'), 'rgba(60,70,150,.3)', 0.32); line(ctx, P2('M4.4 -24 C4.0 -19 4.4 -15 4.6 -11.8'), 'rgba(60,70,150,.3)', 0.32);
-    cel(ctx, P2('M-6.2 -12.8 L6.4 -12.8 L6.6 -10.4 L-6.0 -10.4 Z'), C.sash, -6, 6.6, { lc: C.out, lw: 0.15 });
-    // bow at her right hip
-    ctx.save(); ctx.translate(6.6, -11.6);
-    cel(ctx, P2('M0 0 C-1.2 -2.2 -3.4 -2.0 -3.0 0.2 C-2.8 1.6 -1.2 1.0 0 0 Z'), C.sash, -3.4, 0, { lc: C.out, lw: 0.12 });
-    cel(ctx, P2('M0 0 C1.4 -2.4 3.8 -2.0 3.3 0.3 C3.0 1.8 1.2 1.1 0 0 Z'), C.sash, 0, 3.8, { lc: C.out, lw: 0.12 });
-    fill(ctx, ell(0, 0, 0.75, 0.65), C.sashD); ctx.restore();
-    line(ctx, P2('M0.4 -25.2 L0.5 -19.4'), 'rgba(60,80,150,.45)', 0.25);                                      // button placket
-    for (const y of [-24.2, -22.2, -20.4]) fill(ctx, ell(0.75, y, 0.32, 0.32), '#F4F8FF');
-    cel(ctx, P2('M-3.2 -27.8 L0.3 -25.3 L-1.6 -23.4 Z'), C.collar, -3.2, 0.3, { lc: C.out, lw: 0.12 });            // pointed shirt collar
-    cel(ctx, P2('M3.8 -27.8 L0.5 -25.3 L2.5 -23.4 Z'), C.collar, 0.5, 3.8, { lc: C.out, lw: 0.12 });
-    // the little teddy print on her dress
-    { const tx = -3.4, ty = -17.4; fill(ctx, ell(tx - 1.1, ty - 1.4, 0.55, 0.55), C.print); fill(ctx, ell(tx + 1.1, ty - 1.4, 0.55, 0.55), C.print); fill(ctx, ell(tx, ty, 1.45, 1.3), C.print);
-      fill(ctx, ell(tx - 0.5, ty - 0.2, 0.14, 0.16), '#2A2A3A'); fill(ctx, ell(tx + 0.5, ty - 0.2, 0.14, 0.16), '#2A2A3A'); fill(ctx, ell(tx, ty + 0.35, 0.2, 0.14), '#2A2A3A');
-      fill(ctx, P2(`M${tx} ${ty + 1.5} L${tx - 0.9} ${ty + 1.0} L${tx - 0.9} ${ty + 2.0} Z M${tx} ${ty + 1.5} L${tx + 0.9} ${ty + 1.0} L${tx + 0.9} ${ty + 2.0} Z`), C.sashD); }
+    const bod = smooth([[-2.8, -27.6], [-6.0, -27.1], [-7.4, -25.6], [-7.3, -21.5], [-6.6, -16.5], [-5.7, -11.6], [5.9, -11.6], [6.9, -16.5], [7.7, -21.5], [7.8, -25.6], [6.4, -27.1], [3.4, -27.6], [0.4, -26.6]], true);
+    cel(ctx, bod, C.top, -7.4, 7.8, { lc: C.out, shade: '#8F8098' });
+    ctx.save(); ctx.clip(bod);
+    floralPrint(ctx, -7, -26.5, 8, -12.6, 16, 3);
+    line(ctx, P2('M-3.4 -24 C-3.0 -19 -3.4 -15 -3.6 -11.8'), rgba(C.topD, 0.8), 0.32); line(ctx, P2('M4.4 -24 C4.0 -19 4.4 -15 4.6 -11.8'), rgba(C.topD, 0.8), 0.32);
+    ctx.restore();
+    line(ctx, P2('M-2.9 -27.5 C-1.6 -26.2 1.6 -26.0 3.5 -27.5'), C.topD, 0.45);                              // the crew neckline
+    // the jeans' high waistband with its button and belt loops
+    cel(ctx, P2('M-6.2 -12.9 Q0.4 -12.4 6.4 -12.9 L6.6 -10.4 Q0.4 -9.9 -6.0 -10.4 Z'), C.jean, -6, 6.6, { lc: C.out, lw: 0.15, shade: '#2C3E72' });
+    line(ctx, P2('M-6.0 -11.7 Q0.4 -11.2 6.5 -11.7'), C.stitch, 0.12);
+    for (const x of [-4.4, 4.6]) fill(ctx, P2(`M${x - 0.3} -13.0 L${x + 0.3} -13.0 L${x + 0.3} -10.3 L${x - 0.3} -10.3 Z`), C.jeanD);
+    fill(ctx, ell(0.5, -11.6, 0.42, 0.42), '#C8A060');
     ctx.restore();
     // ---- Snowki in her lap (drawn by the film with his own rig, so he is the same teddy when he comes alive)
     if (st.lap) st.lap(ctx);
@@ -306,15 +318,18 @@ export class Helen {
     this.frontArm(ctx, aL, -1, 0.45); this.frontArm(ctx, aR, 1, st.pet ? 0.1 : 0.45);
   }
   // one front-view arm: shaped limb, a hand (hand2, or a palm-up cupped hand), the puff sleeve and its band
-  frontArm(ctx, j, side, curl = 0.45, cup = false) {
+  frontArm(ctx, j, side, curl = 0.45, cup = false) {   // a long cream sleeve to the wrist (a soft cuff), the hand; her watch on the left wrist
     const C = HC, [a, b, c] = j;
-    limb(ctx, a, b, c, [2.6, 2.5, 2.05, 2.1, 1.45], C.skin, C.out, { lw: 0.16 });
     const d = [c[0] - b[0], c[1] - b[1]], l = Math.hypot(d[0], d[1]) || 1, w = [c[0] - d[0] / l * 0.25, c[1] - d[1] / l * 0.25];
     if (cup) cupHand(ctx, w, d, C.skin, 0.92, C.out); else hand2(ctx, w, d, C.skin, 0.92, C.out, side < 0 ? -1 : 1, curl);
-    const m = [a[0] + (b[0] - a[0]) * 0.32, a[1] + (b[1] - a[1]) * 0.32];
-    cel(ctx, ell(m[0], m[1] - 0.4, 2.6, 2.9, Math.atan2(b[1] - a[1], b[0] - a[0]) - Math.PI / 2), C.dressL, m[0] - 2.6, m[0] + 2.6, { lc: C.out, lw: 0.15 });
-    const e = [a[0] + (b[0] - a[0]) * 0.55, a[1] + (b[1] - a[1]) * 0.55], ang = Math.atan2(b[1] - a[1], b[0] - a[0]) + Math.PI / 2;
-    line(ctx, P2(`M${e[0] - Math.cos(ang) * 1.5} ${e[1] - Math.sin(ang) * 1.5} L${e[0] + Math.cos(ang) * 1.5} ${e[1] + Math.sin(ang) * 1.5}`), C.collar, 0.5);
+    const cuff = [c[0] - d[0] / l * 1.0, c[1] - d[1] / l * 1.0];
+    limb(ctx, a, b, cuff, [2.75, 2.6, 2.3, 2.25, 2.05], C.top, C.out, { lw: 0.16 });
+    const ang = Math.atan2(d[1], d[0]) + Math.PI / 2, ca = Math.cos(ang), sa = Math.sin(ang);
+    line(ctx, P2(`M${cuff[0] - ca * 1.9} ${cuff[1] - sa * 1.9} L${cuff[0] + ca * 1.9} ${cuff[1] + sa * 1.9}`), C.topD, 0.55);
+    if (side > 0) { const wp = [c[0] - d[0] / l * 0.45, c[1] - d[1] / l * 0.45];
+      line(ctx, P2(`M${wp[0] - ca * 1.5} ${wp[1] - sa * 1.5} L${wp[0] + ca * 1.5} ${wp[1] + sa * 1.5}`), C.strap, 0.55); fill(ctx, ell(wp[0] + ca * 0.2, wp[1] + sa * 0.2, 0.55, 0.55), '#2A2A30'); }
+    const m = [a[0] + (b[0] - a[0]) * 0.4, a[1] + (b[1] - a[1]) * 0.4];
+    ctx.save(); ctx.clip(limbPath(a, b, cuff, [2.75, 2.6, 2.3, 2.25, 2.05])); floralPrint(ctx, m[0] - 3, m[1] - 4, m[0] + 3, m[1] + 6, 3, side + 7, 0.45); ctx.restore();
   }
   // The flashback, standing and facing screen right (3/4): st.pose 'standReceive' – both hands forward together at chest
   // height, palms up, carrying the teddy; 'standHug' – hugging it to her chest (use expr 'joyful' or 'smile').
@@ -328,11 +343,8 @@ export class Helen {
     this.frontArm(ctx, [sL, P.near[0], P.near[1]], -1, P.curl[0], P.cup);
   }
   // ------------------------------------------------------------------ BACK VIEW
-  // From behind, sitting on the sea wall facing the sea. Her knees are turned to her right (screen right): the skirt
-  // bulges over her right thigh and her legs hang down the sea side of the wall, out of sight. Long thick black hair,
-  // middle part, half up with a little blue bow clip; the rest falls in soft separate locks to the waist, so her dress
-  // (collar, puff sleeves, the waist bow, the skirt) and her arms stay visible. headTurn / bodyTurn / smile turn her
-  // toward someone on her right (turnDir +1) or left (-1): the head first (lost profile), then the shoulders.
+  // Seated: her knees turn right and her legs hang out of sight. Standing uses standBackLower so her feet remain visible.
+  // Her half-up hair and blue bow frame separate locks to the waist; head/body turn gradually reveals her profile.
   drawBack(ctx, st) {
     const C = HC, t = st.t, B = this.bk, dir = st.turnDir === -1 ? -1 : 1, ht = this.ht || 0, bt = this.bt || 0, sm = this.sm || 0;
     const lu = this.lu || 0, la = this.la || 0, breathe = Math.sin(t * 1.6) * 0.22, sh = breathe * 0.5, cr = st.cradle;
@@ -341,58 +353,62 @@ export class Helen {
     const hc = [0.5 + sx * 0.35, -38.8 + lu * 0.9 - Math.abs(Math.sin(t * 9)) * 0.4 * la + Math.sin(t * 1.6) * 0.12 + sh];
     const sL = [-7.2 - bs * 0.2 + sx * 0.3, -25.2 + sh], sR = [7.7 - bs * 0.6 + sx * 0.3, -25.2 + sh];
     // left hand planted on the wall beside her hip; right hand resting on her right thigh (or round Snowki)
-    const eL = [-10.0 + sx * 0.15, -15.0], wL = [-11.2, -5.2], eR = cr ? [8.8 + sx * 0.2, -14.4] : [10.1 + sx * 0.2 - bs * 0.3, -15.6], wR = cr ? [15.2, -6.0] : [11.0, -6.4];
+    const eL = st.stand && cr ? [-8.4 + sx * 0.15, -18.2] : [-10.0 + sx * 0.15, -15.0], wL = st.stand && cr ? [-3.6, -18.5] : [-11.2, -5.2],
+      eR = st.stand && cr ? [8.4 + sx * 0.2, -18.2] : cr ? [8.8 + sx * 0.2, -14.4] : [10.1 + sx * 0.2 - bs * 0.3, -15.6],
+      wR = st.stand && cr ? [3.6, -18.5] : cr ? [15.2, -6.0] : [11.0, -6.4];
     // Snowki on her lap (over her right thigh): farther from us than her back, so her skirt, body and arm come over him –
     // his head and ears peek out beside her arm, her forearm lies across his tummy / back below his head
-    if (cr) cr(ctx, [12.8, -6.0], { back: true, s: 0.72 });
+    if (cr) cr(ctx, st.stand ? [0, -18.5] : [12.8, -6.0], { back: true, s: 0.72 });
     // (her forearms point forward into her lap, straight away from us: hidden behind the elbows and her body)
     // ---- the skirt on the wall, bulging over her right thigh toward the knee
-    const sk = smooth([[-6.1, -11.6], [-9.2, -7.6], [-11.9, -3.6], [-13.3, -0.2], [-12.7, 2.5], [-6.6, 3.4], [0.6, 3.6], [7.4, 3.3], [12.6, 2.7], [15.5, 1.2], [16.3, -1.3], [15.1, -3.7], [11.6, -6.1], [8.4, -8.4], [6.4, -11.6]], true);
-    cel(ctx, sk, C.dress, -13.3, 16.3, { lc: C.out, shade: '#4A5AA8' });
-    ctx.save(); ctx.clip(sk);
-    { const g = ctx.createLinearGradient(0, -12, 0, -4); g.addColorStop(0, 'rgba(40,50,120,.32)'); g.addColorStop(1, 'rgba(40,50,120,0)'); ctx.fillStyle = g; ctx.fillRect(-14, -12, 31, 8); }
-    for (const [x0, x1] of [[-4.6, -9.6], [-1.8, -3.8], [1.4, 1.8], [4.2, 7.6]]) line(ctx, P2(`M${x0} -10.6 C${x0 * 1.05} -5 ${x1} -1 ${x1} 3.4`), 'rgba(60,70,150,.3)', 0.42);
-    line(ctx, P2('M6.2 -8.6 C9.6 -6.4 12.6 -4.2 15.2 -1.8'), 'rgba(255,255,255,.28)', 0.5);
-    line(ctx, P2('M-8.6 -6.6 C-10.4 -3.6 -11.6 -0.8 -12.0 1.8'), 'rgba(255,255,255,.22)', 0.45);
-    ctx.restore();
-    line(ctx, P2('M-12.7 2.5 C-6.6 3.5 7.4 3.4 12.6 2.7'), C.collar, 1.0);                                    // lace trim resting on the wall
-    for (let i = 0; i < 12; i++) { const u = (i + 0.5) / 12; line(ctx, ell(lerp(-12.2, 12.2, u), 3.1 + Math.sin(u * Math.PI) * 0.8, 0.5, 0.32), 'rgba(120,150,210,.5)', 0.1); }
+    if (st.stand) this.standBackLower(ctx, t, st);
+    else {
+      // the jeans seat on the wall, her right thigh turning toward the knee (her legs hang over the sea side)
+      const sk = smooth([[-6.4, -11.6], [-8.2, -7.6], [-8.6, -3.4], [-7.8, 1.6], [-3.6, 3.1], [2.6, 3.2], [8.0, 2.6], [12.4, 1.6], [15.0, 0.2], [15.6, -2.4], [13.0, -5.0], [9.4, -7.6], [6.6, -11.6]], true);
+      cel(ctx, sk, C.jean, -8.6, 15.6, { lc: C.out, shade: '#2C3E72' });
+      ctx.save(); ctx.clip(sk);
+      { const g = ctx.createLinearGradient(0, -12, 0, -4); g.addColorStop(0, 'rgba(20,30,80,.3)'); g.addColorStop(1, 'rgba(20,30,80,0)'); ctx.fillStyle = g; ctx.fillRect(-14, -12, 31, 8); }
+      line(ctx, P2('M0.5 -11.4 C0.6 -6 0.5 -1 0.4 3.2'), rgba(C.jeanD, 0.9), 0.3);                             // centre seam
+      jeanPocket(ctx, -3.4, -6.6, 4.4, 4.6); jeanPocket(ctx, 4.4, -6.6, 4.4, 4.6);
+      line(ctx, P2('M6.6 -8.4 C9.8 -6.4 12.8 -4.2 15.2 -1.6'), rgba(C.jeanL, 0.55), 0.45);
+      line(ctx, P2('M-8.0 -6.6 C-8.6 -3.6 -8.4 -0.8 -7.6 1.4'), 'rgba(255,255,255,.18)', 0.45);                 // moonlight on her left hip
+      ctx.restore();
+    }
     // ---- bodice (turns a little with her shoulders), collar, belt
     ctx.save(); ctx.translate(sx * 0.4 + 0.5, sh); ctx.scale(1 - Math.abs(bs) * 0.05, 1); ctx.translate(-0.5, 0);
     const bod = smooth([[-2.9, -28.0], [-5.9, -27.5], [-7.4, -25.9], [-7.4, -22.6], [-7.0, -18.6], [-6.3, -14.6], [-5.9, -11.8], [6.1, -11.8], [6.6, -14.6], [7.3, -18.6], [7.9, -22.6], [8.0, -25.9], [6.6, -27.5], [3.6, -28.0], [0.5, -28.5]], true);
-    cel(ctx, bod, C.dress, -7.4, 8.0, { lc: C.out, shade: '#4A5AA8' });
+    cel(ctx, bod, C.top, -7.4, 8.0, { lc: C.out, shade: '#8F8098' });
     ctx.save(); ctx.clip(bod);
-    { const g = ctx.createLinearGradient(0, -20, 0, -11.5); g.addColorStop(0, 'rgba(40,50,120,0)'); g.addColorStop(1, 'rgba(40,50,120,.22)'); ctx.fillStyle = g; ctx.fillRect(-8, -20, 17, 9); }
-    line(ctx, P2(`M${0.5 - sx * 0.3} -28.3 L${0.5 - sx * 0.3} -12`), 'rgba(60,70,150,.4)', 0.28);          // centre back seam
-    line(ctx, P2('M-4.2 -27.4 C-3.4 -22 -3.8 -16 -3.4 -12'), 'rgba(60,70,150,.22)', 0.26); line(ctx, P2('M5.2 -27.4 C4.4 -22 4.8 -16 4.4 -12'), 'rgba(60,70,150,.22)', 0.26);
-    line(ctx, P2('M-7.0 -24.5 C-6.2 -21 -6.4 -17 -6.0 -13'), 'rgba(255,255,255,.18)', 0.5);                   // moonlight on her left side
+    { const g = ctx.createLinearGradient(0, -20, 0, -11.5); g.addColorStop(0, 'rgba(60,50,90,0)'); g.addColorStop(1, 'rgba(60,50,90,.18)'); ctx.fillStyle = g; ctx.fillRect(-8, -20, 17, 9); }
+    floralPrint(ctx, -7.4, -28, 8, -12.6, 16, 11);
+    line(ctx, P2('M-4.2 -27.4 C-3.4 -22 -3.8 -16 -3.4 -12'), rgba(C.topD, 0.7), 0.26); line(ctx, P2('M5.2 -27.4 C4.4 -22 4.8 -16 4.4 -12'), rgba(C.topD, 0.7), 0.26);
+    line(ctx, P2('M-7.0 -24.5 C-6.2 -21 -6.4 -17 -6.0 -13'), 'rgba(255,255,255,.2)', 0.5);                   // moonlight on her left side
     ctx.restore();
-    cel(ctx, P2('M-6.4 -27.3 C-5.4 -29.2 -2.2 -30.1 0.5 -30.1 C3.2 -30.1 6.4 -29.2 7.3 -27.3 C6.0 -26.6 4.6 -27.5 3.4 -27.9 C1.6 -28.4 -0.6 -28.4 -2.4 -27.9 C-3.6 -27.5 -5.2 -26.6 -6.4 -27.3 Z'), C.collar, -6.4, 7.3, { lc: C.out, lw: 0.13 });
-    cel(ctx, P2('M-6.2 -12.9 Q0.5 -12.4 6.4 -12.9 L6.6 -10.4 Q0.5 -9.9 -6.0 -10.4 Z'), C.sash, -6, 6.6, { lc: C.out, lw: 0.15 });
+    line(ctx, P2('M-3.2 -28.6 C-1.2 -27.9 2.2 -27.9 4.2 -28.6'), C.topD, 0.4);                               // the back of the crew neck
+    // the waistband of her jeans with belt loops (the top is tucked in)
+    cel(ctx, P2('M-6.2 -12.9 Q0.5 -12.4 6.4 -12.9 L6.6 -10.4 Q0.5 -9.9 -6.0 -10.4 Z'), C.jean, -6, 6.6, { lc: C.out, lw: 0.15, shade: '#2C3E72' });
+    line(ctx, P2('M-6.0 -11.7 Q0.5 -11.2 6.5 -11.7'), C.stitch, 0.12);
+    for (const x of [-4.6, 0.5, 5.6]) fill(ctx, P2(`M${x - 0.32} -13.0 L${x + 0.32} -13.0 L${x + 0.32} -10.3 L${x - 0.32} -10.3 Z`), C.jeanD);
     ctx.restore();
     // ---- arms (shoulder, elbow, wrist, a real hand), puff sleeves over the shoulders. With Snowki her right forearm
     // goes across his back and the hand curls round his side.
     for (const [s, e, w, side] of [[sL, eL, wL, -1], [sR, eR, wR, 1]]) {
-      limb(ctx, s, e, w, [2.5, 2.35, 1.95, 2.05, 1.45], C.skin, C.out, { lw: 0.16 });
       const d = [w[0] - e[0], w[1] - e[1]], l = Math.hypot(d[0], d[1]) || 1;   // palm down: the thumb lies on the inner side
       hand2(ctx, [w[0] - d[0] / l * 0.3, w[1] - d[1] / l * 0.3], d, C.skin, 0.92, C.out, -side, cr && side > 0 ? 0.9 : 0.35);
+      const cuff = [w[0] - d[0] / l * 1.1, w[1] - d[1] / l * 1.1], prof = [2.7, 2.5, 2.2, 2.15, 2.0];
+      limb(ctx, s, e, cuff, prof, C.top, C.out, { lw: 0.16 });
+      const an = Math.atan2(d[1], d[0]) + Math.PI / 2, ca = Math.cos(an), sa = Math.sin(an);
+      line(ctx, P2(`M${cuff[0] - ca * 1.8} ${cuff[1] - sa * 1.8} L${cuff[0] + ca * 1.8} ${cuff[1] + sa * 1.8}`), C.topD, 0.5);
+      if (side < 0) { const wp = [w[0] - d[0] / l * 0.5, w[1] - d[1] / l * 0.5]; line(ctx, P2(`M${wp[0] - ca * 1.4} ${wp[1] - sa * 1.4} L${wp[0] + ca * 1.4} ${wp[1] + sa * 1.4}`), C.strap, 0.55); }
+      ctx.save(); ctx.clip(limbPath(s, e, cuff, prof)); floralPrint(ctx, Math.min(s[0], cuff[0]) - 2, Math.min(s[1], cuff[1]) - 1, Math.max(s[0], cuff[0]) + 2, Math.max(s[1], cuff[1]) + 1, 4, side + 20, 0.45); ctx.restore();
+      line(ctx, P2(`M${s[0] - 1.6} ${s[1] - 0.6} Q${s[0]} ${s[1] - 1.6} ${s[0] + 1.6} ${s[1] - 0.6}`), rgba(C.topD, 0.8), 0.3);   // the shoulder seam
     }
-    this.backSleeve(ctx, sL, -1); this.backSleeve(ctx, sR, 1);
-    // ---- the big bow tied at the back of her waist, its tails on the skirt
-    ctx.save(); ctx.translate(0.5 + sx * 0.75, -11.6 + sh * 0.5); { const f = sw(8) * 0.5;
-      cel(ctx, P2(`M-0.5 0.5 C-1.1 2.4 -1.9 4.4 ${-2.6 + f} 6.6 L${-1.5 + f} 6.2 L${-1.0 + f} 7.0 C-0.6 4.8 -0.1 2.6 0.2 0.7 Z`), C.sashD, -2.6, 0.2, { lc: C.out, lw: 0.1 });
-      cel(ctx, P2(`M0.4 0.5 C1.0 2.6 1.6 4.6 ${2.1 + f} 6.9 L${1.0 + f} 6.6 L${0.5 + f} 7.3 C0.3 5.0 0 2.8 -0.1 0.7 Z`), C.sashD, -0.1, 2.1, { lc: C.out, lw: 0.1 });
-      cel(ctx, P2('M0 0 C-1.4 -2.7 -5.0 -2.9 -4.7 -0.2 C-4.5 2.0 -1.7 1.4 0 0 Z'), C.sash, -5, 0, { lc: C.out, lw: 0.12 });
-      cel(ctx, P2('M0 0 C1.4 -2.7 5.0 -2.9 4.7 -0.2 C4.5 2.0 1.7 1.4 0 0 Z'), C.sash, 0, 5, { lc: C.out, lw: 0.12 });
-      line(ctx, P2('M-0.9 -0.3 C-2.0 -1.3 -3.3 -1.3 -3.9 -0.5'), rgba(C.sashD, 0.8), 0.28); line(ctx, P2('M0.9 -0.3 C2.0 -1.3 3.3 -1.3 3.9 -0.5'), rgba(C.sashD, 0.8), 0.28);
-      cel(ctx, ell(0, 0, 1.0, 0.95), C.sashD, -1, 1, { lc: C.out, lw: 0.1 }); fill(ctx, ell(-0.3, -0.35, 0.35, 0.22), 'rgba(255,255,255,.35)'); }
-    ctx.restore();
     // ---- head and hair (the head is drawn in its own frame, mirrored when she turns to her left)
     const inHead = fn => { ctx.save(); ctx.translate(hc[0], hc[1]); if (dir < 0) ctx.scale(-1, 1); fn(); ctx.restore(); };
     const earP = (x, y, s) => P2(`M${x - 0.5 * s} ${y - 1.7} C${x + 0.7 * s} ${y - 2.3} ${x + 1.3 * s} ${y - 0.6} ${x + 0.9 * s} ${y + 0.9} C${x + 0.6 * s} ${y + 1.8} ${x - 0.1 * s} ${y + 2.0} ${x - 0.5 * s} ${y + 1.3} Z`);
     const re = [lerp(6.6, 3.7, k), 0.7], rs = lerp(0.6, 1, k);
     inHead(() => {
-      fill(ctx, ell(-0.3, 1.0, 6.9, 7.4), '#120C15');   // the hair at the back of her skull, under everything (no gaps behind the ear when she turns)
+      fill(ctx, ell(-0.3, 1.0, 6.9, 7.4), '#1A100C');   // the hair at the back of her skull, under everything (no gaps behind the ear when she turns)
       cel(ctx, ell(-6.7 + 2.6 * k, 0.8, 0.9 * (1 - k * 0.6), 1.5), C.skin, -7.6, -5.8, { lc: C.out, lw: 0.12 });   // her left ear turns away behind the hair
       cel(ctx, earP(re[0], re[1], rs), C.skin, re[0] - 0.6, re[0] + 1.3, { lc: C.out, lw: 0.12 });
       if (k > 0.01) { // the lost profile: cheek, jaw and the side of her neck come round as she turns
@@ -420,11 +436,11 @@ export class Helen {
     const LK = [[-1.15, 2.8, -4.2, [[-3.9, -29.6], [-4.3, -26.2], [-4.3, -22.0], [-3.8, -18.6], [-3.2, -16.4]]], [1.15, 2.8, 4.7, [[4.7, -29.8], [5.3, -26.4], [5.3, -22.2], [4.8, -18.8], [4.2, -16.8]]],
       [-0.6, 3.0, -2.2, [[-1.9, -29.6], [-2.3, -26.0], [-2.4, -21.6], [-2.0, -16.8], [-1.4, -14.0]]], [0.6, 3.0, 2.8, [[2.7, -29.6], [3.1, -26.0], [3.2, -21.6], [2.9, -16.8], [2.4, -14.2]]], [0, 3.2, 0.3, [[0.4, -29.6], [0.4, -25.8], [0.4, -21.0], [0.6, -16.0], [0.8, -13.0]]]];
     const lockPts = [], hairAll = new Path2D(), lockPaths = [];
-    const hg = ctx.createLinearGradient(hc[0] - 3, hc[1] + 1, hc[0] + 3, -13); hg.addColorStop(0, '#100B13'); hg.addColorStop(0.35, C.hair); hg.addColorStop(0.55, '#1E1626'); hg.addColorStop(1, '#09060B');
+    const hg = ctx.createLinearGradient(hc[0] - 3, hc[1] + 1, hc[0] + 3, -13); hg.addColorStop(0, '#1C120E'); hg.addColorStop(0.35, C.hair); hg.addColorStop(0.55, '#3A261E'); hg.addColorStop(1, '#130B08');
     LK.forEach(([th, w, nx, p], i) => {
       const a0 = clamp(th, -1.5, 1.5), a1 = clamp(th - phi, -1.5, 1.5), d = 4.6 * (Math.sin(a1) - Math.sin(a0)) * 0.85;
       const pts = [[hc[0] + 6.4 * Math.sin(a1), hc[1] - 0.6 + (1 - Math.cos(a1)) * 1.1], [hc[0] + nx + d, hc[1] + 7.0]];
-      p.forEach(([x, y], j) => pts.push([x + d * [0.75, 0.42, 0.18, 0.06, 0][j] + sx * [0.2, 0.5, 0.75, 0.9, 1][j] + sw(i) * 1.3 * ((j + 1) / 5) ** 2, y + (j < 2 ? sh : 0)]));
+      p.forEach(([x, y], j) => pts.push([x + d * [0.75, 0.42, 0.18, 0.06, 0][j] + sx * [0.2, 0.5, 0.75, 0.9, 1][j] + sw(i) * 1.3 * ((j + 1) / 5) ** 2 + Math.sin(j * 1.35 + i * 1.7) * 0.42 * (j / 4), y + (j < 2 ? sh : 0)]));
       lockPts.push(pts);
       const r = ribbon(pts, [w, w * 0.88, w * 0.95, w, w * 0.92, w * 0.6, 0.12]); lockPaths.push(r.path); hairAll.addPath(r.path);
       ctx.fillStyle = hg; ctx.fill(r.path); line(ctx, r.path, 'rgba(5,2,8,.5)', 0.13);
@@ -442,7 +458,7 @@ export class Helen {
       const Q = [-6.1 * Math.sin(ph) * 0.92, -2.6 + 0.5 * lu], rc = [lerp(6.6, 3.3, k), lerp(1.3, -0.2, k)];
       const capPts = [[-0.25 * k, -8.1], [-5.2, -5.75], [-7.35, -0.6], [-6.5, 1.3], [(-6.5 + Q[0]) / 2 - 0.3, (1.3 + Q[1]) / 2 + 0.9], [Q[0], Q[1] + 0.8], [(rc[0] + Q[0]) / 2 + 0.3, (rc[1] + Q[1]) / 2 + 0.9], rc, [lerp(7.35, 4.5, k), lerp(-0.6, -2.4, k)], [lerp(5.2, 5.0, k), lerp(-5.75, -5.2, k)], [2.8, -7.6]];
       const cap = smooth(capPts, true);
-      const cg = ctx.createRadialGradient(-2.6, -4.8, 0.5, 0, -2, 9.5); cg.addColorStop(0, '#3C3150'); cg.addColorStop(0.6, C.hair); cg.addColorStop(1, '#150F19');
+      const cg = ctx.createRadialGradient(-2.6, -4.8, 0.5, 0, -2, 9.5); cg.addColorStop(0, '#5A3E30'); cg.addColorStop(0.6, C.hair); cg.addColorStop(1, '#1A100C');
       ctx.fillStyle = cg; ctx.fill(cap); line(ctx, cap, 'rgba(8,4,12,.22)', 0.12);
       line(ctx, smooth([capPts[3], capPts[2], capPts[1], capPts[0], capPts[10], capPts[9], capPts[8], capPts[7]], false), 'rgba(8,4,12,.6)', 0.14);   // the outer silhouette
       ctx.save(); ctx.clip(cap);
@@ -464,10 +480,9 @@ export class Helen {
       const tw = [[Q[0], Q[1] + 0.4], [Q[0] + 0.3, Q[1] + 2.4], [Q[0] + 0.2 + sw(4) * 0.2, Q[1] + 4.6], [Q[0] + 0.5 + sw(4) * 0.4, Q[1] + 6.8]];
       cel(ctx, ribbon(tw, [1.5, 1.4, 1.1, 0.35]).path, C.hair, Q[0] - 0.8, Q[0] + 0.9, { line: false, shade: '#000000' });
       for (let i = 0; i < 3; i++) line(ctx, P2(`M${Q[0] - 0.55} ${Q[1] + 1.3 + i * 1.6} L${Q[0] + 0.65} ${Q[1] + 0.6 + i * 1.6}`), rgba(C.hairHi, 0.45), 0.13);
-      ctx.save(); ctx.translate(Q[0], Q[1]); ctx.scale(Math.max(0.35, Math.cos(ph * 0.9)), 1);
-      cel(ctx, P2('M0 0 C-0.7 -1.3 -2.3 -1.4 -2.2 -0.1 C-2.1 1.0 -0.8 0.7 0 0 Z'), '#8FC2F2', -2.3, 0, { lc: C.out, lw: 0.1 });
-      cel(ctx, P2('M0 0 C0.7 -1.3 2.3 -1.4 2.2 -0.1 C2.1 1.0 0.8 0.7 0 0 Z'), '#8FC2F2', 0, 2.3, { lc: C.out, lw: 0.1 });
-      fill(ctx, ell(0, 0, 0.55, 0.5), '#5A8FD0'); fill(ctx, ell(-1.2, -0.5, 0.4, 0.2, -0.3), 'rgba(255,255,255,.55)');
+      ctx.save(); ctx.translate(Q[0], Q[1]); ctx.scale(Math.max(0.35, Math.cos(ph * 0.9)), 1);   // the twist where the half-up part is gathered
+      cel(ctx, ell(0, -0.1, 1.7, 1.25), mixc(C.hair, '#4A3024', 0.5), -1.7, 1.7, { lc: 'rgba(20,10,8,.6)', lw: 0.1, shade: '#120806' });
+      for (let q = 0; q < 3; q++) line(ctx, P2(`M${-1.3 + q * 0.9} -1.0 Q${-0.6 + q * 0.9} 0 ${-1.1 + q * 0.9} 1.0`), rgba(C.hairHi, 0.5), 0.14);
       ctx.restore();
       // her right ear in front of the hair behind it, and a few hairs in front of it, once she has turned
       if (k > 0.1) { ctx.globalAlpha = ss((k - 0.1) / 0.3);
@@ -496,12 +511,32 @@ export class Helen {
   }
   // standing (the memory of the day he gave her Snowki): straight legs, the skirt falling to mid-calf
   standLower(ctx, t, st) {
-    const C = HC, sw = Math.sin(t * 1.3) * 0.5;
-    for (const x of [-2.6, 2.8]) { limb(ctx, [x, 4], [x * 1.02, 13], [x * 1.05, 29.6], [3.2, 3.0, 2.6, 1.9, 1.4], C.skin, C.out, { lw: 0.16 }); sneaker(ctx, x * 1.05, 30.6, C); }
-    const skirt = smooth([[-6.0, -11.4], [-8.4, -3], [-10.4, 9], [-11.6 + sw, 21.6], [-6, 23.2 + sw * 0.4], [0, 23.6], [6, 23.2 - sw * 0.4], [11.8 + sw, 21.4], [10.6, 9], [8.6, -3], [6.2, -11.4]], true);
-    cel(ctx, skirt, C.dress, -11.6, 11.8, { lc: C.out, shade: '#4A5AA8' });
-    ctx.save(); ctx.clip(skirt); for (const [x0, x1] of [[-3.5, -6.5], [0.4, 0.6], [4, 7]]) line(ctx, P2(`M${x0} -8 C${x0} 4 ${x1} 14 ${x1 + sw * 0.5} 23.4`), 'rgba(60,70,150,.3)', 0.45); ctx.restore();
-    line(ctx, P2(`M${-11.6 + sw} 21.6 C-6 23.6 6 23.6 ${11.8 + sw} 21.4`), C.collar, 1.1);
+    const C = HC, walking = !!st.walking, phaseBase = Number.isFinite(st.walkPhase) ? st.walkPhase : t * 6;
+    const walkSw = walking ? Math.sin(phaseBase) : 0, sw = Math.sin(t * 1.3) * 0.5 + walkSw * 0.8;
+    this.jeanLegs(ctx, t, walking, phaseBase, false);
+  }
+  // high-waisted wide-leg jeans from the waist to the sneakers (front: pockets and fly; back: back pockets)
+  jeanLegs(ctx, t, walking, phaseBase, back) {
+    const C = HC;
+    for (const x of [-3.0, 3.2]) {
+      const phase = phaseBase + (x < 0 ? 0 : Math.PI), swing = walking ? Math.sin(phase) * 3.1 : 0, lift = walking ? Math.max(0, Math.cos(phase)) * 2.8 : 0;
+      const hip = [x * 0.85, -9.0], knee = [x * 1.02 + swing * 0.45, 12.4 - lift * 0.35], ankle = [x * 1.08 + swing, 29.0 - lift];
+      sneaker(ctx, ankle[0], ankle[1] + 1.6, C);
+      limb(ctx, hip, knee, ankle, [5.6, 4.6, 4.1, 4.3, 4.7], C.jean, C.out, { lw: 0.16, shade: '#2C3E72' });
+      line(ctx, P2(`M${hip[0] + 1.0} ${hip[1] + 2} L${knee[0] + 1.0} ${knee[1]} L${ankle[0] + 1.3} ${ankle[1] - 0.6}`), rgba(C.jeanL, 0.5), 0.35);   // the crease
+    }
+    const seat = smooth([[-6.2, -11.6], [-7.4, -6.0], [-6.2, -2.0], [0.4, -0.8], [6.8, -2.0], [7.8, -6.0], [6.4, -11.6]], true);
+    cel(ctx, seat, C.jean, -7.4, 7.8, { lc: C.out, shade: '#2C3E72' });
+    cel(ctx, P2('M-6.2 -12.9 Q0.4 -12.4 6.4 -12.9 L6.6 -10.4 Q0.4 -9.9 -6.0 -10.4 Z'), C.jean, -6, 6.6, { lc: C.out, lw: 0.15, shade: '#2C3E72' });
+    line(ctx, P2('M-6.0 -11.7 Q0.4 -11.2 6.5 -11.7'), C.stitch, 0.12);
+    if (back) { jeanPocket(ctx, -3.2, -6.4, 4.0, 4.2); jeanPocket(ctx, 3.8, -6.4, 4.0, 4.2); }
+    else { line(ctx, P2('M0.4 -10.4 C0.4 -7.6 0.2 -5.2 -0.6 -3.4'), C.stitch, 0.14); line(ctx, P2('M5.4 -10.4 C5.0 -7.4 3.2 -5.4 1.4 -4.8'), C.stitch, 0.14);
+      line(ctx, P2('M-4.8 -10.4 C-4.6 -7.6 -3.0 -5.6 -1.4 -5.0'), C.stitch, 0.14); fill(ctx, ell(0.5, -11.6, 0.42, 0.42), '#C8A060'); }
+  }
+  standBackLower(ctx, t, st) {
+    const C = HC, walking = !!st.walking, phaseBase = Number.isFinite(st.walkPhase) ? st.walkPhase : t * 6;
+    const sw = walking ? Math.sin(phaseBase) * 0.8 : Math.sin(t * 1.3) * 0.25;
+    this.jeanLegs(ctx, t, walking, phaseBase, true);
   }
   drawHead(ctx, st) {
     const C = HC, t = st.t, ex = st.expr || 'calm', lu = this.lu || 0;
@@ -523,7 +558,7 @@ export class Helen {
     const lights = st.eyeLights || null;
     ctx.save(); ctx.translate(-1.7, 0); ctx.scale(-1, 1); ctx.translate(1.7, 0); animeEye(ctx, -1.7, -37.2, 3.2 * (1 - Math.max(0, -this.tn) * 0.12), 3.9, es, C, -gxe, gy, lights && lights.map(L => [-L[0], ...L.slice(1)])); ctx.restore();
     animeEye(ctx, 3.45, -37.3, 2.8 * (1 - Math.max(0, this.tn) * 0.15), 3.6, es, C, gxe, gy, lights);
-    fill(ctx, ell(0.9, -41.0, 0.24, 0.26), '#8A2230');   // a tiny bindi
+    fill(ctx, ell(-5.25, -35.25, 0.3, 0.3), '#F4F2F8'); fill(ctx, ell(-5.33, -35.35, 0.1, 0.1), '#FFFFFF');   // stud earring
     if (ex === 'teary') { // a tear catching the light
       const ty = -35.0 + ((t * 0.35) % 1) * 2.2;
       ctx.fillStyle = 'rgba(210,235,255,.85)'; ctx.beginPath(); ctx.ellipse(-0.6, ty, 0.32, 0.5, 0, 0, 7); ctx.fill();

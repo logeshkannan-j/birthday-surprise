@@ -10,3 +10,6 @@ ref/
 # API keys for the clip generator
 .env
 film/tools/.env
+
+# local Blender work (renders, .blend files) – not part of the site
+blender/

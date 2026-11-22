@@ -5,7 +5,7 @@ import { clamp, lerp, rand, noise2, noise3, curl, ease } from './core.js';
 import { HZ, unitScale } from './space.js';
 
 export const SKY_GY = HZ + 9;            // depth of the fireworks / message (far, barely parallaxes)
-const C2 = [0, 0];
+const C2 = [0, 0], C3 = [0, 0, 0];
 
 // ---------------------------------------------------------------- CPU sprite list (shared by both renderers)
 export class SpriteList {
@@ -113,8 +113,126 @@ export class Fireworks {
   }
   puff(x, y, gy, vx, vy, r, life, near, col = null, grow = 1) { if (this.smoke.length < 160) this.smoke.push({ x, y, gy, vx, vy, r, life, age: 0, near, col, grow, rot: Math.random() * 6.28, spin: (Math.random() - 0.5) * 0.5 }); }
   schedule(delay, fn) { this.queue.push({ at: delay, fn }); }
-  setTargets(pts) { this.targets = pts; }            // (the sky message is HTML now; kept for compatibility)
+  setTargets(pts) { this.targets = pts; }            // (old API, kept for compatibility: the message is message() below)
   formInstant() {} clearLetters() {}
+
+  // ---- the birthday message written by fireworks in the sky. Called when the main shell cracks:
+  // message({ lines: ['HAPPY BIRTHDAY', 'HELEN DARLU'], heart: true, center: [x, y], width, from: [x, y], hold: 6.5, ago: 0, px })
+  //   center / width: the block's centre and width in world units at SKY_GY; from: the burst point (stars fly out of it);
+  //   hold: seconds fully readable after it has formed; ago: seconds since it started (seeking rebuilds the exact state);
+  //   px (optional): CSS px per world unit at SKY_GY (View.scaleAt(SKY_GY)) – keeps stars >= ~1.8 px apart on small screens.
+  //   Optional: colors [[r,g,b] per line], heartColor, font, sizes [per line], seed.
+  // Stars burst out on curved, drag-slowed, gravity-bent paths and settle white-hot into the letters in ~1 s, burn with a
+  // twinkle, sparkles, glitter and crackle, then droop, cool to embers and burn out over ~2 s, leaving faint smoke.
+  // Returns { form, readable, end } (seconds from the start). clearMessage() removes it at once; clearMessage(true) burns it out now.
+  message(o = {}) {
+    const lines = (o.lines && o.lines.length ? o.lines : ['HAPPY BIRTHDAY']).map(s => String(s).toUpperCase()), heart = o.heart ?? true;
+    const L = layoutMessage(lines, heart, o.font || '"Cinzel", serif', o), width = o.width || 900, emW = width / L.wEm, px = o.px || 0.9;
+    const budget = Math.round(this.max * 0.285 * (this.flat ? 0.55 : 1)), rMin = 1.8 / px / emW;           // (em) never closer than ~1.8 CSS px
+    const count = Math.max(240, Math.min(budget, Math.round(0.7 * L.inkEm / (rMin * rMin) / 50) * 50));
+    const P = sampleStars(L, count, o.seed ?? 11), n = P.n, rnd = rng32((o.seed ?? 11) * 7919 + 3);
+    const cx = o.center ? o.center[0] : 800, cy = o.center ? o.center[1] : 250, F = o.from || [cx, cy];
+    const pal = [colOf(o.colors && o.colors[0] || [1, 0.56, 0.1]), colOf(o.colors && o.colors[1] || [1, 0.33, 0.5])];
+    for (let k = 2; k < lines.length; k++) pal.push(colOf(o.colors && o.colors[k] || pal[k % 2]));
+    pal.push(colOf(o.heartColor || [1, 0.13, 0.27]));                                                 // (the heart is the last "row")
+    const A = () => new Float32Array(n), M = { n, t0: null, ago: Math.max(0, o.ago || 0), hold: o.hold ?? 6.5, cx, cy, width, emW, fx: F[0], fy: F[1], pal, L, P, gb: 0.55 * emW,
+      tx: A(), ty: A(), ax: A(), ay: A(), px: A(), py: A(), dr: A(), del: A(), dur: A(), sz: A(), ph: A(), fq: A(), fq2: A(), st: A(), lb: A(), wd: A(), pop: new Uint8Array(n), row: P.row };
+    let maxD = 1; for (let i = 0; i < n; i++) maxD = Math.max(maxD, Math.hypot(cx + P.x[i] * emW - F[0], cy + P.y[i] * emW - F[1]));
+    const lt = L.letters.map(() => rnd() * 0.55), rW = P.r * emW; let form = 0;
+    for (let i = 0; i < n; i++) {
+      const tx = cx + P.x[i] * emW, ty = cy + P.y[i] * emW, dx = tx - F[0], dy = ty - F[1], dist = Math.hypot(dx, dy) || 1;
+      const droop = (0.07 * dist + 0.3 * emW) * (0.6 + 0.8 * rnd()), sw = (rnd() - 0.5) * 0.26 * dist;
+      M.tx[i] = tx; M.ty[i] = ty; M.ax[i] = dx; M.ay[i] = dy - droop; M.dr[i] = droop; M.px[i] = -dy / dist * sw; M.py[i] = dx / dist * sw;
+      M.del[i] = rnd() * 0.09; M.dur[i] = 0.5 + 0.34 * dist / maxD + rnd() * 0.1; form = Math.max(form, M.del[i] + M.dur[i]);
+      M.sz[i] = rW * (P.edge[i] ? 1.6 : 1.45) * (0.85 + 0.3 * rnd()); M.ph[i] = rnd() * 6.283; M.fq[i] = 4 + rnd() * 5; M.fq2[i] = 0.35 + rnd() * 0.6;
+      const li = P.letter[i] >= 0 ? P.letter[i] : 0; M.st[i] = lt[li] + rnd() * 0.25; M.lb[i] = 1.0 + rnd() * 0.5; M.wd[i] = (rnd() - 0.35) * 0.3 * emW; M.pop[i] = rnd() < 0.22 ? 1 : 0;
+    }
+    M.formT = form; M.tail = 0.55 + 0.25 + 1.5; M.lt = lt; M.minS = 3.2 / px;   // (a bright core never smaller than ~3 CSS px)
+    if (M.ago >= M.formT + M.hold + M.tail) { this.msg = null; return null; }
+    this.msg = M; this._mo = this._mo || new Float32Array(9);
+    return { form: M.formT, readable: M.formT + M.hold, end: M.formT + M.hold + M.tail, stars: n };
+  }
+  clearMessage(burnOut = false) {
+    const M = this.msg; if (!M) return; if (!burnOut) { this.msg = null; return; }
+    const age = M.t0 == null ? M.ago : this.t - M.t0; M.hold = Math.min(M.hold, Math.max(0, age - M.formT));
+  }
+  _mAge(M, t) { if (M.t0 == null) M.t0 = t - M.ago; return t - M.t0; }   // (relative to the sim clock of the first frame after message(): survives the film's seek settling)
+  _mVis(M, age) { return smst(0.15, M.formT, age) * (1 - smst(M.formT + M.hold + 0.3, M.formT + M.hold + M.tail - 0.4, age)); }
+  // one star at message age `age`: o = [x, y, vx, vy, r, g, b, a, size]; returns 0 (not lit / burnt out), 1 flying, 2 burning in its letter, 3 dying
+  _mEval(M, i, age, t, o) {
+    const a = age - M.del[i]; if (a <= 0) return 0;
+    const D = M.dur[i], c = M.pal[M.row[i]]; let x, y, vx, vy, al, s = M.sz[i], cr = c[0], cg = c[1], cb = c[2], st;
+    if (a < D) {   // flying out of the burst: slowed by drag, sinking into place under gravity, a little swirl; a white-hot head with a streak
+      const u = a / D, w = 1 - u, e = 1 - w * w * w, de = 3 * w * w, g = u * u * (3 - 2 * u), dg = 6 * u * w, b = 6.75 * u * w * w, db = 6.75 * w * (1 - 3 * u);
+      x = M.fx + M.ax[i] * e + M.px[i] * b; y = M.fy + M.ay[i] * e + M.dr[i] * g + M.py[i] * b;
+      vx = (M.ax[i] * de + M.px[i] * db) / D; vy = (M.ay[i] * de + M.dr[i] * dg + M.py[i] * db) / D;
+      cr = lerp(cr, 1, 0.9); cg = lerp(cg, 0.97, 0.9); cb = lerp(cb, 0.9, 0.9);
+      al = smst(0, 0.12, a) * (0.8 + 0.3 * u); s *= 0.8 + 0.3 * u; st = 1;
+    } else {       // in its letter: arrives with a flash, cools from white-hot to its colour, then burns with a twinkle and a rare sparkle
+      const ta = a - D, hot = Math.exp(-ta * 2.2) * 0.85, fl = Math.exp(-ta * 9), ph = M.ph[i];
+      const tw = 0.82 + 0.18 * Math.sin(t * M.fq[i] + ph), sp = Math.sin(t * M.fq2[i] + ph * 3.1), spk = sp > 0.993 ? (sp - 0.993) / 0.007 : 0, hw = Math.max(hot, spk * 0.85);
+      x = M.tx[i]; y = M.ty[i]; vx = 0; vy = 0; cr = lerp(cr, 1, hw); cg = lerp(cg, 0.97, hw); cb = lerp(cb, 0.9, hw);
+      al = tw * (1 + 0.9 * fl + 1.4 * spk); s *= 1 + 0.45 * fl + 0.7 * spk; st = 2;
+      const tb = age - (M.formT + M.hold + M.st[i]);
+      if (tb > 0) {   // burning out: it droops and drifts, cools to orange and ember, flickers, some pop white, and it is gone
+        const ub = tb / M.lb[i]; if (ub >= 1) return 0;
+        x += M.wd[i] * tb; y += 0.5 * M.gb * tb * tb; vx = M.wd[i]; vy = M.gb * tb;
+        const k = smst(0, 0.5, ub); cool(0.12 + 0.88 * ub, C3); cr = lerp(cr, C3[0], k); cg = lerp(cg, C3[1], k); cb = lerp(cb, C3[2], k);
+        al *= Math.pow(1 - ub, 1.3); if (ub > 0.3 && Math.sin(t * 37 + ph * 7) < -0.3) al *= 0.3;
+        if (M.pop[i] && ub > 0.5 && ub < 0.62) { const q = 1 - Math.abs(ub - 0.56) / 0.06; al += 2 * q; s *= 1 + q; cr = 1; cg = 0.97; cb = 0.88; }
+        s *= 1 - 0.4 * ub; st = 3;
+      }
+    }
+    o[0] = x; o[1] = y; o[2] = vx; o[3] = vy; o[4] = cr; o[5] = cg; o[6] = cb; o[7] = al; o[8] = s; return st;
+  }
+  // per frame (sim time): the message's light on the scene, glitter and crackle, trails of the flying stars, its smoke
+  _mUpdate(dt, t) {
+    const M = this.msg, age = this._mAge(M, t), o = this._mo, K = this.k, em = M.emW;
+    if (age > M.formT + M.hold + M.tail) { this.msg = null; return; }
+    const burn0 = M.formT + M.hold;
+    // faint smoke: where the letters formed, and again as they burn out (pre-aged when the film was entered by seeking)
+    const smoke = (n, at) => { for (let k = 0; k < n && this.smoke.length < 160; k++) { const j = (Math.random() * M.n) | 0, life = 7 + Math.random() * 3, ag = age - at; if (ag > life) continue;
+      const c = M.pal[M.row[j]], r = (0.45 + Math.random() * 0.5) * em; this.smoke.push({ x: M.tx[j], y: M.ty[j], gy: SKY_GY, vx: (Math.random() - 0.5) * 0.12 * em, vy: -(0.03 + Math.random() * 0.05) * em, r: r + ag * 0.09 * em, life, age: ag, near: false, col: c, grow: 0.09 * em, rot: Math.random() * 6.28, spin: (Math.random() - 0.5) * 0.3 }); } };
+    if (!M.sm1 && age >= 0.9) { M.sm1 = true; smoke(12, 0.9); }
+    if (!M.sm2 && age >= burn0 + 0.3) { M.sm2 = true; smoke(9, burn0 + 0.3); if (dt > 0 && age - burn0 < 0.6 && this.hooks.crackle) this.hooks.crackle(); }
+    if (dt <= 0 || this.free.length < this.max * 0.2) return;
+    // sparkling trails behind some of the flying stars (lancework streams)
+    if (age < M.formT) { let n = Math.round(M.n * 0.5 * dt * K + Math.random() * 0.5); while (n-- > 0) { const j = (Math.random() * M.n) | 0; if (this._mEval(M, j, age, t, o) !== 1) continue;
+      this.emit(TRAIL, o[0], o[1], o[2] * 0.05 + (Math.random() - 0.5) * 0.3 * em, o[3] * 0.05 + (Math.random() - 0.5) * 0.3 * em, 0.25 + Math.random() * 0.3, SKY_GY, o[8] * 0.7, WHITE, Math.random() < 0.5 ? F_STROBE : 0, 3, 0.4 * em); } }
+    // glitter falling from the letters and crackle pops while they burn; more glitter as they die
+    if (age > M.formT * 0.8) {
+      const dying = age > burn0, ng = Math.round((dying ? 70 : 26) * dt * K * (M.n / 2000 + 0.3) + Math.random() * 0.7);
+      for (let k = 0; k < ng; k++) { const j = (Math.random() * M.n) | 0, s = this._mEval(M, j, age, t, o); if (s < 2) continue;
+        this.emit(GLIT, o[0], o[1], o[2] * 0.3 + (Math.random() - 0.5) * 0.4 * em, o[3] * 0.3 + Math.random() * 0.3 * em, 0.9 + Math.random() * 1.1, SKY_GY, o[8] * 0.6, WHITE, 0, 3, 1.1 * em); }
+      if (!dying || age < burn0 + 1.2) { const nc = Math.round(9 * dt * K * (M.n / 2000 + 0.3) + Math.random() * 0.6);
+        for (let k = 0; k < nc; k++) { const j = (Math.random() * M.n) | 0; if (this._mEval(M, j, age, t, o) < 2) continue;
+          for (let q = 0; q < 3; q++) { const p = this.emit(POP, o[0] + (Math.random() - 0.5) * 0.25 * em, o[1] + (Math.random() - 0.5) * 0.25 * em, 0, 0, 0.05 + Math.random() * 0.06, SKY_GY, o[8] * (0.7 + Math.random() * 0.6), WHITE, 0, 0, 0); if (p >= 0) this.age[p] = -Math.random() * 0.25; } } }
+    }
+  }
+  // the message's sprites (into the emissive sky list, before everything else so a full list never drops a letter)
+  _mDraw(add, t) {
+    const M = this.msg, age = this._mAge(M, t), o = this._mo; if (age <= 0) return;
+    const stk = 0.028;
+    const gk = this.flat ? 1 : 1.75, ga = this.flat ? 0.75 : 0.5;
+    for (let i = 0; i < M.n; i++) {
+      const st = this._mEval(M, i, age, t, o); if (!st) continue;
+      if (st === 1) { add.push(o[0], o[1], SKY_GY, 0, o[8], o[8], o[2] * stk, o[3] * stk, o[4], o[5], o[6], o[7]); continue; }   // a flying star: white-hot head + streak
+      // in its letter: a soft glow that joins its neighbours into a stroke of light, and on every 4th star a bright twinkling core
+      add.push(o[0], o[1], SKY_GY, 0, o[8] * gk, o[8] * gk, o[2] * stk, o[3] * stk, o[4], o[5], o[6], o[7] * ga);
+      if ((i & 3) === 0 && !this.flat) { const cs = Math.max(o[8] * 0.8, M.minS), tw = 0.55 + 0.45 * Math.sin(t * M.fq[i] * 1.7 + M.ph[i] * 2);
+        add.push(o[0], o[1], SKY_GY, 0, cs, cs, o[2] * stk, o[3] * stk, lerp(o[4], 1, 0.55), lerp(o[5], 0.96, 0.55), lerp(o[6], 0.86, 0.55), o[7] * tw); }
+    }
+    // soft light around the letters: each letter breathes a little glow; each line sits in a faint band of light
+    const em = M.emW, L = M.L, vis = this._mVis(M, age); if (vis <= 0.01) return;
+    const burn0 = M.formT + M.hold;
+    for (let l = 0; l < L.letters.length; l++) {
+      const q = L.letters[l], v = smst(0.3, M.formT + 0.2, age) * (1 - smst(burn0 + M.lt[l], burn0 + M.lt[l] + 1.1, age)); if (v <= 0.01) continue;
+      const c = M.pal[q.row], f = 0.9 + 0.1 * Math.sin(t * 2.3 + l * 1.7);
+      if (this.flat) add.push(M.cx + q.x * em, M.cy + q.y * em, SKY_GY, 0, q.h * 0.9 * em, q.h * 0.9 * em, 0, 0, c[0], c[1], c[2], 0.07 * v * f);
+      else add.push(M.cx + q.x * em, M.cy + q.y * em, SKY_GY, 0, (q.w + 0.9) * em, 1.7 * q.h * em, 0, 0, c[0], c[1], c[2], 0.075 * v * f);
+    }
+    if (!this.flat) L.rows.forEach((r, k) => { const c = M.pal[k], y = (L.base[k] - 0.35 * r.f - L.cy0) / L.E; add.push(M.cx, M.cy + y * em, SKY_GY, 0, (r.w / L.E + 1.6) * em, 2.6 * em, 0, 0, c[0], c[1], c[2], 0.05 * vis); });
+  }
 
   // ---- the lighting stick (a long match / portfire) in his hand. hand() -> [x, y, gy] of his hand, or null when he is not
   // lighting. Its flame comes down to his end of the fuse, touches it, and is pulled back once the fuse has caught.
@@ -193,7 +311,7 @@ export class Fireworks {
     if (this.uv) for (let i = 0; i < (big ? 8 : 4); i++) { const a = Math.random() * 6.28, d = Math.sqrt(Math.random()) * R * 0.55; this.puff(x + Math.cos(a) * d, y + Math.sin(a) * d * 0.8, gy, 0, 4 + Math.random() * 4, R * (0.22 + Math.random() * 0.14), 6 + Math.random() * 3, false, c2 ? mixc(c1, c2, 0.5) : c1, 0.06 * R); }
   }
   // run the simulation forward quickly (used when the film is entered by seeking just after a burst)
-  advance(sec) { for (let s = 0; s < sec; s += 1 / 30) this.update(1 / 30, this.t + 1 / 30, 0); }
+  advance(sec) { const m = this.msg; this.msg = null; for (let s = 0; s < sec; s += 1 / 30) this.update(1 / 30, this.t + 1 / 30, 0); this.msg = m; }   // (the message rebuilds itself from its own `ago`)
 
   update(dt, t, wind = 0) {
     this.t = t;
@@ -258,6 +376,7 @@ export class Fireworks {
     let lk = 0, lx = 0, ly = 0, lr = 0, lg = 0, lb = 0;
     for (const f of this.flashes) { const k = f.k * Math.exp(-f.t * 2.6); lk += k; lx += f.x * k; ly += f.y * k; lr += f.col[0] * k; lg += f.col[1] * k; lb += f.col[2] * k; }
     for (const b of this.recent) { const k = b.k * 0.22 * Math.exp(-b.t * 0.7); lk += k; lx += b.x * k; ly += b.y * k; lr += b.col[0] * k; lg += b.col[1] * k; lb += b.col[2] * k; }
+    if (this.msg) { this._mUpdate(dt, t); const M = this.msg; if (M) { const k = 0.3 * this._mVis(M, t - M.t0); lk += k; lx += M.cx * k; ly += M.cy * k; lr += k; lg += 0.7 * k; lb += 0.48 * k; } }   // the message lights the scene warmly while it burns
     const L = this.light; L.k = lerp(L.k, lk, dt > 0 ? 0.25 : 1);
     if (lk > 0.01) { L.x = lx / lk; L.y = ly / lk; L.r = lerp(L.r, 0.5 + 0.5 * lr / lk, 0.2); L.g = lerp(L.g, 0.5 + 0.5 * lg / lk, 0.2); L.b = lerp(L.b, 0.5 + 0.5 * lb / lk, 0.2); }
     if (dt <= 0) return;
@@ -298,10 +417,13 @@ export class Fireworks {
 
   // up to 4 recent bursts as lights for the sea shader: L = [screen x, screen y, intensity, half-width px] x4, C = colours x4
   seaLights(view) {
-    const arr = this.recent.map(b => ({ b, k: b.k * Math.exp(-b.t * 0.8) * (1 + 0.8 * Math.exp(-b.t * 8)) })).filter(o => o.k > 0.04).sort((a, b) => b.k - a.k).slice(0, 4);
+    // the message keeps two columns (gold under the left half, rose under the right) while it burns; the bursts get the rest
+    const M = this.msg, mv = M && M.t0 != null ? this._mVis(M, this.t - M.t0) : 0, ms = mv > 0.03 ? [[-0.24, M.pal[0]], [0.24, mixc(M.pal[0], M.pal[1], 0.7)]] : [];
+    const arr = this.recent.map(b => ({ b, k: b.k * Math.exp(-b.t * 0.8) * (1 + 0.8 * Math.exp(-b.t * 8)) })).filter(o => o.k > 0.04).sort((a, b) => b.k - a.k).slice(0, 4 - ms.length);
     const L = this._sl || (this._sl = new Float32Array(16)), C = this._sc || (this._sc = new Float32Array(12)), p = [0, 0]; L.fill(0); C.fill(0);
-    arr.forEach((o, i) => { view.toScreen(o.b.x, o.b.y, SKY_GY, p); L[i * 4] = p[0]; L[i * 4 + 1] = p[1]; L[i * 4 + 2] = o.k * (0.85 + 0.15 * Math.sin(this.t * 23 + i)); L[i * 4 + 3] = Math.max(8, o.b.R * view.scaleAt(SKY_GY) * 0.42); C.set(o.b.col, i * 3); });
-    return { L, C, n: arr.length };
+    ms.forEach(([f, c], i) => { view.toScreen(M.cx + f * M.width, M.cy, SKY_GY, p); L[i * 4] = p[0]; L[i * 4 + 1] = p[1]; L[i * 4 + 2] = mv * 0.5 * (0.9 + 0.1 * Math.sin(this.t * 11 + i * 2.3)); L[i * 4 + 3] = Math.max(8, M.width * 0.2 * view.scaleAt(SKY_GY)); C.set(c, i * 3); });
+    arr.forEach((o, j) => { const i = j + ms.length; view.toScreen(o.b.x, o.b.y, SKY_GY, p); L[i * 4] = p[0]; L[i * 4 + 1] = p[1]; L[i * 4 + 2] = o.k * (0.85 + 0.15 * Math.sin(this.t * 23 + i)); L[i * 4 + 3] = Math.max(8, o.b.R * view.scaleAt(SKY_GY) * 0.42); C.set(o.b.col, i * 3); });
+    return { L, C, n: arr.length + ms.length };
   }
 
   // add = the emissive sky list. Fills this.nearA / this.nearL (reset here) for the launcher's depth.
@@ -309,6 +431,7 @@ export class Fireworks {
     const uv = this.uv, sp = this.splitGy; this.nearA.reset(); this.nearL.reset(); this.frontA.reset(); this.frontL.reset();
     const A = gy => (gy > sp ? this.frontA : this.nearA), Ad = gy => (gy > sp ? this.frontL : this.nearL), NL = this.nearL;
     const col = [0, 0, 0];
+    if (this.msg) this._mDraw(add, t);   // the birthday message in the sky (first: a full sprite list never drops a letter)
     // the fuse on the ground: green cord ahead of the spark, ash behind it, embers cooling just behind the spark
     if (this.fuseP && this.cordOn !== false) {   // (the film lays the cord out only from scene 6 on)
       const P = this.fuseP, N = P.length, fs = this.fuseS, ub = this.fuseU(t), bi = ub * (N - 1), lit = fs && t >= fs.t0, wh = uv && uv.white, solid = wh && !this.flat;
@@ -386,6 +509,75 @@ export class Fireworks {
       }
     }
   }
+}
+
+// ---------------------------------------------------------------- the birthday message, written by fireworks in the sky
+// layoutMessage() sets the lines in Cinzel 700 capitals (tracked a little wider, so glowing letters never run together; the
+// heart after the last line) on an offscreen canvas and keeps the ink mask; sampleStars() turns the ink into a Poisson-disk
+// set of stars – contour stars first (crisp letter edges), then fill – so the letters read as light, never as clumps or holes.
+// Both are pure layout in em units around the block's centre and are cached (a seek rebuilds the same message instantly).
+const rng32 = seed => { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; };
+const MSG_LAYOUT = new Map();
+export function layoutMessage(lines, heart = true, font = '"Cinzel", serif', o = {}) {
+  const key = JSON.stringify([lines, !!heart, font, o.sizes || 0, o.track ?? 0, o.pitch ?? 0]); if (MSG_LAYOUT.has(key)) return MSG_LAYOUT.get(key);
+  const E = 120, n = lines.length, sizes = lines.map((_, k) => (o.sizes && o.sizes[k]) || 1), track = (o.track ?? 0.09) * E, pitch = (o.pitch ?? 1.3) * E, cap = 0.7 * E, pad = Math.ceil(0.3 * E);
+  const m = document.createElement('canvas').getContext('2d'), rows = [];
+  lines.forEach((s, k) => {
+    const f = E * sizes[k]; m.font = `700 ${f}px ${font}`; const sp = Math.max(m.measureText(' ').width, 0.3 * f), ch = []; let x = 0;
+    for (const c of s) { const w = c === ' ' ? sp : m.measureText(c).width; if (c !== ' ') ch.push({ c, x, w }); x += w + track * sizes[k]; }
+    let w = Math.max(0, x - track * sizes[k]), hx = 0, hw = 0;
+    if (heart && k === n - 1) { hw = 0.86 * f; hx = w + 0.34 * f; w = hx + hw; }
+    rows.push({ f, ch, w, hx, hw });
+  });
+  const RW = Math.max(...rows.map(r => r.w)), CW = Math.ceil(RW + 2 * pad), base = rows.map((r, k) => pad + cap * sizes[0] + k * pitch), CH = Math.ceil(base[n - 1] + 0.12 * E + pad);
+  const c = document.createElement('canvas'); c.width = CW; c.height = CH; const x = c.getContext('2d'); x.textBaseline = 'alphabetic'; x.textAlign = 'left';
+  const letters = [], colL = rows.map(() => new Int16Array(CW).fill(-1)), cx0 = CW / 2, cy0 = (base[0] - cap * sizes[0] + base[n - 1]) / 2;
+  const mark = (k, a, b, id) => { for (let i = Math.max(0, Math.floor(a)); i < Math.min(CW, Math.ceil(b)); i++) colL[k][i] = id; };
+  rows.forEach((r, k) => {
+    const x0 = (CW - r.w) / 2; x.font = `700 ${r.f}px ${font}`; x.fillStyle = `rgb(${20 + k * 30},0,0)`;
+    for (const q of r.ch) { x.fillText(q.c, x0 + q.x, base[k]); const id = letters.length; letters.push({ row: k, x: (x0 + q.x + q.w / 2 - cx0) / E, y: (base[k] - 0.35 * r.f - cy0) / E, w: q.w / E, h: 0.7 * r.f / E }); mark(k, x0 + q.x - track, x0 + q.x + q.w + track, id); }
+    if (r.hw) {   // the heart: two round lobes and a soft point, sitting on the cap line like a letter
+      const hx = x0 + r.hx + r.hw / 2, hy = base[k] - 0.36 * r.f, s = r.hw / 32; x.fillStyle = `rgb(${20 + n * 30},0,0)`; x.beginPath();
+      for (let i = 0; i <= 72; i++) { const a = i / 72 * Math.PI * 2, px = 16 * Math.pow(Math.sin(a), 3), py = -(13 * Math.cos(a) - 5 * Math.cos(2 * a) - 2 * Math.cos(3 * a) - Math.cos(4 * a)); i ? x.lineTo(hx + px * s, hy + (py + 2.5) * s) : x.moveTo(hx + px * s, hy + (py + 2.5) * s); }
+      x.closePath(); x.fill(); const id = letters.length; letters.push({ row: n, x: (hx - cx0) / E, y: (hy - cy0) / E, w: r.hw / E, h: r.hw / E }); mark(k, x0 + r.hx - track, x0 + r.hx + r.hw + track, id);
+    }
+  });
+  const d = x.getImageData(0, 0, CW, CH).data, mask = new Uint8Array(CW * CH); let ink = 0;
+  for (let i = 0, j = 3; i < mask.length; i++, j += 4) if (d[j] >= 128) { mask[i] = 1 + Math.max(0, Math.min(n, Math.round((d[j - 3] - 20) / 30))); ink++; }
+  const L = { E, CW, CH, mask, ink, inkEm: ink / (E * E), cx0, cy0, base, rows, letters, colL, n, wEm: RW / E, hEm: (base[n - 1] - base[0] + cap * sizes[0]) / E, stars: new Map() };
+  MSG_LAYOUT.set(key, L); return L;
+}
+export function sampleStars(L, count, seed = 11) {
+  const key = count + ':' + seed; if (L.stars.has(key)) return L.stars.get(key);
+  const { CW, CH, mask, E } = L, rnd = rng32(seed), r = Math.sqrt(0.7 * L.ink / count), r2 = r * r;
+  const ink = (x, y) => x >= 0 && y >= 0 && x < CW && y < CH && mask[y * CW + x] > 0;
+  const edge = [], fill = [];
+  for (let y = 0; y < CH; y++) for (let x = 0; x < CW; x++) {
+    if (!mask[y * CW + x]) continue;
+    if (!ink(x - 2, y) || !ink(x + 2, y) || !ink(x, y - 2) || !ink(x, y + 2)) edge.push(y * CW + x); else if (((x | y) & 1) === 0) fill.push(y * CW + x);
+  }
+  const shuf = a => { for (let i = a.length - 1; i > 0; i--) { const j = (rnd() * (i + 1)) | 0, t = a[i]; a[i] = a[j]; a[j] = t; } return a; };
+  shuf(edge); shuf(fill);
+  const gw = Math.ceil(CW / r) + 1, gh = Math.ceil(CH / r) + 1, head = new Int32Array(gw * gh).fill(-1), cap = Math.ceil(count * 1.6) + 64;
+  const X = new Float32Array(cap), Y = new Float32Array(cap), nx = new Int32Array(cap), EG = new Uint8Array(cap); let n = 0;
+  const tryAdd = (idx, eg) => {
+    if (n >= cap) return; const px = idx % CW + (rnd() - 0.5) * 0.8, py = ((idx / CW) | 0) + (rnd() - 0.5) * 0.8, gx = (px / r) | 0, gy = (py / r) | 0;
+    for (let j = Math.max(0, gy - 1); j <= Math.min(gh - 1, gy + 1); j++) for (let i = Math.max(0, gx - 1); i <= Math.min(gw - 1, gx + 1); i++)
+      for (let p = head[j * gw + i]; p >= 0; p = nx[p]) { const dx = X[p] - px, dy = Y[p] - py; if (dx * dx + dy * dy < r2) return; }
+    X[n] = px; Y[n] = py; EG[n] = eg; nx[n] = head[gy * gw + gx]; head[gy * gw + gx] = n; n++;
+  };
+  for (const i of edge) tryAdd(i, 1); for (const i of fill) tryAdd(i, 0);
+  // too many: drop fill stars first (edges keep the letters crisp)
+  let keep = Array.from({ length: n }, (_, i) => i);
+  if (n > count) { const ed = keep.filter(i => EG[i]), fi = shuf(keep.filter(i => !EG[i])); keep = ed.length >= count ? shuf(ed).slice(0, count) : ed.concat(fi.slice(0, count - ed.length)); }
+  const N = keep.length, S = { n: N, r: r / E, x: new Float32Array(N), y: new Float32Array(N), row: new Uint8Array(N), letter: new Int16Array(N), edge: new Uint8Array(N) };
+  keep.forEach((p, k) => {
+    const ix = Math.min(CW - 1, Math.max(0, Math.round(X[p]))), iy = Math.min(CH - 1, Math.max(0, Math.round(Y[p]))), row = Math.max(0, mask[iy * CW + ix] - 1);
+    S.x[k] = (X[p] - L.cx0) / E; S.y[k] = (Y[p] - L.cy0) / E; S.row[k] = row; S.edge[k] = EG[p];
+    let rk = 0, bd = 1e9; for (let q = 0; q < L.n; q++) { const dd = Math.abs(Y[p] - (L.base[q] - 0.35 * L.rows[q].f)); if (dd < bd) { bd = dd; rk = q; } }
+    S.letter[k] = L.colL[rk][ix];
+  });
+  L.stars.set(key, S); return S;
 }
 
 // sample the sky message into target points (sky-space world coords). place(sx, sy) maps canvas px -> world.

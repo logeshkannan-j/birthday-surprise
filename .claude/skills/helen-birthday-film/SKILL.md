@@ -8,12 +8,11 @@ description: Creative direction, character sheet, architecture and verification 
 Two people have moved forward in life, but some memories stay precious. Snowki – the teddy he once gave her – is
 the bridge between their past and present. Judge every change against this line:
 
-> He does not need to come back into her life. He only wants to make her birthday special, as he used to.
+> He wants to make her birthday special, then lets her go without asking to be seen.
 
 Emotion comes from eyes and small gestures: no hug between them, no running, no exaggerated crying or waving.
-(The user's correction brief of 2026-11-18 wins over older notes: she slowly NOTICES him before the fireworks and
-smiles; he no longer walks away – the ending shows all four; dialogue is bottom subtitles; the flashback is a real
-animated memory.)
+The ending is bittersweet: Helen searches for who sent the fireworks, then leaves with six female friends; he stays
+behind the tree and quietly hides his hurt. Dialogue is bottom subtitles; the flashback is a real animated memory.
 
 ## Where things are (read `film/README.md` for the full map)
 
@@ -51,30 +50,26 @@ and scene 6 local 8.4–10.2 s via `rev: [[a, b]]`).
 5 He kneels and cradles Snowki on his forearm; cinematic subtitles (`#say`): "Why are you here? Did you come to see
   her?" – "I came to wish her a happy birthday, just like every year." – "Every birthday, I wanted to make her smile
   with a little surprise. Today, I wanted to do the same." He looks at Snowki; Jessi sits nearby, wagging.
-6 He gives Snowki the gift and sets him down; Snowki (glide) and Jessi (leading) go back; following them she slowly
-  notices him – head (`hTurn` ramp), then shoulders (`hBody`) – over-the-shoulder with him far in the background, then
-  the reverse angle: she looks toward him and gives a small gentle smile; cut to him: he smiles back.
-7 He walks to `PLACE.boyLight`, kneels, lights the long fuse with a stick (the cord lies on the promenade only from
-  scene 6, `FUSE_SCENE`); the spark runs ~10 m to the launcher (`PLACE.launcher`, far end of the promenade); the shell
-  climbs on a golden trail (camera follows) and cracks; HAPPY BIRTHDAY / HELEN DARLU ❤️ appears with the burst (HTML),
-  more bursts, reflections in the sea; Snowki hops into her arms (`lap` mode = Helen's `cradle`) while we watch the
-  launcher.
-8 Her face (reverse angle, Snowki in her arms): surprise → excitement (hands to her mouth) → happiness (laughing, then
-  a soft smile, hand on her heart). The man walks to `END` meanwhile (off screen).
-9 One composition with all four: she watches the sky with Snowki in her arms, Jessi beside her, the man at a respectful
-  distance (`END`, ≈ 4.6 m away); she turns her head to him and gives one last gentle smile; insert: he smiles back; a
-  slow pull back (the message back in the sky, the moon and the sea in frame); a gentle fade; the message fades and the
-  final words take its place: "Happy Birthday Helen Darlu ❤️" / "Some memories never fade, and some smiles are worth
-  surprising every year."; "Watch again".
+6 He gives Snowki the gift and sets him down; Snowki (glide) and Jessi (leading) go back to Helen while he slips
+  behind the tree.
+7 The camera faces him as he reaches the launcher and lights the long fuse with a stick; the spark runs ~10 m to
+  `PLACE.launcher`; the shell climbs on a golden trail and cracks above the sea. HAPPY BIRTHDAY / HELEN DARLU ❤️
+  forms from firework stars, reflected in the water; Snowki hops into her arms.
+8 Her face (reverse angle, Snowki in her arms): surprise → excitement, then she looks along the shore for who sent
+  the firework. The sea and moving reflections stay in the composition.
+9 Six female friends arrive. Helen stands and walks away with them, carrying Snowki; the man remains hidden behind
+  the tree, watching them go as his smile fades. The final words reflect the quiet ache he keeps to himself.
 
 ## Characters (one rig each – identical everywhere)
 
-- **Helen** (from behind facing the sea except the reverse-angle shots): South Indian, medium-brown skin, big dark-brown
-  eyes, long thick black hair parted in the middle and half up with a little blue bow clip, loose locks to the waist (her
-  dress, sleeves and arms stay visible from behind), tiny bindi; light-blue dress with a shirt collar and buttons, puff
-  sleeves, a little white teddy print, blue belt bow, skirt to mid-calf; white sneakers. Seated with knees turned to the
-  side over the wall edge; standing only in the flashback (`stand`, poses `standReceive` / `standHug`, soles at
-  `Helen.STAND_GROUND`). Back view: `headTurn` / `bodyTurn` / `turnDir` / `smile`; `cradle` = Snowki in her arms.
+- **Helen** (from behind facing the sea except the reverse-angle shots) – after the user's character sheet (2026-11-22):
+  peach skin, big brown eyes with winged liner, pink lips, stud earrings, no bindi; long wavy dark-brown hair half up in a
+  twist (no bow clip), loose wavy locks to the waist (her top, sleeves and arms stay visible from behind); a cream
+  long-sleeve top with a small floral print (crew neck, tucked in), high-waisted wide-leg blue jeans with gold-stitched
+  back pockets, white sneakers, a brown watch on her left wrist (`HC`, `floralPrint`, `jeanPocket`, `jeanLegs` in rigs.js).
+  Seated with knees turned to the side over the wall edge; standing only in the flashback (`stand`, poses `standReceive` /
+  `standHug`, soles at `Helen.STAND_GROUND`) and when she leaves with her friends. Back view: `headTurn` / `bodyTurn` /
+  `turnDir` / `smile`; `cradle` = Snowki in her arms.
 - **The man**: dark curly hair, navy shirt with rolled sleeves, dark trousers, casual shoes; slightly taller than
   her. Hides (`hide`), peeks (`peek` + `drawGrip` overlay), walks (`walkHold`, `armsFree` swings the arms; `st.speed`
   plants the feet), offers (`offer`), kneels, cradles Snowki, talks (mouth moves), lights the fuse. `rigs.js` `Boy`.

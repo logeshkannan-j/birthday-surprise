@@ -17,6 +17,7 @@ import { HZ, unitScale, fromXZ, toXZ, CU, PLACE } from './space.js';
 const TAU = Math.PI * 2, clamp = (v, a, b) => Math.max(a, Math.min(b, v)), lerp = (a, b, t) => a + (b - a) * t;
 const hx = c => { const n = parseInt(c.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; };
 const shade = (c, k, to = [40, 30, 60]) => { const a = hx(c); return `rgb(${Math.round(a[0] + (to[0] - a[0]) * k)},${Math.round(a[1] + (to[1] - a[1]) * k)},${Math.round(a[2] + (to[2] - a[2]) * k)})`; };
+const rgba = (c, a) => { const [r, g, b] = hx(c); return `rgba(${r},${g},${b},${a})`; };
 const CHAR = 1 / CU;                                       // character units per floor unit (≈ 29.2)
 
 // ---------------------------------------------------------------- looks (colours a little muted: they are extras at night)
@@ -30,9 +31,12 @@ const LOOK = {
   girl: { H: 56, skin: 4, hair: 'pigtails', hc: '#140E0D', top: 'frock', tc: '#F2B33D', bot: 'none', bc: '#F2B33D', shoe: '#C9406A' },
   dogMan: { H: 95, skin: 0, hair: 'short', hc: '#1C1512', top: 'shirt', tc: '#5E7FA0', bot: 'trousers', bc: '#5B4C44', shoe: '#2A2226' },
   oldMan: { H: 91, skin: 1, hair: 'grey', hc: '#C8C4C0', top: 'shirt', tc: '#E6E0D0', bot: 'veshti', bc: '#EFEBE0', shoe: '#4A3A30', stoop: 0.16, cane: true },
-  friendA: { H: 88, skin: 2, hair: 'long', hc: '#140D0C', top: 'kurti', tc: '#8C5BB8', bot: 'leggings', bc: '#2A2836', shoe: '#E0D8D0' },
-  friendB: { H: 91, skin: 3, hair: 'long', hc: '#110B0A', top: 'kurti', tc: '#D86F45', bot: 'leggings', bc: '#EAE2D6', shoe: '#5A4036' },
-  friendC: { H: 87, skin: 0, hair: 'bun', hc: '#120C0B', top: 'blouse', tc: '#2D6E9E', bot: 'saree', bc: '#3D86B8', pallu: '#F2D27A', shoe: '#6A4A3A' },
+  friendA: { H: 88, skin: 2, hair: 'long', hc: '#140D0C', top: 'kurti', tc: '#8C5BB8', bot: 'leggings', bc: '#2A2836', shoe: '#E0D8D0', female: true, lip: '#9B4C62', facePhase: 0.3 },
+  friendB: { H: 91, skin: 3, hair: 'long', hc: '#110B0A', top: 'kurti', tc: '#D86F45', bot: 'leggings', bc: '#EAE2D6', shoe: '#5A4036', female: true, lip: '#8F4054', facePhase: 1.1 },
+  friendC: { H: 87, skin: 0, hair: 'bun', hc: '#120C0B', top: 'blouse', tc: '#2D6E9E', bot: 'saree', bc: '#3D86B8', pallu: '#F2D27A', shoe: '#6A4A3A', female: true, lip: '#A64D5D', facePhase: 2.0 },
+  friendD: { H: 90, skin: 4, hair: 'braid', hc: '#140D0C', top: 'kurti', tc: '#31877C', bot: 'leggings', bc: '#263A43', shoe: '#E0D8D0', female: true, lip: '#94465E', facePhase: 2.8 },
+  friendE: { H: 89, skin: 1, hair: 'long', hc: '#110B0B', top: 'blouse', tc: '#C77B2D', bot: 'saree', bc: '#7D4268', pallu: '#F2D27A', shoe: '#5A4036', female: true, lip: '#A04457', facePhase: 3.6 },
+  friendF: { H: 92, skin: 3, hair: 'bun', hc: '#120C0B', top: 'kurti', tc: '#4566A0', bot: 'leggings', bc: '#302D49', shoe: '#E8E0DA', female: true, lip: '#8E435A', facePhase: 4.4 },
   seller: { H: 93, skin: 3, hair: 'short', hc: '#151010', top: 'shirt', tc: '#B88A4A', bot: 'veshti', bc: '#E8E2D2', shoe: '#3A2E28', balloons: true },
   phoneGuy: { H: 97, skin: 2, hair: 'short', hc: '#120D0C', top: 'tee', tc: '#3C3C46', bot: 'trousers', bc: '#5C6478', shoe: '#E0DCE4', phone: true },
   guy2: { H: 98, skin: 3, hair: 'curly', hc: '#120D0C', top: 'shirt', tc: '#7A2E3E', bot: 'trousers', bc: '#2C2C36', shoe: '#2A2226' },
@@ -59,7 +63,8 @@ const rot = (p, o, a) => { const c = Math.cos(a), s = Math.sin(a), x = p[0] - o[
 function personSide(c, L, g) {
   const k = L.H / 95, run = g.mode === 'run', idle = g.mode === 'idle', ph = g.ph, dk = g.dark || 0;
   const skin = SKIN[L.skin], hipH = 47.5 * k, l1 = 24.3 * k, l2 = 23.6 * k;
-  const bob = idle ? 0.25 * k * Math.sin(ph * 0.5) : run ? -2.2 * k * Math.abs(Math.sin(ph)) : 0.9 * k * (0.5 + 0.5 * Math.cos(2 * ph)) - 0.45 * k;
+  const time = g.t ?? ph;
+  const bob = idle ? 0.22 * k * Math.sin(time * 1.5 + (L.facePhase || 0)) : run ? -2.2 * k * Math.abs(Math.sin(ph)) : 0.9 * k * (0.5 + 0.5 * Math.cos(2 * ph)) - 0.45 * k;
   const hip = [0, -hipH + bob], lean = (run ? 0.13 : 0.03) + (L.stoop || 0);
   const S = (run ? 56 : 46) * k * (g.stride ?? 1), lift = (run ? 8.5 : 4.2) * k, duty = run ? 0.36 : 0.62;
   const foot = p => { if (idle) return [p ? 3.2 * k : -2.6 * k, 0]; const u = ((p / TAU) % 1 + 1) % 1;
@@ -110,6 +115,7 @@ function personSide(c, L, g) {
     if (L.hair === 'bun') blob(c, head[0] - hr * 0.95, head[1] - hr * 0.1, hr * 0.45, hr * 0.42, hc);
     if (L.hair === 'pony') { const sw = Math.sin(ph * 2) * 2 * k; line(c, [[head[0] - hr * 0.8, head[1] - hr * 0.4], [head[0] - hr * 1.6, head[1] + hr * 0.1 + sw], [head[0] - hr * 1.9, head[1] + hr * 0.9 + sw]], 2.4 * k, hc); }
     if (L.hair === 'pigtails') for (const s of [-1, 1]) blob(c, head[0] - hr * 0.6 + s * 1.2 * k, head[1] + hr * 0.5, hr * 0.28, hr * 0.5, hc); }
+  if (L.female) drawFaceSide(c, L, head, k, time, dk);
   // near arm (over the body)
   const sleeve = L.top === 'shirt' || L.top === 'kurti' || L.top === 'jacket';
   line(c, [front[0], front[1]], 4.4 * k, sleeve ? cTop : L.top === 'tee' ? cTop : cSkin); line(c, [front[1], front[2]], 3.8 * k, sleeve ? shade(L.tc, 0.05 + dk) : cSkin);
@@ -122,6 +128,45 @@ function personSide(c, L, g) {
   return { hip, sh, head, front, back, k };
 }
 const lerp2 = (a, b, t) => [lerp(a[0], b[0], t), lerp(a[1], b[1], t)];
+function drawFaceSide(c, L, head, k, t, dk) {
+  const x = head[0], y = head[1], blink = Math.max(0, 1 - Math.abs(Math.sin(t * 2.1 + L.facePhase)) * 30), eyeY = y - 0.55 * k;
+  const eyeCol = shade('#29191C', dk * 0.35), skinCol = shade(SKIN[L.skin], 0.22 + dk);
+  if (blink > 0.7) line(c, [[x + 2.8 * k, eyeY], [x + 3.5 * k, eyeY + 0.12 * k], [x + 4.2 * k, eyeY]], 0.55 * k, eyeCol);
+  else {
+    blob(c, x + 3.45 * k, eyeY, 0.82 * k, 0.72 * k, '#FFF0E8');
+    blob(c, x + 3.7 * k, eyeY + 0.04 * k, 0.42 * k, 0.48 * k, eyeCol);
+    blob(c, x + 3.82 * k, eyeY - 0.13 * k, 0.15 * k, 0.16 * k, '#FFFFFF');
+    line(c, [[x + 2.7 * k, eyeY - 0.8 * k], [x + 3.5 * k, eyeY - 1.12 * k], [x + 4.35 * k, eyeY - 0.72 * k]], 0.42 * k, eyeCol);
+  }
+  line(c, [[x + 4.65 * k, y - 0.1 * k], [x + 6.05 * k, y + 0.75 * k], [x + 5.3 * k, y + 1.15 * k]], 0.36 * k, skinCol);
+  c.strokeStyle = L.lip || '#9B4C62'; c.lineWidth = 0.46 * k; c.lineCap = 'round';
+  c.beginPath(); c.moveTo(x + 4.65 * k, y + 2.0 * k); c.quadraticCurveTo(x + 5.55 * k, y + 2.35 * k, x + 6.3 * k, y + 2.05 * k); c.stroke();
+  blob(c, x + 5.55 * k, y + 2.12 * k, 0.48 * k, 0.16 * k, rgba(L.lip || '#9B4C62', 0.62));
+}
+function drawFaceFront(c, L, x, y, k, t) {
+  const blink = Math.max(0, 1 - Math.abs(Math.sin(t * 2.1 + L.facePhase)) * 30), gaze = Math.sin(t * 0.55 + L.facePhase) * 0.22 * k;
+  const eyeCol = '#28181B', eyeY = y + 0.35 * k;
+  for (const s of [-1, 1]) {
+    const ex = x + s * 2.05 * k;
+    if (blink > 0.7) line(c, [[ex - 0.86 * k, eyeY], [ex, eyeY + 0.14 * k], [ex + 0.86 * k, eyeY]], 0.55 * k, eyeCol);
+    else {
+      blob(c, ex, eyeY, 0.92 * k, 0.7 * k, '#FFF1E8');
+      blob(c, ex + gaze, eyeY + 0.02 * k, 0.47 * k, 0.54 * k, eyeCol);
+      blob(c, ex + gaze + 0.12 * k, eyeY - 0.15 * k, 0.15 * k, 0.16 * k, '#FFFFFF');
+      line(c, [[ex - 1.05 * k, eyeY - 0.72 * k], [ex, eyeY - 1.12 * k], [ex + 1.02 * k, eyeY - 0.7 * k]], 0.45 * k, eyeCol);
+    }
+    line(c, [[ex - 0.9 * k, eyeY - 1.45 * k], [ex, eyeY - 1.72 * k], [ex + 0.82 * k, eyeY - 1.38 * k]], 0.34 * k, eyeCol);
+    blob(c, x + s * 3.4 * k, y + 2.2 * k, 0.72 * k, 0.3 * k, 'rgba(230,110,125,.18)');
+  }
+  const skinCol = shade(SKIN[L.skin], 0.22);
+  line(c, [[x - 0.06 * k, y + 1.0 * k], [x + 0.2 * k, y + 2.0 * k], [x + 0.62 * k, y + 2.12 * k]], 0.36 * k, skinCol);
+  blob(c, x + 0.55 * k, y + 2.08 * k, 0.28 * k, 0.18 * k, skinCol);
+  c.strokeStyle = L.lip || '#9B4C62'; c.lineWidth = 0.55 * k; c.lineCap = 'round';
+  c.beginPath(); c.moveTo(x - 0.92 * k, y + 3.15 * k); c.quadraticCurveTo(x - 0.22 * k, y + 3.52 * k, x + 0.08 * k, y + 3.32 * k);
+  c.quadraticCurveTo(x + 0.5 * k, y + 3.55 * k, x + 1.0 * k, y + 3.12 * k); c.stroke();
+  blob(c, x + 0.04 * k, y + 3.38 * k, 0.68 * k, 0.18 * k, rgba(L.lip || '#9B4C62', 0.42));
+  for (const s of [-1, 1]) blob(c, x + s * 5.0 * k, y + 1.45 * k, 0.34 * k, 0.48 * k, '#E2B84F');
+}
 const BAL = [['#FF6FA6', -7, -72], ['#F5C451', 5, -76], ['#7FD0F0', 0, -84], ['#B9A0E8', -11, -84], ['#FF8A5C', 10, -86], ['#9BE08A', -4, -95], ['#FF6FA6', 8, -97]];
 function drawBalloonBunch(c, hand, k, ph) {
   const top = [hand[0] + 1 * k, hand[1] - 34 * k];
@@ -133,13 +178,17 @@ function balloonLights(hand, k) { return BAL.map(([col, dx, dy]) => { const a = 
 
 // one person seen from the front or from behind (walking towards / away from the camera)
 function personFront(c, L, g) {
-  const k = L.H / 95, run = g.mode === 'run', ph = g.ph, back = g.view === 'back', dk = g.dark || 0, skin = SKIN[L.skin];
-  const bob = run ? -2 * k * Math.abs(Math.sin(ph)) : -0.8 * k * Math.abs(Math.cos(ph));
+  const k = L.H / 95, run = g.mode === 'run', idle = g.mode === 'idle', ph = g.ph, time = g.t ?? ph;
+  const back = g.view === 'back', dk = g.dark || 0, skin = SKIN[L.skin];
+  const bob = idle ? 0.22 * k * Math.sin(time * 1.5 + (L.facePhase || 0)) : run ? -2 * k * Math.abs(Math.sin(ph)) : -0.8 * k * Math.abs(Math.cos(ph));
   const hipY = -47.5 * k + bob, cTop = shade(L.tc, 0.08 + dk), cBot = shade(L.bc, 0.12 + dk), cBotB = shade(L.bc, 0.3 + dk), cSkin = shade(skin, dk), hc = shade(L.hc, dk * 0.5);
   const long = L.bot === 'saree' || L.bot === 'veshti';
   for (const s of [-1, 1]) {   // legs: each foot lifts in turn
-    const p = Math.sin(ph + (s > 0 ? 0 : Math.PI)), lift = Math.max(0, p) * (run ? 9 : 3.4) * k, fx = s * 3.4 * k, fy = -lift;
-    const kn = [s * 3.9 * k, lerp(hipY, fy, 0.5) - lift * 0.3];
+    const phase = ph + (s > 0 ? 0 : Math.PI), p = Math.sin(phase);
+    const lift = idle ? Math.max(0, Math.sin(time * 1.3 + s + (L.facePhase || 0))) * 0.16 * k : Math.max(0, p) * (run ? 9 : 3.8) * k;
+    const stride = idle ? Math.sin(time * 1.1 + s) * 0.35 * k : Math.cos(phase) * 1.2 * k;
+    const fx = s * 3.4 * k + stride, fy = -lift;
+    const kn = [s * 3.9 * k + stride * 0.35, lerp(hipY, fy, 0.5) - lift * 0.38];
     const col = L.bot === 'shorts' || L.bot === 'none' ? cSkin : cBot;
     if (!long) { line(c, [[s * 3.6 * k, hipY], kn], 7.2 * k, L.bot === 'shorts' ? cBot : col); line(c, [kn, [fx, fy]], 5.8 * k, col); }
     else line(c, [[fx, fy - 6 * k], [fx, fy]], 4 * k, cSkin);
@@ -150,7 +199,8 @@ function personFront(c, L, g) {
   if (L.top === 'kurti') polyF(c, [[-7.6 * k, hipY], [7.6 * k, hipY], [9 * k, -31 * k], [-9 * k, -31 * k]], cTop);
   // arms
   const arm = s => { const p = Math.sin(ph + (s > 0 ? Math.PI : 0)), sh = [s * 8.4 * k, -75 * k + bob];
-    let hd = [s * 9.8 * k, -47 * k + bob - Math.max(0, p) * (run ? 9 : 3) * k];
+    const sway = idle ? Math.sin(time * 0.85 + s + (L.facePhase || 0)) * 0.9 * k : Math.cos(ph + (s > 0 ? Math.PI : 0)) * 1.4 * k;
+    let hd = [s * 9.8 * k + sway, -47 * k + bob - (idle ? 0 : Math.max(0, p) * (run ? 9 : 2.5) * k)];
     if (g.holdL && s < 0) hd = g.holdL; if (g.holdR && s > 0) hd = g.holdR;
     if (L.phone && s > 0) hd = [4 * k, -66 * k + bob]; if (L.balloons && s > 0) hd = [9 * k, -62 * k + bob]; if (L.cane && s > 0) hd = [10 * k, -46 * k + bob];
     const el = [lerp(sh[0], hd[0], 0.5) + s * 1.6 * k, lerp(sh[1], hd[1], 0.5)];
@@ -176,10 +226,12 @@ function personFront(c, L, g) {
     if (L.hair === 'pigtails') for (const s of [-1, 1]) blob(c, s * hr * 1.0, hy + hr * 0.5, hr * 0.3, hr * 0.5, hc);
   } else {
     blob(c, 0, hy, hr * 0.9, hr, cSkin);
-    blob(c, 0, hy - hr * 0.45, hr * 0.98, hr * 0.62, hc);
+    if (L.hair === 'bun') blob(c, 0, hy - hr * 0.9, hr * 0.52, hr * 0.5, hc);
+    blob(c, 0, hy - hr * 0.55, hr * 0.96, hr * 0.4, hc);
     if (L.hair === 'long' || L.hair === 'braid') { line(c, [[-hr * 0.85, hy - hr * 0.2], [-hr * 0.95, hy + hr * 1.6]], 2.4 * k, hc); line(c, [[hr * 0.85, hy - hr * 0.2], [hr * 0.95, hy + hr * (L.hair === 'long' ? 1.6 : 0.6)]], 2.4 * k, hc); }
     if (L.hair === 'pigtails') for (const s of [-1, 1]) blob(c, s * hr * 1.05, hy + hr * 0.4, hr * 0.3, hr * 0.5, hc);
     if (L.hair === 'curly') for (let i = 0; i < 5; i++) blob(c, -hr * 0.8 + i * hr * 0.4, hy - hr * 0.85, hr * 0.3, hr * 0.28, hc);
+    if (L.female) drawFaceFront(c, L, 0, hy, k, time);
   }
   return { A, k };
 }
@@ -216,6 +268,7 @@ const GROUPS = {
   jogger2: { m: [['jogger2', 0, 0, 0]], w: 26 },
   oldman: { m: [['oldMan', 0, 0, 0]], w: 24 },
   friends: { m: [['friendA', -12, 12, 0.0], ['friendB', 0, 0, 0.9], ['friendC', 12, -11, 2.0]], w: 34 },
+  friendsSix: { m: [['friendA', -42, 16, 0.0], ['friendB', -25, -5, 0.7], ['friendC', -9, 13, 1.5], ['friendD', 9, -12, 2.1], ['friendE', 25, 7, 2.8], ['friendF', 42, -16, 3.4]], w: 68 },
   seller: { m: [['seller', 0, 0, 0]], w: 28, tall: true },
   phone: { m: [['phoneGuy', 0, 0, 0]], w: 22 },
   vendor: { m: [['vendor', 0, 0, 0]], w: 22, idle: true },
@@ -223,14 +276,14 @@ const GROUPS = {
   cust2: { m: [['cust2', 0, 0, 0]], w: 22, idle: true }
 };
 function drawGroup(c, G, pose) {
-  const { view, ph, stride, mode } = pose, side = view === 'side', ms = G.m;
+  const { view, ph, stride, mode, t } = pose, side = view === 'side', ms = G.m;
   if (side) {
     // the farther member first (darker), joined hands between them at hip height
     const order = ms.map((m, i) => i).sort((a, b) => ms[a][2] - ms[b][2]);
     const clasp = ms.length === 2 && G.hands ? [(ms[0][2] + ms[1][2]) / 2 * (LOOK[ms[0][0]].H / 95) + 1.5, -40 * LOOK[ms[1][0]].H / 95] : null;
     for (const i of order) { const [lk, , along, po] = ms[i], L = LOOK[lk]; c.save(); c.translate(along, i === order[0] && ms.length > 1 ? -0.6 : 0);
       const near = i === order[order.length - 1], hold = clasp ? [clasp[0] - along, clasp[1]] : null;
-      personSide(c, L, { ph: ph + po, stride, mode, dark: near ? 0 : 0.14, hold: near ? hold : null, holdF: near ? null : hold });   // the near one's far hand meets the far one's near hand
+      personSide(c, L, { ph: ph + po, stride, mode, t, dark: near ? 0 : 0.14, hold: near ? hold : null, holdF: near ? null : hold });   // the near one's far hand meets the far one's near hand
       c.restore(); }
     if (G.dog) { const L = LOOK[ms[0][0]], k = L.H / 95; c.save(); c.translate(30, 0); const col = dogSide(c, ph * 1.6, 0.95); c.restore();
       const hand = [16 * k, -47 * k]; line(c, [hand, [lerp(hand[0], col[0] + 30, 0.5), lerp(hand[1], col[1], 0.5) + 3], [col[0] + 30, col[1]]], 0.45, 'rgba(40,30,40,.9)'); }
@@ -240,7 +293,7 @@ function drawGroup(c, G, pose) {
     let holdPts = null;
     if (G.hands && ms.length === 2) { const xm = (ms[0][1] + ms[1][1]) / 2, y = -42 * LOOK[ms[1][0]].H / 95; holdPts = [xm, y]; }
     for (const i of order) { const [lk, across, , po] = ms[i], L = LOOK[lk]; c.save(); c.translate(across, 0);
-      const g = { ph: ph + po, mode, view, dark: 0 };
+      const g = { ph: ph + po, mode, view, t, dark: 0 };
       if (holdPts) { const h = [holdPts[0] - across, holdPts[1]]; if (across < 0) g.holdR = h; else g.holdL = h; }
       personFront(c, L, g); c.restore(); }
     if (G.dog) { const k = LOOK[ms[0][0]].H / 95; line(c, [[-9.8 * k, -47 * k], [-14, -16]], 0.45, 'rgba(40,30,40,.9)'); }
@@ -277,6 +330,9 @@ export class Crowd {
   constructor(opt = {}) {
     const place = opt.place || PLACE, d = opt.density ?? 1, z = (p, r) => { const [X, Z] = toXZ(p.x, p.y); return { X, Z, r, t0: -1e9, t1: 1e9 }; };
     this.avoid = [z(place.launcher, 4), z(place.tree, 6), z(place.meet || place.tree, 4), z(place.boyLight, 4), z({ x: place.helen.x, y: place.helen.gy }, 4), ...(opt.avoid || [])];
+    this.reunionStart = opt.reunionStart;
+    this.reunionRig = { bounds: groupBounds(GROUPS.friendsSix, 'back'), pose: null };
+    this.reunionRig.draw = ctx => drawGroup(ctx, GROUPS.friendsSix, this.reunionRig.pose);
     this.walkers = WALKERS.filter((w, i) => i < Math.round(WALKERS.length * d)).map(([grp, path, rev, v, Tp, t0], i) => {
       const P = rev ? PATHS[path].slice().reverse() : PATHS[path], info = pathInfo(P);
       return { slot: 'crowd' + i, grp, G: GROUPS[grp], info, v, Tp: Math.max(Tp, info.L / v + 4), t0, run: GROUPS[grp].m.some(m => LOOK[m[0]].run), skip: new Set(), rig: { bounds: [-24, -110, 24, 4], pose: null } };
@@ -303,16 +359,39 @@ export class Crowd {
       const ph = TAU * (T - w.t0) * vNom / cyc + n * 1.7;
       const alpha = clamp((82 - p.Z) / 15, 0, 1) * clamp(s / 1.5, 0, 1) * clamp((w.info.L - s) / 1.5, 0, 1);
       if (alpha < 0.02) continue;
-      w.rig.pose = { view, ph, stride: view === 'side' ? clamp(r, 0.45, 1.6) : 1, mode: w.run ? 'run' : 'walk' };
+      w.rig.pose = { view, ph, stride: view === 'side' ? clamp(r, 0.45, 1.6) : 1, mode: w.run ? 'run' : 'walk', t: T };
       w.rig.bounds = groupBounds(w.G, view);
       out.push({ slot: w.slot, who: w.grp, x, y: gy, gy, flip: view === 'side' ? vSide < 0 : false, alpha: Math.min(1, alpha), rig: w.rig, lights: this.lightsOf(w, x, gy, view, vSide < 0, ph) });
     }
+    const reunion = this.reunionAt(T); if (reunion) out.push(reunion);
     for (const st of this.standers) {
       const [x, gy] = fromXZ(st.X, st.Z);
-      st.rig.pose = { view: 'side', ph: T * 1.1 + st.X * 3, stride: 1, mode: 'idle' };
+      st.rig.pose = { view: 'side', ph: T * 1.1 + st.X * 3, stride: 1, mode: 'idle', t: T };
       out.push({ slot: st.slot, who: st.grp, x, y: gy, gy, flip: !!st.left, alpha: 1, rig: st.rig, lights: [] });
     }
     return out;
+  }
+  reunionAt(T) {
+    if (this.reunionStart == null) return null;
+    const t = T - this.reunionStart; if (t < 0 || t > 15) return null;
+    const smooth = u => { u = clamp(u, 0, 1); return u * u * (3 - 2 * u); };
+    let X, Z, view;
+    if (t < 4.2) {
+      const u = smooth(t / 4.2); X = lerp(1.6, -2.8, u); Z = lerp(20, 12.8, u); view = 'front';
+    } else if (t < 5.2) {
+      X = -2.8; Z = 12.8; view = 'front';
+    } else {
+      const u = smooth((t - 5.2) / 8.8); X = lerp(-2.8, -3.8, u); Z = lerp(12.8, 22, u); view = 'back';
+    }
+    const [x, gy] = fromXZ(X, Z), alpha = smooth(t / 0.6) * (1 - smooth((t - 14.3) / 0.7));
+    const arriveDistance = Math.hypot(-2.8 - 1.6, 12.8 - 20);
+    const leaveDistance = Math.hypot(-3.8 + 2.8, 22 - 12.8);
+    const walked = t < 4.2 ? arriveDistance * smooth(t / 4.2)
+      : arriveDistance + (t < 5.2 ? 0 : leaveDistance * smooth((t - 5.2) / 8.8));
+    const ph = TAU * walked * CHAR / 46, mode = t < 4.2 || (t >= 5.2 && t < 14) ? 'walk' : 'idle';
+    this.reunionRig.pose = { view, ph, stride: 1, mode, t: T };
+    this.reunionRig.bounds = groupBounds(GROUPS.friendsSix, view);
+    return { slot: 'reunion', who: 'friendsSix', x, y: gy, gy, flip: false, alpha, rig: this.reunionRig, lights: [] };
   }
   // glowing bits as additive sprites: LED balloons, a phone screen. [x, y, gy, size, r, g, b, alpha] in world units
   lightsOf(w, x, gy, view, flip, ph) {
@@ -328,6 +407,6 @@ export const CROWD_PATHS = PATHS;
 // for test pages: draw one group (GROUPS key) in a view ('side' | 'back' | 'front') at gait phase ph, character units
 export function crowdSample(ctx, grp, view, ph, mode) {
   const G = GROUPS[grp]; if (!G) return; const L0 = LOOK[G.m[0][0]];
-  drawGroup(ctx, G, { view, ph, stride: 1, mode: mode || (G.idle ? 'idle' : L0.run ? 'run' : 'walk') });
+  drawGroup(ctx, G, { view, ph, stride: 1, mode: mode || (G.idle ? 'idle' : L0.run ? 'run' : 'walk'), t: ph });
 }
 export const CROWD_GROUPS = Object.keys(GROUPS);

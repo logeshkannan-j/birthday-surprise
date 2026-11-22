@@ -35,37 +35,38 @@ export function buildTimeline(cfg) {
   scenes.push({ n: 5, dur: d[5], tod: [1.76, 1.78], sub: [],
     cam: [K(0, 'meet', { z: 2.7, lens: 0.88, e: 'inOutSine' }), K(2.9, 'meetUp', { z: 2.9, lens: 0.92, e: 'inOutSine' }), K(d[5], 'meetUp', { z: 3.1, lens: 0.92 })], focus: 'boy', aper: 2.6,
     ev: [[0.3, 'boyKneel'], [1.2, 'boyReach'], [2.8, 'boyHold'], [3.3, 'say', 'snowki1'], [7.2, 'say', 'man1'], [11.0, 'say', 'man2'], [15.2, 'boyLookHelen']] });
-  // ---- 6  He gives Snowki the gift and sets him down; Snowki and Jessi go back to her; she slowly notices him – head, then shoulders –
-  //          recognises him, a small gentle smile (reverse angle); he smiles back
-  scenes.push({ n: 6, dur: d[6], tod: [1.78, 1.8], sub: [], rev: [[8.4, 10.2]],
+  // ---- 6  He gives Snowki the gift and sets him down; Snowki and Jessi go back to Helen while he slips behind the tree
+  scenes.push({ n: 6, dur: d[6], tod: [1.78, 1.8], sub: [],
     cam: [K(0, 'meetUp', { z: 2.9, lens: 0.92, e: 'inOutSine' }), K(2.2, 'meet', { z: 2.5, lens: 0.88 }),
-      K(2.2 + C, 'otsHelen', { z: 1.3, lens: 0.75, e: 'inOutSine' }), K(5.6, 'otsHelen', { z: 1.38, lens: 0.75 }),
-      K(5.6 + C, 'helenTurn', { z: 2.6, lens: 0.9, e: 'inOutSine' }), K(8.4, 'helenTurn', { z: 2.75, lens: 0.9 }),
-      K(8.4 + C, 'helenFront', { z: 3.2, lens: 0.95, e: 'inOutSine' }), K(10.2, 'helenFront', { z: 3.4, lens: 0.95 }),
-      K(10.2 + C, 'manSmile', { z: 5.0, lens: 0.95, e: 'inOutSine' }), K(d[6], 'manSmile', { z: 5.3, lens: 0.95 })],
-    focus: [[0, 'boy'], [2.2, 'boy'], [2.2 + C, 'snowki'], [5.6, 'snowki'], [5.6 + C, 'helen'], [10.2, 'helen'], [10.2 + C, 'boy']], aper: 2.4,
-    ev: [[0.4, 'boyPutDown'], [1.4, 'boyStand'], [2.0, 'boyLookHelen'], [5.6, 'hNotice'], [7.0, 'hTurnBody'], [9.0, 'hSmile1'], [10.6, 'boySmileBack']] });
-  // ---- 7  He lights the long fuse himself: the spark runs to the launcher, the shell climbs on a golden trail, cracks –
-  //          HAPPY BIRTHDAY appears with the burst, more bursts, reflections on the sea; Snowki is back in her lap
+      K(2.2 + C, 'snowTrack', { z: 2.0, lens: 0.84, e: 'inOutSine' }), K(8.0, 'trioBack', { z: 1.5, e: 'inOutSine' }), K(d[6], 'trioBack', { z: 1.5 })],
+    focus: [[0, 'boy'], [2.2, 'boy'], [2.2 + C, 'snowki'], [d[6], 'snowki']], aper: 2.4,
+    ev: [[0.4, 'boyPutDown'], [1.4, 'boyStand']] });
+  // ---- 7  From in front of him, we see him light the fuse, hide behind the tree, and send the firework over the sea
   scenes.push({ n: 7, dur: d[7], tod: [1.8, 1.84], sub: [],
-    cam: [K(0, 'crate', { z: 2.3, lens: 0.85, e: 'inOutSine' }), K(2.6, 'crate', { z: 2.45, lens: 0.85, e: 'inOutSine' }), K(3.7, 'spark', { z: 2.6, lens: 0.85, e: 'inOutSine' }),
-      K(4.4, 'mortar', { z: 6.5, lens: 0.92, e: 'inOutSine' }), K(5.2, 'mortar', { z: 6.7, lens: 0.92, e: 'inOutSine' }), K(6.5, 'rocket', { z: 1.3, lens: 0.3, e: 'inOutSine' }),
-      K(8.0, 'skyWide', { z: 1.0, e: 'inOutSine' }), K(d[7], 'skyWide', { z: 1.04 })],
-    focus: [[0, 'boy'], [2.6, 'boy'], [3.7, 'crate'], [5.6, 'crate'], [6.4, 'sky']], aper: 2.4,
-    ev: [[0.2, 'boyToLight'], [1.2, 'boyLight'], [1.7, 'flame'], [2.1, 'fuse'], [3.0, 'boyBack'], [5.1, 'launch'], [7.9, 'crack'], [8.2, 'helenLookUp'], [8.5, 'jessiLookUp']] });
-  // ---- 8  Her face, the reverse angle from the sea side: surprise -> excitement -> happiness, Snowki in her arms, lit by the fireworks
-  scenes.push({ n: 8, dur: d[8], tod: [1.84, 1.86], sub: [], rev: true,
-    cam: [K(0, 'helenUp', { z: 2.6, lens: 0.92, e: 'inOutSine' }), K(d[8], 'helenFace', { z: 3.4, lens: 0.95 })], focus: 'helen', aper: 3,
-    ev: [[0, 'messageOff'], [0, 'snLookUp'], [0, 'hSurprised'], [1.5, 'hExcited'], [3.8, 'hHappy'], [6.0, 'hSmile']] });
-  // ---- 9  All four: she watches the fireworks with Snowki in her arms, Jessi beside her, the man at a respectful distance;
-  //          she turns and gives him one last gentle smile, he smiles back; one slow pull back; the words; a gentle fade
+    cam: [K(0, 'boyFront', { z: 2.15, lens: 0.92, e: 'inOutSine' }), K(4.36, 'boyFront', { z: 2.35, lens: 0.92 }),
+      K(4.36 + C, 'spark', { z: 2.6, lens: 0.85, e: 'inOutSine' }),
+      K(4.4, 'mortar', { z: 6.5, lens: 0.92, e: 'inOutSine' }), K(5.2, 'mortar', { z: 6.7, lens: 0.92, e: 'inOutSine' }), K(8.7, 'rocket', { z: 1.3, lens: 0.3, e: 'inOutSine' }),
+      K(10.2, 'skyWide', { z: 1.0, e: 'inOutSine' }), K(d[7], 'skyWide', { z: 1.04 })],
+    focus: [[0, 'boy'], [4.36, 'boy'], [4.36 + C, 'crate'], [6.0, 'crate'], [8.6, 'sky']], aper: 2.4,
+    ev: [[0.2, 'boyToLight'], [3.5, 'boyLight'], [4.0, 'flame'], [4.4, 'fuse'], [5.4, 'boyHide'], [7.4, 'launch'], [10.2, 'crack'], [10.5, 'helenLookUp'], [10.8, 'jessiLookUp']] });
+  // ---- 8  Her surprise turns into a search along the shore; the firework's reflection keeps moving across the sea
+  scenes.push({ n: 8, dur: d[8], tod: [1.84, 1.86], sub: [], rev: [[0, 4.2]],
+    cam: [K(0, 'helenUp', { z: 2.6, lens: 0.92, e: 'inOutSine' }), K(2.3, 'helenFace', { z: 3.1, lens: 0.95 }),
+      K(2.3 + C, 'trioBack', { z: 1.32, e: 'inOutSine' }), K(d[8], 'trioBack', { z: 1.42 })], focus: 'helen', aper: 3,
+    ev: [[0, 'snLookUp'], [0, 'hSurprised'], [1.5, 'hExcited'], [3.5, 'hSearch'], [6.4, 'hBackToSea']] });
+  // ---- 9  Six friends reach her; she walks away with them while he stays hidden, watching from the tree
   scenes.push({ n: 9, dur: d[9], tod: [1.86, 1.95], sub: [],
-    cam: [K(0, 'finalMed', { z: 1.9, lens: 0.85, e: 'inOutSine' }), K(5.6, 'finalMed', { z: 2.05, lens: 0.85 }),
-      K(5.6 + C, 'manSmile2', { z: 4.8, lens: 0.95, e: 'inOutSine' }), K(7.6, 'manSmile2', { z: 5.0, lens: 0.95 }),
-      K(7.6 + C, 'finalMed', { z: 2.0, lens: 0.85, e: 'inOutSine' }), K(13.6, 'finalWide', { z: 1.0, lens: 0.5, e: 'inOutSine' }), K(d[9], 'finalWide', { z: 0.98, lens: 0.5 })],
-    focus: [[0, 'helen'], [5.6, 'helen'], [5.6 + C, 'boy'], [7.6, 'boy'], [7.6 + C, 'helen'], [12, 'sky']], aper: 2,
-    ev: [[0, 'snHold'], [0, 'finalPlaces'], [0.2, 'jessiHappy'], [0.4, 'helenSky'], [0.5, 'softFireworks'], [2.6, 'hTurnHim'], [3.8, 'hSmileHim'], [6.0, 'boySmileBack'],
-      [7.6, 'messageOn'], [8.4, 'hBackToSky'], [14.4, 'fadeOut'], [14.6, 'messageOff'], [15.0, 'line', 0], [16.2, 'line', 1], [17.6, 'end']] });
+    rev: [[2, 4.99]],
+    cam: [K(0, 'trioBack', { z: 1.48, e: 'inOutSine' }), K(2.0, 'trioBack', { z: 1.5 }),
+      K(2.0 + C, 'helenFace', { z: 2.65, lens: 0.95, e: 'inOutSine' }), K(3.9, 'helenFace', { z: 2.9, lens: 0.95 }),
+      K(3.9 + C, 'friendsWide', { z: 1.28, lens: 0.78, e: 'inOutSine' }), K(5.0, 'friendsWide', { z: 1.34, lens: 0.78 }),
+      K(5.0 + C, 'treeManClose', { z: 2.2, e: 'inOutSine' }), K(7.5, 'treeManClose', { z: 2.4 }),
+      K(7.5 + C, 'friendsWide', { z: 1.3, lens: 0.78, e: 'inOutSine' }), K(11.6, 'friendsWide', { z: 1.38, lens: 0.78 }),
+      K(11.6 + C, 'treeManClose', { z: 2.5, e: 'inOutSine' }), K(13.4, 'treeManClose', { z: 2.75 }),
+      K(13.4 + C, 'finalWide', { z: 0.98, lens: 0.5, e: 'inOutSine' }), K(d[9], 'finalWide', { z: 0.94, lens: 0.5 })],
+    focus: [[0, 'helen'], [5.0, 'helen'], [5.0 + C, 'boy'], [7.5, 'boy'], [7.5 + C, 'helen'], [11.6, 'helen'], [11.6 + C, 'boy'], [13.4, 'boy'], [13.4 + C, 'sky']], aper: 2,
+    ev: [[0, 'snHold'], [0, 'finalPlaces'], [0.2, 'jessiHappy'], [0.4, 'helenSky'], [0.5, 'softFireworks'],
+      [2.0, 'hSearch'], [4.8, 'hBackToSea'], [12.0, 'boyHeartbreak'], [14.4, 'fadeOut'], [15.0, 'line', 0], [17.6, 'end']] });
 
   let t = 0; for (const s of scenes) { s.start = t; t += s.dur; }
   return { scenes, duration: t, at(T) { for (let i = scenes.length - 1; i >= 0; i--) if (T >= scenes[i].start) return scenes[i]; return scenes[0]; } };

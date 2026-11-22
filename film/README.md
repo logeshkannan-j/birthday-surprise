@@ -12,14 +12,12 @@ Snowki recognises him (the main emotional beat: wide eyes, a hug of remembering,
 Snowki hops down and toddles, glides by magic and toddles again all the way to him, Jessi trotting behind. A real
 animated flashback at golden hour shows the day he gave little Snowki to her: he walks in holding him, offers him with
 both hands, she takes him with both hands, smiles and hugs him. He kneels, cradles Snowki, and they talk in cinematic
-subtitles. He gives Snowki a gift and sets him down; Snowki and Jessi go back to her – and following them she slowly
-notices him: her head turns, then her shoulders; she recognises him and gives a small, gentle smile; he smiles back.
-He lights the long fuse himself at a safe distance: the spark runs to the launcher, a shell climbs on a golden trail,
-cracks, and "HAPPY BIRTHDAY / HELEN DARLU ❤️" appears in the sky with more bursts reflected in the sea; Snowki is back
-in her arms. Her face: surprise, excitement, happiness. The end is one composition with all four: she watches the
-sky with Snowki in her arms, Jessi beside her, the man at a respectful distance; she turns and gives him one last
-gentle smile, he smiles back; a slow pull back, a gentle fade, and the words "Happy Birthday Helen Darlu ❤️" and
-"Some memories never fade, and some smiles are worth surprising every year."
+subtitles. He gives Snowki a gift and sets him down; Snowki and Jessi go back to her as he slips behind the tree.
+From in front of him, we see him light the fuse. The shell climbs over the sea and spells her birthday in firework
+stars, reflected in the moving water. Helen is surprised, then scans the shore for whoever sent it. Six of her
+female friends arrive; she stands and walks away with them, still carrying Snowki. He watches from behind the tree,
+his smile fading as he hides his hurt. The film ends on the friends disappearing into the night and the words
+"She follows her friends into the night. He stays behind the tree, hiding what it costs him."
 
 On the birthday page, Snowki guides her through every step; on the countdown he says hi, asks "Can I call Jessi?",
 and Jessi runs in, does tricks, falls asleep and dreams of Helen in a little cloud.
@@ -70,8 +68,8 @@ All in `film/config.js`:
 
 - **Name**: `recipient: 'Helen Darlu'`. The sky spells it in capitals; the final line uses it as written.
   (The birthday page itself still uses `CONFIG.to` in `index.html` – change both if you rename.)
-- **Text**: `text.subtitles` (by scene), `text.dialogue` (the conversation, shown as bottom subtitles), `text.skyMessage` (the glowing script
-  message over the fireworks), `text.finalLines`, button labels.
+- **Text**: `text.subtitles` (by scene), `text.dialogue` (the conversation, shown as bottom subtitles), `text.skyMessage` (the
+  birthday message formed by firework stars in the sky), `text.finalLines`, button labels.
 - **Timings**: `timings` – seconds per scene. Events inside a scene keep their positions relative to its start.
 - **Music**: put an mp3 at `/assets/music.mp3` (or change `music`). It replaces the generated score; waves, wind
   and fireworks stay. The mute choice is remembered per browser.

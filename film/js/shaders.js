@@ -147,7 +147,7 @@ vec3 waves(vec2 p, float t, float Z) {
   float L[6] = float[6](11.0, 6.5, 4.1, 2.6, 1.6, 1.0);
   for (int i = 0; i < 6; i++) {
     float k = 6.2832 / L[i], w = sqrt(9.8 * k), fade = smoothstep(0.0, 1.0, L[i] / (0.016 * Z + 0.04));
-    float a = 0.03 * L[i] * uWaveA * fade, ph = k * dot(D[i], p) - w * t + float(i) * 1.7;
+    float a = 0.045 * L[i] * uWaveA * fade, ph = k * dot(D[i], p) - w * t + float(i) * 1.7;
     float s = sin(ph), c = cos(ph);
     r.x += a * s; r.y += a * k * D[i].x * c; r.z += a * k * D[i].y * c;
   }

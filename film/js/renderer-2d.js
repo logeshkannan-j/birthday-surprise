@@ -52,6 +52,31 @@ export class Renderer2D {
     const sg = x.createLinearGradient(0, hz, 0, H); const t = Math.min(F.tod, 1); sg.addColorStop(0, css(stop(0, F.tod))); sg.addColorStop(0.1, css(mixA([63, 184, 194], [40, 70, 120], t))); sg.addColorStop(1, css(mixA([20, 110, 140], [10, 20, 50], Math.min(1, F.tod / 1.6))));
     x.setTransform(1, 0, 0, 1, 0, 0); x.fillStyle = sg; x.fillRect(0, hz, W, H - hz);
     if (F.sunVis > 0.01) { x.fillStyle = `rgba(255,240,200,${0.5 * F.sunVis})`; for (let i = 0; i < 70; i++) { const yy = hz + Math.pow(i / 70, 1.5) * (H - hz) * 0.6, ww = (6 + i * 0.9) * pr; if (Math.sin(F.simT * 4 + i * 7.1) > 0) x.fillRect(sp[0] * pr + Math.sin(i * 12.9) * (10 + i * 2) * pr - ww / 2, yy, ww, 1.5 * pr); } }
+    // Fine moving wavelets keep the Canvas2D fallback from reading as a flat colour plane.
+    x.globalCompositeOperation = 'screen';
+    for (let i = 0; i < 14; i++) {
+      const depth = (i + 1) / 14, y = hz + 12 + depth * (H - hz - 28), amp = (0.7 + depth * 2.8) * pr, step = Math.max(24, 34 * pr);
+      x.beginPath();
+      for (let xx = 0; xx <= W + step; xx += step) {
+        const phase = xx * (0.012 + depth * 0.006) - F.simT * (0.75 + depth * 0.55) + i * 1.7;
+        const yy = y + Math.sin(phase) * amp + Math.sin(phase * 0.48 + i) * amp * 0.42;
+        if (xx === 0) x.moveTo(xx, yy); else x.lineTo(xx, yy);
+      }
+      x.strokeStyle = `rgba(174,202,240,${0.035 + depth * 0.055})`; x.lineWidth = Math.max(0.7, 0.9 * pr); x.stroke();
+    }
+    const fw = F.sea && F.sea.fw;
+    if (fw && fw.L && fw.C) for (let i = 0; i < fw.n; i++) {
+      const o = i * 4, bx = fw.L[o] * pr, by = fw.L[o + 1] * pr, power = Math.max(0, Math.min(1, fw.L[o + 2]));
+      if (power < 0.025 || by >= hz) continue;
+      const y0 = hz + Math.max(10, (hz - by) * 0.48), span = H - y0, c = i * 3;
+      for (let k = 0; k < 18; k++) {
+        const u = (k + 0.5) / 18, yy = y0 + span * u, fade = power * (1 - u) * (1 - u);
+        const xx = bx + Math.sin(F.simT * 1.8 + k * 0.9 + i) * (4 + 24 * u) * pr, width = (2 + (1 - u) * Math.min(fw.L[o + 3] * 0.08, 8)) * pr;
+        x.fillStyle = `rgba(${Math.round(fw.C[c] * 255)},${Math.round(fw.C[c + 1] * 255)},${Math.round(fw.C[c + 2] * 255)},${fade * 0.2})`;
+        x.fillRect(xx - width / 2, yy, width, Math.max(1, (0.8 + 1.8 * fade) * pr));
+      }
+    }
+    x.globalCompositeOperation = 'source-over';
     for (const it of F.draw) {
       if (it.type === 'layer') this.drawLayer(F, it.layer);
       else if (it.type === 'char' && it.canvas) { const c = it.corners; x.setTransform(1, 0, 0, 1, 0, 0); x.globalAlpha = it.alpha ?? 1; x.filter = it.id === 'snow' ? 'none' : this.dim; x.drawImage(it.canvas, c[0][0] * pr, c[0][1] * pr, (c[1][0] - c[0][0]) * pr, (c[2][1] - c[0][1]) * pr); x.filter = 'none'; x.globalAlpha = 1; }

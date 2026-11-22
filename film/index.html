@@ -52,19 +52,6 @@
   #say .q { display: block; font: italic 500 clamp(19px, 2.5vw, 29px)/1.32 "Cormorant Garamond", serif; letter-spacing: .01em; }
   #say.on { opacity: 1; }
   @media (orientation: portrait) { #say { bottom: calc(4.5vh + 16px); } }
-  #hb { position: fixed; left: 0; right: 0; top: 9vh; z-index: 4; text-align: center; pointer-events: none; opacity: 0; transition: opacity 1.4s ease; padding: 0 12px; }
-  #hb.on { opacity: 1; transition: opacity .15s; }
-  #hb p { margin: 0; font-family: "Dancing Script", cursive; font-weight: 700; line-height: 1.08; }
-  #hb .g { background: linear-gradient(180deg, #FFF6D2 0%, #FFD27A 48%, #FFA3C8 100%); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 0 8px rgba(255, 196, 140, .8)) drop-shadow(0 0 24px rgba(255, 140, 190, .55)); }
-  #hb .a { font-size: clamp(40px, 8vw, 100px); letter-spacing: .03em; }
-  #hb .b { font-size: clamp(32px, 6.4vw, 80px); margin-top: .05em; }
-  #hb .h { display: inline-block; font-size: .8em; margin-left: .15em; filter: drop-shadow(0 0 12px rgba(255, 90, 140, .9)); animation: beat 1.4s ease-in-out infinite; }
-  #hb.on .a { animation: pop .9s cubic-bezier(.2, 1.3, .4, 1) both; } #hb.on .b { animation: pop .9s cubic-bezier(.2, 1.3, .4, 1) .18s both; } #hb.now .a, #hb.now .b { animation: none; }
-  @keyframes pop { from { opacity: 0; transform: scale(.5); } 60% { opacity: 1; transform: scale(1.06); } to { opacity: 1; transform: none; } }
-  @keyframes beat { 50% { transform: scale(1.12); } }
-  #hb i { position: absolute; width: 8px; height: 8px; border-radius: 50%; background: radial-gradient(circle, #fff 0, rgba(255, 226, 160, .9) 30%, rgba(255, 210, 140, 0) 70%); animation: tw 1.8s ease-in-out infinite; }
-  @keyframes tw { 0%, 100% { opacity: 0; transform: scale(.4); } 50% { opacity: 1; transform: scale(1.3); } }
-  @media (prefers-reduced-motion: reduce) { #hb p, #hb .h, #hb i { animation: none !important; } }
   .vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 </style>
 </head>
@@ -76,13 +63,10 @@
 <div id="sub" aria-live="polite"></div>
 <div id="lines" aria-live="polite"></div>
 <div id="say" role="status" aria-live="polite"></div>
-<div id="hb" aria-live="polite"><p class="a g"></p><p class="b"><span class="g bn"></span><span class="h" aria-hidden="true">❤️</span></p>
-  <i style="left:12%;top:20%"></i><i style="left:22%;top:72%;animation-delay:.4s"></i><i style="left:34%;top:8%;animation-delay:.9s"></i><i style="left:47%;top:88%;animation-delay:.2s"></i><i style="left:58%;top:4%;animation-delay:1.3s"></i>
-  <i style="left:66%;top:62%;animation-delay:.7s"></i><i style="left:78%;top:18%;animation-delay:1.1s"></i><i style="left:86%;top:70%;animation-delay:.5s"></i><i style="left:40%;top:46%;animation-delay:1.5s"></i><i style="left:92%;top:40%;animation-delay:.3s"></i></div>
 <div id="ui"><button id="mute" type="button">♪</button><button id="skip" type="button">»</button></div>
 <div id="end"><button id="again" type="button"></button><button id="cont" type="button" hidden></button></div>
 <div id="veil"><i></i></div>
-<p class="vh">An animated birthday film. On a moonlit sea wall, Helen’s teddy Snowki and her puppy Jessi notice the man hiding behind a tree – the one who gave Snowki to her years ago. Snowki goes to him; a golden memory of that day; they talk. Helen notices him and smiles. He wishes her a happy birthday with fireworks over the sea, and all four share the moment.</p>
+<p class="vh">An animated birthday film. On a moonlit sea wall, Helen’s teddy Snowki and her puppy Jessi notice the man hiding behind a tree – the one who gave Snowki to her years ago. Snowki goes to him; a golden memory of that day; they talk. The man lights a firework from the shore and hides again. Helen searches for who sent it, then leaves with six friends while he watches unseen from behind the tree.</p>
 <script type="module" src="js/film.js"></script>
 </body>
 </html>
