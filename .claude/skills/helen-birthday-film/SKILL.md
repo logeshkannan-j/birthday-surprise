@@ -73,16 +73,20 @@ and scene 6 local 8.4–10.2 s via `rev: [[a, b]]`).
 
 ## Characters (one rig each – identical everywhere)
 
-- **Helen** (from behind facing the sea except the reverse-angle shots) – after the user's character sheet (2026-11-22):
-  peach skin, big brown eyes with winged liner, pink lips, stud earrings, no bindi; long wavy dark-brown hair half up in a
-  twist (no bow clip), loose wavy locks to the waist (her top, sleeves and arms stay visible from behind); a cream
-  long-sleeve top with a small floral print (crew neck, tucked in), high-waisted wide-leg blue jeans with gold-stitched
-  back pockets, white sneakers, a brown watch on her left wrist (`HC`, `floralPrint`, `jeanPocket`, `jeanLegs` in rigs.js).
+- **Helen** (from behind facing the sea except the reverse-angle shots) – after the user's photo of the two of them
+  (2026-11-23, kept privately in `ref/characters-photo-2026-11-23.png`, never uploaded): warm brown skin, big dark-brown eyes
+  with soft kohl, a small dark bindi, silver jhumka earrings (`jhumka()`), a gentle smile; loose wavy near-black hair parted
+  in the middle, falling to her chest / shoulder blades (no twist, no clip); a cream long-sleeve top, round neck, with a
+  small print of yellow flowers on green sprigs (`floralPrint`), tucked into high-waisted wide-leg blue jeans with
+  gold-stitched back pockets, white sneakers, a brown watch on her left wrist (`HC`, `jeanPocket`, `jeanLegs` in rigs.js).
+  The reveal page's little SVG girl (`#girl`) and the dream's `helenMini` (guide.js) follow the same look.
   Seated with knees turned to the side over the wall edge; standing only in the flashback (`stand`, poses `standReceive` /
   `standHug`, soles at `Helen.STAND_GROUND`) and when she leaves with her friends. Back view: `headTurn` / `bodyTurn` /
   `turnDir` / `smile`; `cradle` = Snowki in her arms.
-- **The man**: dark curly hair, navy shirt with rolled sleeves, dark trousers, casual shoes; slightly taller than
-  her. Hides (`hide`), peeks (`peek` + `drawGrip` overlay), walks (`walkHold`, `armsFree` swings the arms; `st.speed`
+- **The man** (after the same photo): warm brown skin, thick wavy near-black hair swept up and back (`curls()`), dark
+  eyes under strong brows, a thin moustache and a goatee with a shadow of beard; a black tee under an open lilac shirt
+  (buttons, a chest pocket, sleeves rolled to the elbow), a blue patterned backpack on black straps (its edge shows behind
+  his left shoulder; seen from behind in 'walk'), dark jeans, casual shoes (`BC`); slightly taller than her. Hides (`hide`), peeks (`peek` + `drawGrip` overlay), walks (`walkHold`, `armsFree` swings the arms; `st.speed`
   plants the feet), offers (`offer`), kneels, cradles Snowki, talks (mouth moves), lights the fuse. `rigs.js` `Boy`.
 - **Snowki**: the teddy he gave her – light-blue plush, pink bow at the neck, pink heart on the belly, glossy eyes.
   Never a dog. Toddles, glides by magic, talks (subtitles), carries the gift. `snowki.js`.

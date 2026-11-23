@@ -255,7 +255,7 @@ function stepPup(dt) {
 const DREAMS = ['beach', 'ball', 'cuddle', 'sleep', 'trio'];
 function setDream() { const s = DREAMS[J.scene]; dPup.act({ beach: 'run', ball: 'stand', cuddle: 'pet', sleep: 'sleep', trio: 'happy' }[s], { restart: true, speed: 15 }); dBear.act('idle', { expr: 'happy' }); }
 function nextDream() { J.scene = (J.scene + 1) % DREAMS.length; J.sceneT = 0; setDream(); }
-const HC = { skin: '#E8B48E', hair: '#2B1C17', top: '#F7F0E4', topD: '#D8CCBB', jean: '#5276AE', jeanD: '#3A5A8E', shoe: '#FBFBFF', flower: '#EF9FB4', blush: 'rgba(242,142,150,.6)', lip: '#D26E78' };
+const HC = { skin: '#CF9467', hair: '#1D1311', top: '#F8F4EA', topD: '#D8D1C1', jean: '#5276AE', jeanD: '#3A5A8E', shoe: '#FBFBFF', flower: '#E8B53A', blush: 'rgba(224,122,128,.55)', lip: '#B85C5E' };
 function helenMini(x, y, k, pose, t) {   // a tiny chibi Helen standing on (x, y); k = px per unit (about 34 units tall)
   const c = cx; c.save(); c.translate(x, y); c.scale(k, k); c.lineCap = c.lineJoin = 'round';
   if (pose === 'lie') { c.translate(-2, -4); c.rotate(-Math.PI / 2); c.translate(0, 4); }
@@ -280,11 +280,11 @@ function helenMini(x, y, k, pose, t) {   // a tiny chibi Helen standing on (x, y
   else { hl = [-4.4 + sw * 2.4, -12]; hr = [4.4 - sw * 2.4, -12]; }
   for (const [col, w] of [[HC.topD, 2.1], [HC.top, 1.55]]) { c.strokeStyle = col; c.lineWidth = w; c.beginPath(); c.moveTo(-3, -18); c.lineTo(hl[0], hl[1]); c.moveTo(3, -18); c.lineTo(hr[0], hr[1]); c.stroke(); }
   c.fillStyle = HC.skin; c.beginPath(); c.arc(hl[0], hl[1], 0.9, 0, 7); c.arc(hr[0], hr[1], 0.9, 0, 7); c.fill();
-  // head, wavy fringe, the little twist at the back, face
+  // head, the middle-parted fringe, her bindi, face
   c.fillStyle = HC.skin; c.beginPath(); c.arc(0, -23.5, 4.6, 0, 7); c.fill();
   c.fillStyle = HC.hair; c.beginPath(); c.arc(0, -24.4, 4.9, Math.PI * 1.02, Math.PI * 1.98); c.quadraticCurveTo(2.4, -25, 0.4, -23.6); c.quadraticCurveTo(-2.2, -25.2, -4.9, -24); c.fill();
-  c.beginPath(); c.arc(-3.9, -27.4, 1.5, 0, 7); c.fill();
   c.fillStyle = HC.blush; c.beginPath(); c.ellipse(-2.4, -21.8, 1, 0.6, 0, 0, 7); c.ellipse(2.6, -21.8, 1, 0.6, 0, 0, 7); c.fill();
+  c.fillStyle = '#2A0E12'; c.beginPath(); c.arc(0, -25.4, 0.45, 0, 7); c.fill();   // her bindi
   c.strokeStyle = '#2A1820'; c.lineWidth = 0.6;
   if (pose === 'lie' || pose === 'sit' || pose === 'run') { c.beginPath(); c.arc(-1.6, -23, 0.9, Math.PI * (pose === 'lie' ? 0.1 : 1.1), Math.PI * (pose === 'lie' ? 0.9 : 1.9)); c.moveTo(2.5, -23); c.arc(1.6, -23, 0.9, Math.PI * (pose === 'lie' ? 0.1 : 1.1), Math.PI * (pose === 'lie' ? 0.9 : 1.9)); c.stroke(); }
   else { c.fillStyle = '#2A1820'; c.beginPath(); c.arc(-1.6, -23.2, 0.7, 0, 7); c.arc(1.6, -23.2, 0.7, 0, 7); c.fill(); }

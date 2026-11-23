@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Character sheet</title>
+<style>
+  :root { --bg: #f4efe6; --ink: #3a2a3a; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.4 system-ui, sans-serif; }
+  canvas { display: block; width: 100%; height: auto; }
+</style>
+</head>
+<body>
+<!-- dev tool: both film characters drawn large by their real rigs (film/js/rigs.js), for checking a new look -->
+<canvas id="c" width="1800" height="1000"></canvas>
+<script type="module">
+import { Helen, Boy } from '../js/rigs.js';
+const cv = document.getElementById('c'), x = cv.getContext('2d');
+const g = x.createLinearGradient(0, 0, 0, 1000); g.addColorStop(0, '#F6F1E8'); g.addColorStop(1, '#E9E1D3'); x.fillStyle = g; x.fillRect(0, 0, 1800, 1000);
+const label = (t, px, py) => { x.fillStyle = '#5A4656'; x.font = '600 18px system-ui'; x.textAlign = 'center'; x.fillText(t, px, py); };
+function settle(rig, st, n = 150) { for (let i = 0; i < n; i++) rig.update({ ...st, t: i / 60, dt: 1 / 60 }); }
+function helen(px, py, k, st, name) {
+  const h = new Helen(); const s = { wind: 6, ...st }; settle(h, s);
+  x.save(); x.translate(px, py); x.scale(k, k); h.draw(x, { ...s, t: 2.5, dt: 1 / 60 }); x.restore(); label(name, px, 960);
+}
+function boy(px, py, k, st, name) {
+  const b = new Boy(); const s = { wind: 4, ...st }; settle(b, s);
+  x.save(); x.translate(px, py); x.scale(k, k); b.draw(x, { ...s, t: 2.5, dt: 1 / 60 }); x.restore(); label(name, px, 960);
+}
+// Helen: face (seated, smiling), standing in the flashback, from behind, turning
+helen(170, 600, 6.2, { expr: 'smile' }, 'Helen – front');
+helen(430, 660, 6.0, { expr: 'joyful', stand: true, pose: 'standReceive', held: () => {} }, 'standing (flashback)');
+helen(690, 600, 6.2, { back: true }, 'from behind');
+helen(950, 600, 6.2, { back: true, headTurn: 1, bodyTurn: 0.3, turnDir: 1, smile: 1 }, 'turning, smiling');
+// Him: standing, smiling, walking away (backpack), kneeling
+boy(1170, 930, 7.4, { pose: 'stand', expr: 'smile' }, 'him – front');
+boy(1420, 930, 7.4, { pose: 'stand', expr: 'watching', look: 0.4 }, 'watching');
+boy(1660, 930, 7.4, { pose: 'walk' }, 'walking away');
+window.__done = true;
+</script>
+</body>
+</html>
