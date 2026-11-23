@@ -23,10 +23,21 @@ behind the tree and quietly hides his hurt. Dialogue is bottom subtitles; the fl
   (the dog), `snowki.js` (the teddy), `physics.js`, `particles.js` (fireworks…), `timeline.js` (scenes + camera keys),
   `film.js` (places/paths `boyAt` `snowKeys` `jessiAt`, events, anchors, subtitles, the flashback `drawMemory`,
   quality), `shaders.js` + `renderer-gl.js`, `renderer-2d.js`, `audio.js`.
-- `guide.js` + `index.html` – the birthday page. Snowki guides her through every step; on the countdown he says hi,
-  asks "Can I call Jessi?" and Jessi does tricks, sleeps and dreams of Helen. Step 7 (`go(6)`) shows the film; its
-  Continue posts `{type:'film-done'}`. The album (`album/`, `update_memories.py`) is encrypted: never weaken it,
+- `guide.js` + `index.html` – the birthday page. Snowki guides her through every step. Step 7 (`go(6)`) shows the film;
+  its Continue posts `{type:'film-done'}`. The album (`album/`, `update_memories.py`) is encrypted: never weaken it,
   never commit `memories/`.
+- The countdown is the waiting area. It follows her own clock (`todNow()` in index.html: night 19–5, morning 5–7, day
+  7–17, dusk 17–19; preview with `?tod=day`): `#sky` layers + the `#cv` canvas (moon and stars / sun, clouds, birds),
+  `drawGround()` in guide.js (a hill under the pair), dark ink by day (`html.tod-light`). Snowki is already there asleep,
+  fades in, wakes slowly (stretch and yawn, rubs his eyes), looks around, waves (`hello()` greets by the time of day),
+  then asks "Can I call Jessi?". Jessi runs in, then the two of them play: `play.js` (`makePlay`) – 52 games (`ACTS`:
+  fetch, frisbee, tug of war, piggyback, hide and seek with a bush, kite, sky writing "Helen ♡", rain under an umbrella…)
+  with props attached through the rigs' real transforms (`SN.*`, `JE.*`), particles and synth sound effects, and a nap with
+  the dream cloud after every five; tap Jessi to skip. Test one with `Guide.play.go(i)`. Snowki moves by `G.po`
+  `{x, y, r, s}`; Jessi by `J.ox` / `J.oy`, turning through side-on (`J.fx`).
+- `music.js` (`window.Music`) – after she turns the sound on: her own MP3s from `CONFIG.songs` (songs/), then original
+  Carnatic-style tunes played live (tanpura, veena / venu, mridangam; Mohanam, Hamsadhwani, Kalyani, Sindhu Bhairavi,
+  Shuddha Dhanyasi) and a birthday song at the reveal. Copyrighted film songs are never downloaded or bundled.
 - `film/tools/generate-clips.mjs` – optional Seedance 2.5 / Veo 3.1 clips. Paid: the user's key and approval only.
 
 ## Story (≈ 114 s after the wish; all at NIGHT, tod 1.72 → 1.95; timings {1:12,2:10,3:13,4:10,5:16,6:12,7:14,8:9,9:18})
@@ -102,6 +113,8 @@ and scene 6 local 8.4–10.2 s via `rev: [[a, b]]`).
   moon's glitter path and bloom are toned down (`revNow()`), or the sea behind her blows out white.
 - Keep it smooth on mid-range phones: quality tiers, DPR cap 2, pause when hidden, `prefers-reduced-motion`; no
   per-frame `ctx.filter` / `shadowBlur` in rigs; far extras redraw at half rate.
+- Nothing may jitter at rest: anything that feeds a draw scale (like Snowki's `G.vis`) must settle exactly on its target,
+  never overshoot and bounce back each frame (that was the "vibrating teddy").
 
 ## Checking your work
 

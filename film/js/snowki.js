@@ -132,7 +132,13 @@ export class Snowki {
       case 'think': P.armR = [-9, -6]; P.tilt = -0.12; P.nod = -0.3; P.expr = 'smile'; P.gaze = [0.4, -0.8]; break;
       case 'hold': P.armL = [13, 9]; P.armR = [-13, 9]; P.expr = o.expr || 'happy'; break;
       case 'dance': { const k = Math.sin(a * 4.4); P.lean = k * 0.14; P.tilt = -k * 0.1; P.armL = [-12, k > 0 ? -18 : 12]; P.armR = [12, k > 0 ? 12 : -18]; P.hop = Math.abs(Math.sin(a * 8.8)) * 3; P.expr = 'happy'; break; }
-      case 'yawn': if (a < 1.8) { P.armL = [-8, -22]; P.armR = [8, -22]; P.squash = -0.05; P.nod = -0.4; P.expr = '_yawn'; } else P.expr = 'soft'; break;
+      case 'yawn': { // a slow, natural wake-up: a long stretch with a big yawn, arms down, rub the eyes, a soft smile
+        const sm = x => { x = clamp(x, 0, 1); return x * x * (3 - 2 * x); };
+        const up = sm((a - 0.15) / 0.95) * (1 - sm((a - 2.0) / 0.85)), rub = a > 2.7 && a < 3.7 ? Math.sin((a - 2.7) * Math.PI) : 0;
+        P.armL = [lerp(-5, -11, up), lerp(19, -19, up)]; P.armR = [lerp(5, 11, up), lerp(19, -19, up)];
+        if (rub > 0.01) { P.armL = [lerp(P.armL[0], 10, rub), lerp(P.armL[1], -24, rub)]; P.armR = [lerp(P.armR[0], -10, rub), lerp(P.armR[1], -24, rub)]; }
+        P.squash = -0.035 * up; P.nod = -0.32 * up; P.tilt += 0.04 * Math.sin(a * 1.1) * up;
+        P.expr = a > 0.35 && a < 2.2 ? '_yawn' : a < 3.8 ? 'sleepy' : 'soft'; break; }
       case 'bow': { const k = Math.sin(clamp(a / 1.2, 0, 1) * Math.PI); P.nod = k; P.squash = k * 0.08; P.armR = [-11, 10]; P.expr = 'soft'; break; }
       case 'nod': P.nod = Math.sin(a * 6) * 0.6; P.expr = 'happy'; break;
       case 'lookUp': P.nod = -1; P.gaze = [0, -1]; P.tilt = 0.06; P.expr = o.expr || 'surprised'; break;

@@ -3,6 +3,7 @@
 // and hides while the private album or the film is open. The page calls Guide.step(n) and Guide.on(event).
 import { Snowki } from './film/js/snowki.js';
 import { Jessi } from './film/js/jessi.js';
+import { makePlay } from './play.js';
 
 const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
 const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -19,7 +20,8 @@ size();
 // ---------------------------------------------------------------- state
 const G = {
   x: W / 2, y: H + 200, vis: 0, visTo: 0, step: null, home: null, homeAct: ['idle', {}], fl: null, drag: null, idle: 6, react: 0,
-  trail: [], sayUntil: 0, last: performance.now(), lastTap: 0, gazeP: null, fidget: [], stepT: 0, hidden: false, after: []
+  trail: [], sayUntil: 0, last: performance.now(), lastTap: 0, gazeP: null, fidget: [], stepT: 0, hidden: false, after: [], visK: 2.5, script: false,
+  po: { x: 0, y: 0, r: 0, s: 1 }   // his offset from his spot while he plays with Jessi (x, y px; r roll; s scale)
 };
 const box = (x = G.x, y = G.y) => [x - 40 * sc, y - 112 * sc, x + 40 * sc, y + 6 * sc];
 
@@ -27,7 +29,7 @@ const box = (x = G.x, y = G.y) => [x - 40 * sc, y - 112 * sc, x + 40 * sc, y + 6
 function obstacles(sec) {
   const els = sec ? [...sec.querySelectorAll('h1,p,button,.btn,.link,.cd,.env,.card,form,input,svg.clock,label,figure,.paper')] : [];
   const out = [], rg = document.createRange();
-  for (const e of els.concat([$('#mute'), $('.dots'), $('#star')])) {
+  for (const e of els.concat([$('#mute'), $('#mus'), $('.dots'), $('#star')])) {
     if (!e || e.closest('[hidden]')) continue;
     if (/^(P|H1)$/.test(e.tagName)) { rg.selectNodeContents(e); for (const r of rg.getClientRects()) if (r.width > 2 && r.height > 2) out.push(r); continue; }   // the words, not the empty box
     const r = e.getBoundingClientRect(); if (r.width > 2 && r.height > 2) out.push(r);
@@ -52,7 +54,7 @@ function spotNear(el, prefs) {
   return { el, dx: best.p[0] - r.left, dy: best.p[1] - r.top };
 }
 function slotOf(el) { const r = el.getBoundingClientRect(); return { el, dx: r.width / 2, dy: r.height * 0.97, slot: true }; }
-function homePos() { const h = G.home; if (!h) return null; const r = h.el.getBoundingClientRect(); if (!r.width && !r.height) return null; return [r.left + h.dx, r.top + h.dy]; }
+function homePos() { const h = G.home; if (!h) return null; const r = h.el.getBoundingClientRect(); if (!r.width && !r.height) return null; const o = G.step === 'c' ? G.po : null; return [r.left + h.dx + (o ? o.x : 0), r.top + h.dy + (o ? o.y : 0)]; }
 
 // ---------------------------------------------------------------- speech bubble
 function say(text, ms = 3600) {
@@ -90,9 +92,16 @@ const days = () => +(($('#cd') || {}).textContent || 0);
 const STEPS = {
   c() { stageHome(); G.fidget = ['kick', 'wave'];
     if (J.intro) { goHome('kick'); if (J.called && J.state === 'off') later(900, () => pupEnter(true)); else if (!J.called) later(900, askJessi); return; }
-    J.intro = true; goHome('sleep');
-    later(2400, () => { bear.act('yawn'); later(1800, () => { bear.act('wave'); say('Hey, hi Helen! It’s me, Snowki ♡', 3400);
-      later(3600, () => { bear.act('kick'); say(days() > 1 ? `${days()} more sleeps… let’s wait together ✦` : 'Almost time ✦', 2800); later(3000, askJessi); }); }); }); },
+    // the very first hello: he is already there, asleep, and fades in softly; he wakes slowly (a long stretch and a yawn,
+    // rubs his eyes), looks around, notices her and waves. No flying in, no landing bounce.
+    J.intro = true; G.script = true; G.homeAct = ['sleep', {}]; G.fl = null; G.visK = 0.9; G.react = 0;
+    { const p = homePos(); if (p) { G.x = p[0]; G.y = p[1]; } } bear.act('sleep', { restart: true }); bear.magic = 0.2;
+    later(2600, () => bear.act('yawn', { restart: true }));
+    later(6700, () => bear.act('alert', { restart: true, dir: [-1, -0.2], expr: 'soft' }));
+    later(7700, () => bear.act('alert', { restart: true, dir: [0.9, -0.2], expr: 'soft' }));
+    later(8600, () => { bear.act('wave', { restart: true }); say(hello(), 3400); bear.magic = 0.35; });
+    later(12200, () => { bear.act('kick', { restart: true }); G.homeAct = ['kick', {}]; say(days() > 1 ? `${days()} more sleeps… let’s wait together ✦` : 'Almost time ✦', 2800); });
+    later(15300, () => { G.script = false; G.visK = 2.5; askJessi(); }); },
   0() { const env = $('#env'); G.home = spotNear(env, ['right', 'left', 'onBR', 'aboveR']); G.fidget = ['wave', 'kick'];
     goHome('point', { dir: dirTo('#seal') }); later(1300, () => say('Press and hold the heart ♡')); },
   1() { G.home = slotOf($('.s[data-n="1"] .bear')); G.fidget = ['hug', 'kick']; goHome('hug', { expr: 'soft' }); later(2400, () => { bear.burstHearts(6); bear.act('hug', { expr: 'love' }); }); },
@@ -105,6 +114,10 @@ const STEPS = {
   7() { G.home = spotNear($('.s[data-n="7"] h1'), ['right', 'left', 'below']); G.fidget = []; goHome('cheer'); later(900, () => { say('Happy birthday! ♡', 3000); bear.burstHearts(8); });
     later(4200, () => { G.home = slotOf($('.trio .tb svg')); G.fidget = ['hug', 'kick', 'wave']; goHome('hug', { expr: 'soft' }); later(2600, () => bear.burstHearts(5)); }); }
 };
+const tod = () => document.documentElement.dataset.tod || 'night';
+function hello() { const t = tod(), h = new Date().getHours();
+  return t === 'morning' ? 'Good morning, Helen! ☀ It’s me, Snowki ♡' : t === 'dusk' ? 'Good evening, Helen! It’s me, Snowki ♡'
+    : t === 'night' && h < 5 ? 'Still awake, Helen? It’s me, Snowki ♡' : 'Hey, hi Helen! It’s me, Snowki ♡'; }
 function dirTo(sel) { const e = $(sel), p = homePos(); if (!e || !p) return [1, 0]; const r = e.getBoundingClientRect(); return [r.left + r.width / 2 - (p[0] + 0), r.top + r.height / 2 - (p[1] - 40 * sc)]; }
 const EVENTS = {
   hold() { if (G.step !== 0) return; bear.act('push', { dir: dirTo('#seal') }); say('Hold… hold… ♡', 1600); },
@@ -123,7 +136,7 @@ function show() { G.hidden = false; G.visTo = 1; }
 
 function step(n) {
   G.after.forEach(clearTimeout); G.after = []; say('');
-  G.step = n; G.stepT = 0; G.react = 0; bear.express(null); if (n !== 'c') { pupLeave(); hideAsk(); }
+  G.step = n; G.stepT = 0; G.react = 0; G.script = false; G.visK = 2.5; bear.express(null); if (n !== 'c') { pupLeave(); hideAsk(); }
   if (n === 6 || window.__albumOpen) { hide(); return; }
   const wasHidden = G.vis < 0.05; show(); if (wasHidden) G.vis = 0.001;
   // wait a frame so the new screen has its layout
@@ -135,7 +148,8 @@ const TAPS = [['giggle', 'Hehe! ♡'], ['spin', 'Wheee!'], ['cheer', ''], ['hug'
 let tapI = 0;
 function react() {
   const now = performance.now(); if (now - G.lastTap < 450) return; G.lastTap = now;
-  if (G.step === 'c' && J.asked && !J.called && askEl.hidden) { askJessi(); return; }
+  if (G.step === 'c' && J.asked && !J.called && askEl.hidden && !G.script) { askJessi(); return; }
+  if (play.on) { bear.act('giggle', { restart: true }); bear.burstHearts(4); say(['Hehe! ♡', 'That tickles!', 'Wheee! ✦'][tapI++ % 3], 1400); poofAt(0.4); return; }
   const [a, line] = TAPS[tapI++ % TAPS.length]; bear.act(a, { restart: true }); if (a === 'hug' || a === 'shy') bear.burstHearts(4);
   if (G.step === 'c' && tapI % 4 === 1) say(days() > 1 ? `${days()} more sleeps ✦` : 'Almost ✦', 2400); else if (line) say(line, 1600);
   poofAt(0.4); G.react = a === 'spin' ? 0.95 : 1.6; G.idle = 8;
@@ -191,21 +205,23 @@ function pupEnter(short) {
   J.short = short;
 }
 const TRICKS = { bark: ['bark', 1.3, 'cheer'], flip: ['flip', 1.15, 'clap'], spin: ['spin', 1.3, 'giggle'], roll: ['roll', 1.45, 'clap'], bow: ['bow', 1.3, 'dance'], paw: ['paw', 1.9, 'clap', 'Good girl, Jessi! ♡'],
-  lie: ['lie', 1.0, 'idle'], yawn: ['yawn', 1.6, 'yawn'], sleep: ['sleep', 0, 'shh', 'Shh… she’s dreaming of you ♡'], wake: ['wake', 0.7, 'idle'] };
+  hi: ['bark', 1.4, 'cheer', 'Jessi! Let’s play together ✦'], lie: ['lie', 1.0, 'idle'], yawn: ['yawn', 1.6, 'yawn'], sleep: ['sleep', 0, 'shh', 'Shh… she’s dreaming of you ♡'], wake: ['wake', 0.7, 'idle'] };
 const SHOW = ['bark', 'flip', 'spin', 'roll', 'bow', 'paw', 'lie', 'yawn', 'sleep'];
 function queue(names) { J.q = names.filter(n => !(RM && ['flip', 'spin', 'roll'].includes(n))).map(n => TRICKS[n]); J.qt = 0; J.state = 'show'; nextTrick(); }
 function nextTrick() {
-  const t = J.q.shift(); if (!t) return; const [a, d, b, line] = t;
+  const t = J.q.shift(); if (!t) { if (J.state === 'show' && J.wantPlay) startPlay(); return; } const [a, d, b, line] = t;
   pup.act(a, { restart: true }); J.qt = d || 1e9; if (a === 'bark') woof(2);
   if (b) { bear.act(b, { restart: true }); G.react = 0; G.idle = 99; } if (line) say(line, 3400);
   if (a === 'sleep') { J.state = 'sleep'; G.idle = 6; G.homeAct = ['kick', {}]; }
 }
+function startPlay() { J.state = 'play'; J.wantPlay = false; G.fidget = []; G.homeAct = ['idle', {}]; G.react = 0; G.idle = 99; play.start(); }
 function tapPup() {
+  if (J.state === 'play') { play.skip(); return; }
   if (!['show', 'sleep'].includes(J.state)) return;
   const pool = RM ? ['paw', 'bow'] : ['flip', 'spin', 'roll', 'bow', 'paw'], pick = pool[(Math.random() * pool.length) | 0];
   J.dreamTo = 0; queue((J.state === 'sleep' ? ['wake'] : []).concat(['bark', pick, 'lie', 'yawn', 'sleep']));
 }
-function pupLeave() { if (J.state === 'off') return; J.dreamTo = 0; J.state = 'leave'; J.face = 1; pup.act('run', { restart: true, vx: PUP_RUN }); hideAsk(); }
+function pupLeave() { if (J.state === 'off') return; play.stop(); J.wantPlay = false; J.dreamTo = 0; J.state = 'leave'; J.face = 1; pup.act('run', { restart: true, vx: PUP_RUN }); hideAsk(); }
 const PUP_RUN = 220;   // her running speed in rig units/s: the rig plants each paw on the page at exactly this speed
 
 // woof: floating words and (when her sound is on) a small synthesised bark
@@ -223,10 +239,12 @@ function woof(n) {
 }
 function stepPup(dt) {
   if (J.state === 'off') return; const L = J.L || stage();
-  if (J.state === 'enter') { J.x += PUP_RUN * L.ps * dt; if (J.x >= L.pupX) { J.x = L.pupX; pup.bump(40); queue(J.short ? ['bark', 'lie', 'yawn', 'sleep'] : SHOW); } }
+  if (J.state === 'enter') { J.x += PUP_RUN * L.ps * dt; if (J.x >= L.pupX) { J.x = L.pupX; pup.bump(40); if (RM) queue(J.short ? ['bark', 'lie', 'yawn', 'sleep'] : SHOW); else { J.wantPlay = true; queue(J.short ? ['hi'] : ['hi', 'flip', 'paw']); } } }
   else if (J.state === 'leave') { J.x += PUP_RUN * L.ps * dt; if (J.x > W + 160) { J.state = 'off'; } }
+  else if (J.state === 'play') J.x = L.pupX + (J.ox || 0);
   else { J.x = lerp(J.x, L.pupX, Math.min(1, dt * 4)); if (J.state === 'show' && (J.qt -= dt) <= 0) nextTrick(); }
   if (J.state === 'sleep' && pup.name === 'sleep' && pup.a > 1.3 && !J.dreamTo) { J.dreamTo = 1; J.scene = 0; J.sceneT = 0; setDream(); }
+  J.fs = J.fs == null ? J.face : J.fs + (J.face - J.fs) * Math.min(1, dt * 12); J.fx = (J.fs >= 0 ? 1 : -1) * Math.max(0.3, Math.abs(J.fs));
   pup.update(dt);
   for (const w of J.woofs) w.t += dt; J.woofs = J.woofs.filter(w => w.t < 1);
   J.dream = J.dreamTo > J.dream ? Math.min(1, J.dream + dt * 1.1) : Math.max(0, J.dream - dt * 2.5);
@@ -237,37 +255,40 @@ function stepPup(dt) {
 const DREAMS = ['beach', 'ball', 'cuddle', 'sleep', 'trio'];
 function setDream() { const s = DREAMS[J.scene]; dPup.act({ beach: 'run', ball: 'stand', cuddle: 'pet', sleep: 'sleep', trio: 'happy' }[s], { restart: true, speed: 15 }); dBear.act('idle', { expr: 'happy' }); }
 function nextDream() { J.scene = (J.scene + 1) % DREAMS.length; J.sceneT = 0; setDream(); }
-const HC = { skin: '#D39A74', hair: '#1E1424', dress: '#9CCBF2', dressD: '#6FA0D8', collar: '#FFFDF8', bow: '#FF8DB3', blush: 'rgba(255,120,150,.55)' };
+const HC = { skin: '#E8B48E', hair: '#2B1C17', top: '#F7F0E4', topD: '#D8CCBB', jean: '#5276AE', jeanD: '#3A5A8E', shoe: '#FBFBFF', flower: '#EF9FB4', blush: 'rgba(242,142,150,.6)', lip: '#D26E78' };
 function helenMini(x, y, k, pose, t) {   // a tiny chibi Helen standing on (x, y); k = px per unit (about 34 units tall)
   const c = cx; c.save(); c.translate(x, y); c.scale(k, k); c.lineCap = c.lineJoin = 'round';
   if (pose === 'lie') { c.translate(-2, -4); c.rotate(-Math.PI / 2); c.translate(0, 4); }
-  const run = pose === 'run', ph = t * 9, sw = run ? Math.sin(ph) : 0;
-  // hair behind
-  c.fillStyle = HC.hair; c.beginPath(); c.moveTo(-5.6, -26); c.quadraticCurveTo(-7.6 - (run ? 2 : 0), -14, -5 - (run ? 3 + sw : 0), -10); c.lineTo(4.6 - (run ? 2 : 0), -10.5); c.quadraticCurveTo(7, -16, 5.6, -26); c.fill();
-  // legs
-  c.strokeStyle = HC.skin; c.lineWidth = 2;
-  if (pose === 'sit') { c.beginPath(); c.moveTo(-1, -5); c.lineTo(5, -4); c.lineTo(6.5, 0); c.moveTo(1, -5); c.lineTo(7, -3.6); c.lineTo(8.8, 0); c.stroke(); }
-  else { c.beginPath(); c.moveTo(-1.5, -7); c.lineTo(-1.5 - sw * 2.6, 0 - Math.max(0, sw) * 1.6); c.moveTo(1.5, -7); c.lineTo(1.5 + sw * 2.6, 0 - Math.max(0, -sw) * 1.6); c.stroke();
-    c.fillStyle = '#FFF4F8'; for (const s of [-1, 1]) { c.beginPath(); c.ellipse(s * 1.5 + s * sw * 2.6 + 0.6, -0.2 - (s < 0 ? Math.max(0, sw) : Math.max(0, -sw)) * 1.6, 1.4, 0.8, 0, 0, 7); c.fill(); } }
-  // dress
-  const dg = c.createLinearGradient(-6, 0, 6, 0); dg.addColorStop(0, HC.dress); dg.addColorStop(1, HC.dressD); c.fillStyle = dg;
-  c.beginPath(); c.moveTo(-3.6, -19); c.lineTo(3.6, -19); c.lineTo(pose === 'sit' ? 7 : 6.2 + sw, pose === 'sit' ? -4 : -7.4); c.quadraticCurveTo(0, pose === 'sit' ? -2.6 : -5.8, pose === 'sit' ? -4.5 : -6.2 + sw, pose === 'sit' ? -5 : -7.4); c.closePath(); c.fill();
-  c.fillStyle = HC.collar; c.beginPath(); c.ellipse(0, -18.8, 2.6, 1.1, 0, 0, 7); c.fill(); c.fillStyle = HC.bow; c.fillRect(-3.4, -13.4, 6.8, 1.1);
-  // arms
-  c.strokeStyle = HC.skin; c.lineWidth = 1.7; c.beginPath();
-  if (pose === 'throw') { const a = (t % 1.8) / 1.8, up = a < 0.4 ? a / 0.4 : Math.max(0, 1 - (a - 0.4) / 0.25); c.moveTo(3, -18); c.lineTo(3 + Math.cos(-0.4 - up * 1.8) * 6, -18 + Math.sin(-0.4 - up * 1.8) * 6); c.moveTo(-3, -18); c.lineTo(-5, -12); }
-  else if (pose === 'hold' || pose === 'sit') { c.moveTo(-3, -18); c.lineTo(1, -13); c.moveTo(3, -18); c.lineTo(5.6, -13.5); }
-  else { c.moveTo(-3, -18); c.lineTo(-4.4 + sw * 2.4, -12); c.moveTo(3, -18); c.lineTo(4.4 - sw * 2.4, -12); }
-  c.stroke();
-  // head, bangs, bow, face
+  const run = pose === 'run', ph = t * 9, sw = run ? Math.sin(ph) : 0, bk = run ? 2 : 0;
+  // long wavy hair behind her
+  c.fillStyle = HC.hair; c.beginPath(); c.moveTo(-5.4, -26); c.quadraticCurveTo(-7.8 - bk, -18, -6.6 - bk - sw, -11.6); c.quadraticCurveTo(-5.2 - bk, -10.2, -3.6 - bk, -11.4);
+  c.lineTo(3.4 - bk, -11.4); c.quadraticCurveTo(5.2 - bk, -10.4, 6.4 - bk, -11.8); c.quadraticCurveTo(7.6, -18, 5.4, -26); c.fill();
+  // wide-leg jeans and white sneakers
+  c.strokeStyle = HC.jean; c.lineWidth = 2.7;
+  if (pose === 'sit') { c.beginPath(); c.moveTo(-1, -8); c.lineTo(5, -6.4); c.lineTo(6.5, -1.2); c.moveTo(1.2, -8); c.lineTo(7, -6); c.lineTo(8.8, -1.2); c.stroke(); c.fillStyle = HC.shoe; c.beginPath(); c.ellipse(7.2, -0.6, 1.6, 0.85, 0, 0, 7); c.ellipse(9.5, -0.6, 1.6, 0.85, 0, 0, 7); c.fill(); }
+  else { c.beginPath(); c.moveTo(-1.4, -9); c.lineTo(-1.6 - sw * 2.6, -1.1 - Math.max(0, sw) * 1.6); c.moveTo(1.4, -9); c.lineTo(1.6 + sw * 2.6, -1.1 - Math.max(0, -sw) * 1.6); c.stroke();
+    c.fillStyle = HC.shoe; for (const sd of [-1, 1]) { c.beginPath(); c.ellipse(sd * 1.6 + sd * sw * 2.6 + 0.6, -0.4 - (sd < 0 ? Math.max(0, sw) : Math.max(0, -sw)) * 1.6, 1.5, 0.85, 0, 0, 7); c.fill(); } }
+  // high-waisted jeans, then the cream top with a few little flowers
+  c.fillStyle = HC.jean; c.beginPath(); c.moveTo(-3.6, -12.4); c.lineTo(3.6, -12.4); c.lineTo(4, -8.4); c.lineTo(-4, -8.4); c.closePath(); c.fill();
+  const tg = c.createLinearGradient(-4, 0, 4, 0); tg.addColorStop(0, HC.top); tg.addColorStop(1, HC.topD); c.fillStyle = tg;
+  c.beginPath(); c.moveTo(-3.4, -19.4); c.quadraticCurveTo(0, -20.2, 3.4, -19.4); c.lineTo(3.8, -12); c.lineTo(-3.8, -12); c.closePath(); c.fill();
+  c.fillStyle = HC.flower; for (const [fx, fy] of [[-1.8, -17.4], [1.6, -15.8], [-0.6, -13.8], [2.4, -13], [-2.6, -14.8]]) { c.beginPath(); c.arc(fx, fy, 0.45, 0, 7); c.fill(); }
+  // arms in long cream sleeves, little hands
+  let hl, hr;
+  if (pose === 'throw') { const a = (t % 1.8) / 1.8, up = a < 0.4 ? a / 0.4 : Math.max(0, 1 - (a - 0.4) / 0.25); hr = [3 + Math.cos(-0.4 - up * 1.8) * 6, -18 + Math.sin(-0.4 - up * 1.8) * 6]; hl = [-5, -12]; }
+  else if (pose === 'hold' || pose === 'sit') { hl = [1, -13]; hr = [5.6, -13.5]; }
+  else { hl = [-4.4 + sw * 2.4, -12]; hr = [4.4 - sw * 2.4, -12]; }
+  for (const [col, w] of [[HC.topD, 2.1], [HC.top, 1.55]]) { c.strokeStyle = col; c.lineWidth = w; c.beginPath(); c.moveTo(-3, -18); c.lineTo(hl[0], hl[1]); c.moveTo(3, -18); c.lineTo(hr[0], hr[1]); c.stroke(); }
+  c.fillStyle = HC.skin; c.beginPath(); c.arc(hl[0], hl[1], 0.9, 0, 7); c.arc(hr[0], hr[1], 0.9, 0, 7); c.fill();
+  // head, wavy fringe, the little twist at the back, face
   c.fillStyle = HC.skin; c.beginPath(); c.arc(0, -23.5, 4.6, 0, 7); c.fill();
-  c.fillStyle = HC.hair; c.beginPath(); c.arc(0, -24.4, 4.9, Math.PI * 1.02, Math.PI * 1.98); c.quadraticCurveTo(2, -24.6, 0, -23.4); c.quadraticCurveTo(-2, -24.6, -4.9, -24); c.fill();
-  c.fillStyle = HC.bow; c.beginPath(); c.ellipse(-3.6, -28, 1.3, 0.9, -0.5, 0, 7); c.ellipse(-1.8, -28.6, 1.3, 0.9, 0.4, 0, 7); c.fill();
+  c.fillStyle = HC.hair; c.beginPath(); c.arc(0, -24.4, 4.9, Math.PI * 1.02, Math.PI * 1.98); c.quadraticCurveTo(2.4, -25, 0.4, -23.6); c.quadraticCurveTo(-2.2, -25.2, -4.9, -24); c.fill();
+  c.beginPath(); c.arc(-3.9, -27.4, 1.5, 0, 7); c.fill();
   c.fillStyle = HC.blush; c.beginPath(); c.ellipse(-2.4, -21.8, 1, 0.6, 0, 0, 7); c.ellipse(2.6, -21.8, 1, 0.6, 0, 0, 7); c.fill();
   c.strokeStyle = '#2A1820'; c.lineWidth = 0.6;
   if (pose === 'lie' || pose === 'sit' || pose === 'run') { c.beginPath(); c.arc(-1.6, -23, 0.9, Math.PI * (pose === 'lie' ? 0.1 : 1.1), Math.PI * (pose === 'lie' ? 0.9 : 1.9)); c.moveTo(2.5, -23); c.arc(1.6, -23, 0.9, Math.PI * (pose === 'lie' ? 0.1 : 1.1), Math.PI * (pose === 'lie' ? 0.9 : 1.9)); c.stroke(); }
   else { c.fillStyle = '#2A1820'; c.beginPath(); c.arc(-1.6, -23.2, 0.7, 0, 7); c.arc(1.6, -23.2, 0.7, 0, 7); c.fill(); }
-  c.beginPath(); c.arc(0, -21.6, 1, 0.2, Math.PI - 0.2); c.stroke();
+  c.strokeStyle = HC.lip; c.beginPath(); c.arc(0, -21.6, 1, 0.2, Math.PI - 0.2); c.stroke();
   c.restore();
 }
 function drawDream(mx, my, w, h, t) {
@@ -316,16 +337,54 @@ function drawCloud(t) {
   cx.restore();
 }
 function drawPup(t) {
-  if (J.state === 'off') return; const L = J.L;
-  cx.save(); cx.fillStyle = 'rgba(0,0,0,.22)'; cx.beginPath(); cx.ellipse(J.x + 2 * L.ps, L.gy + 1, 24 * L.ps, 3 * L.ps, 0, 0, 6.283); cx.fill(); cx.restore();
-  cx.save(); cx.translate(J.x, L.gy); cx.scale(J.face * L.ps, L.ps); pup.draw(cx); cx.restore();
-  for (const w of J.woofs) { const x = J.x + (30 + w.t * 10) * L.ps * J.face, y = L.gy - (44 + w.t * 26) * L.ps;
+  if (J.state === 'off') return; const L = J.L, oy = J.state === 'play' ? (J.oy || 0) : 0, fx = J.fx || J.face, sh = 1 - Math.min(0.6, oy / (90 * L.ps));
+  cx.save(); cx.fillStyle = 'rgba(0,0,0,.22)'; cx.beginPath(); cx.ellipse(J.x + 2 * L.ps * fx, L.gy + 1, 24 * L.ps * Math.max(0.45, Math.abs(fx)) * sh, 3 * L.ps * sh, 0, 0, 6.283); cx.fill(); cx.restore();
+  cx.save(); cx.translate(J.x, L.gy - oy); cx.scale(fx * L.ps, L.ps); pup.draw(cx); cx.restore();
+  for (const w of J.woofs) { const x = J.x + (30 + w.t * 10) * L.ps * J.face, y = L.gy - oy - (44 + w.t * 26) * L.ps;
     cx.save(); cx.globalAlpha = 1 - w.t; cx.translate(x, y); cx.rotate(-0.15 + w.k * 0.3); cx.font = `600 ${Math.round(17 * sc + 4)}px Caveat, cursive`; cx.textAlign = 'center';
     cx.lineWidth = 3; cx.strokeStyle = 'rgba(60,30,80,.6)'; cx.strokeText('Woof!', 0, 0); cx.fillStyle = '#FFF3C8'; cx.fillText('Woof!', 0, 0); cx.restore(); }
 }
-function pupBox() { const L = J.L; if (!L) return null; const a = J.x - 26 * L.ps, b = J.x + 32 * L.ps; return J.face > 0 ? [a, L.gy - 56 * L.ps, b, L.gy + 4] : [2 * J.x - b, L.gy - 56 * L.ps, 2 * J.x - a, L.gy + 4]; }
+function pupBox() { const L = J.L; if (!L) return null; const a = J.x - 26 * L.ps, b = J.x + 32 * L.ps, oy = J.state === 'play' ? (J.oy || 0) : 0; return J.face > 0 ? [a, L.gy - 56 * L.ps - oy, b, L.gy + 4 - oy] : [2 * J.x - b, L.gy - 56 * L.ps - oy, 2 * J.x - a, L.gy + 4 - oy]; }
 pupHit.addEventListener('click', tapPup); pupHit.setAttribute('aria-label', 'Jessi the puppy. Tap for a trick');
 dreamHit.addEventListener('click', () => { if (J.dream > 0.5) nextDream(); }); dreamHit.setAttribute('aria-label', 'Jessi’s dream. Tap for the next dream');
+
+// ---------------------------------------------------------------- the ground under them (the countdown only), coloured by the time of day
+const GROUND = { night: ['#2A1B47', '#130B22', 'rgba(190,170,255,.30)', 'rgba(60,40,105,.9)', 'rgba(255,236,170,.75)'],
+  dusk: ['#563A6C', '#28183A', 'rgba(255,184,150,.40)', 'rgba(70,46,96,.95)', '#FFC6A8'],
+  morning: ['#93CF8E', '#5A9A68', 'rgba(255,246,220,.80)', '#6FAE6E', '#FFFFFF'],
+  day: ['#86CF6B', '#4D9946', 'rgba(255,255,225,.80)', '#5FAE4F', '#FFF4A8'] };
+const BL = Array.from({ length: 110 }, (_, i) => ({ x: (i + Math.random() * 0.8) / 110, h: 4 + Math.random() * 7, p: Math.random() * 6.3 }));
+const FLW = Array.from({ length: 16 }, (_, i) => ({ x: (i + 0.5 + (Math.random() - 0.5) * 0.7) / 16, c: ['#FF9FC0', '#FFFFFF', '#FFE27A', '#C9B5FF'][i % 4], p: Math.random() * 6.3 }));
+function groundY(x) { const L = J.L; return L.gy + 2 * sc + 22 * sc * Math.pow((x - W / 2) / (W / 2), 2); }
+function drawGround(t) {
+  const L = J.L; if (!L) return; const [c0, c1, rim, blade, dot] = GROUND[tod()] || GROUND.night, y0 = L.gy + 2 * sc, night = tod() === 'night' || tod() === 'dusk';
+  cx.save(); const g = cx.createLinearGradient(0, y0, 0, H); g.addColorStop(0, c0); g.addColorStop(1, c1); cx.fillStyle = g;
+  cx.beginPath(); cx.moveTo(0, H); for (let i = 0; i <= 32; i++) { const x = W * i / 32; cx.lineTo(x, groundY(x)); } cx.lineTo(W, H); cx.closePath(); cx.fill();
+  cx.strokeStyle = rim; cx.lineWidth = 1.5; cx.beginPath(); for (let i = 0; i <= 32; i++) { const x = W * i / 32; i ? cx.lineTo(x, groundY(x)) : cx.moveTo(x, groundY(x)); } cx.stroke();
+  cx.strokeStyle = blade; cx.lineWidth = 1.3; cx.beginPath();
+  for (const b of BL) { const x = b.x * W, y = groundY(x) + 1.5, h = b.h * sc, w = Math.sin(t * 1.2 + b.p) * 2 * sc; cx.moveTo(x, y); cx.quadraticCurveTo(x + w * 0.3, y - h * 0.6, x + w, y - h); }
+  cx.stroke();
+  for (const f of FLW) { const x = f.x * W, y = groundY(x) + 3 * sc; if (Math.abs(x - G.x) < 40 * sc || Math.abs(x - J.x) < 50 * L.ps) continue;
+    if (night) { cx.globalAlpha = 0.45 + 0.35 * Math.sin(t * 1.6 + f.p); cx.fillStyle = dot; cx.beginPath(); cx.arc(x, y - 3 * sc, 1.3 * sc, 0, 6.283); cx.fill(); cx.globalAlpha = 1; }
+    else { cx.fillStyle = f.c; for (let i = 0; i < 5; i++) { const a = i * 1.2566 + f.p; cx.beginPath(); cx.arc(x + Math.cos(a) * 2 * sc, y - 4 * sc + Math.sin(a) * 2 * sc, 1.5 * sc, 0, 6.283); cx.fill(); } cx.fillStyle = '#FFD86A'; cx.beginPath(); cx.arc(x, y - 4 * sc, 1.1 * sc, 0, 6.283); cx.fill(); } }
+  cx.restore();
+}
+// an open spot of the sky near (x, y) for something w x h px: clear of the words on the countdown and of the two of them
+function freeSpot(w, h, x, y) {
+  const obs = obstacles($('.s[data-n="c"]')), L = J.L || stage(), top = 14, bot = L.gy - 40 * sc;
+  const pr = { left: Math.min(J.x, G.x) - 70 * sc, top: L.gy - 150 * sc, right: Math.max(J.x, G.x) + 60 * sc, bottom: L.gy + 10 };
+  let best = null;
+  for (let iy = 0; iy <= 12; iy++) for (let ix = 0; ix <= 16; ix++) {
+    const px = lerp(w / 2 + 8, W - w / 2 - 8, ix / 16), py = lerp(top + h / 2, Math.max(top + h / 2, bot - h / 2), iy / 12), b = [px - w / 2, py - h / 2, px + w / 2, py + h / 2];
+    let c = overlap(b, pr) * 5; for (const o of obs) c += overlap(b, o) * 8; c += Math.hypot(px - x, py - y);
+    if (!best || c < best.c) best = { c, p: [px, py] };
+  }
+  return best.p;
+}
+const play = makePlay({ bear, pup, G, J, say, woof, sc: () => sc, bk: () => sc * (0.6 + 0.4 * G.vis), W: () => W, H: () => H, tod, days,
+  audio: () => { if (!soundOn()) return null; unlockAudio(); return AC; }, busy: () => !!(G.fl || G.drag), free: freeSpot,
+  cdBottom: () => ($('.cd') ? $('.cd').getBoundingClientRect().bottom : 0),
+  nap: on => { J.dreamTo = on ? 1 : 0; if (on) { J.scene = 0; J.sceneT = 0; setDream(); } } });
 
 // ---------------------------------------------------------------- the reveal's dog is Jessi too: the same rig, sitting and wagging beside Helensnowfia and Snowki
 const tdSvg = $('.trio .td svg'), trioPup = new Jessi(); let trioC = null;
@@ -341,7 +400,7 @@ function drawTrio(dt) {
 function frame(now) {
   requestAnimationFrame(frame);
   const dt = Math.min(0.05, (now - G.last) / 1000); G.last = now; if (document.hidden) return;
-  G.vis = G.visTo > G.vis ? Math.min(1, G.vis + dt * 2.5) : Math.max(0, G.vis - dt * 3);
+  G.vis = G.visTo >= G.vis ? Math.min(G.visTo, G.vis + dt * G.visK) : Math.max(G.visTo, G.vis - dt * 3);   // settles exactly (no flicker or size pulse at rest)
   if (window.__albumOpen && !G.hidden) hide();
   // flight along an arc
   let vel = [0, 0];
@@ -350,25 +409,33 @@ function frame(now) {
     vel = [(nx - G.x) / Math.max(dt, 1e-3), (ny - G.y) / Math.max(dt, 1e-3)]; G.x = nx; G.y = ny;
     if (Math.random() < 0.9) G.trail.push({ x: G.x + (Math.random() - 0.5) * 20 * sc, y: G.y - 50 * sc + (Math.random() - 0.5) * 30 * sc, vx: -vel[0] * 0.08 + (Math.random() - 0.5) * 30, vy: -vel[1] * 0.08 + (Math.random() - 0.5) * 30, life: 0.5 + Math.random() * 0.6, s: 1.5 + Math.random() * 3 });
     if (f.t >= 1) { G.fl = null; f.then && f.then(); } }
-  else if (!G.drag && G.home && !G.hidden) { // follow the anchor (scrolling, layout changes)
-    const p = homePos(); if (p) { G.x = lerp(G.x, p[0], Math.min(1, dt * 10)); G.y = lerp(G.y, p[1], Math.min(1, dt * 10)); }
+  else if (!G.drag && G.home && !G.hidden) { // follow the anchor (scrolling, layout changes); exactly while he plays (the moves are already smooth)
+    const p = homePos(), x0 = G.x, y0 = G.y, f = play.on ? 1 : Math.min(1, dt * 10); if (p) { G.x = lerp(G.x, p[0], f); G.y = lerp(G.y, p[1], f); }
+    if (play.on) vel = [(G.x - x0) / Math.max(dt, 1e-3), (G.y - y0) / Math.max(dt, 1e-3)];
   }
   // idle life: little fidgets, then back to the screen's pose
-  if (!G.fl && !G.drag && G.vis > 0.5) {
+  if (!G.fl && !G.drag && G.vis > 0.5 && !G.script && !play.on) {
     if (G.react > 0) { G.react -= dt; if (G.react <= 0) settle(); }
     else if ((G.idle -= dt) < 0 && G.fidget.length && !RM) { const f = G.fidget[(Math.random() * G.fidget.length) | 0]; bear.act(f, { restart: true }); G.react = f === 'yawn' ? 3 : 2.6; G.idle = 8 + Math.random() * 6; }
   }
   stepPup(dt); drawTrio(dt);
   // eyes follow her finger / cursor (or Jessi while she shows off)
-  if (['enter', 'show'].includes(J.state) && !G.drag && J.L) bear.look((J.x - G.x) / (W * 0.25), 0.3);
+  if (play.on && !G.drag) { const lk = play.look(), hy = G.y - 66 * sc; bear.look((lk.bear[0] - G.x) / (W * 0.25), (lk.bear[1] - hy) / (H * 0.3)); pup.lookAt(clamp((lk.pup[0] - J.x) * J.face / (W * 0.3), -1, 1), clamp((lk.pup[1] - (J.L.gy - 40 * J.L.ps)) / (H * 0.3), -1, 1)); }
+  else if (['enter', 'show'].includes(J.state) && !G.drag && J.L) bear.look((J.x - G.x) / (W * 0.25), 0.3);
   else if (G.gazeP && !G.drag) { const hx = G.x, hy = G.y - 66 * sc; bear.look((G.gazeP[0] - hx) / (W * 0.4), (G.gazeP[1] - hy) / (H * 0.4)); }
   bear.update(dt, { vel: G.drag ? bear.vel : vel, magic: bear.magic });
+  play.update(dt);
   // draw
   cx.setTransform(pr, 0, 0, pr, 0, 0); cx.clearRect(0, 0, W, H);
-  drawCloud(now / 1000); drawPup(now / 1000);
+  const onC = G.step === 'c' && J.L, T = now / 1000;
+  if (onC) drawGround(T);
+  drawCloud(T); play.drawBack(cx); drawPup(T);
   if (G.vis > 0.01) {
-    cx.save(); cx.globalAlpha = G.vis; cx.translate(G.x, G.y); const k = sc * (0.6 + 0.4 * G.vis); cx.scale(k, k); bear.draw(cx, { aura: true }); cx.restore();
+    const po = onC ? G.po : { r: 0, s: 1 }, k = sc * (0.6 + 0.4 * G.vis) * (po.s || 1);
+    if (onC && !G.drag) { const hgt = clamp((J.L.gy - G.y) / (150 * sc), 0, 1); cx.save(); cx.globalAlpha = G.vis * 0.2 * (1 - hgt); cx.fillStyle = '#000'; cx.beginPath(); cx.ellipse(G.x, J.L.gy + 1, 30 * k * (1 - hgt * 0.5), 3.4 * k, 0, 0, 6.283); cx.fill(); cx.restore(); }
+    cx.save(); cx.globalAlpha = G.vis; cx.translate(G.x, G.y); if (po.r) { cx.translate(0, -48 * k); cx.rotate(po.r); cx.translate(0, 48 * k); } cx.scale(k, k); bear.draw(cx, { aura: true }); cx.restore();
   }
+  play.drawFront(cx);
   // sparkle trail
   if (G.trail.length) {
     cx.globalCompositeOperation = 'lighter';
@@ -389,7 +456,7 @@ function frame(now) {
 }
 requestAnimationFrame(frame);
 
-window.Guide = { step, on(e, a) { EVENTS[e] && EVENTS[e](a); }, bear, pup, J };
+window.Guide = { step, on(e, a) { EVENTS[e] && EVENTS[e](a); }, bear, pup, J, G, play, startPlay: () => { if (J.state !== 'off' && J.state !== 'leave') startPlay(); } };
 document.documentElement.classList.add('guide');
 hit.setAttribute('aria-label', `${NAME}, the teddy. Tap to play`);
 if (window.__scr) { const c = window.__scr().cur; if (c != null) step(c); }

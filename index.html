@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>For Helen</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E%E2%99%A1%3C/text%3E%3C/svg%3E">
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Figtree:wght@400;600&family=Caveat:wght@500;600&display=swap" rel="stylesheet">
 <style>
 :root{--n1:#2b1740;--n2:#120a1d;--ink:#fdeef2;--soft:#c9b3d6;--gold:#f3c978;--blush:#f7c9d4;color-scheme:dark;
@@ -17,6 +18,15 @@ body{margin:0;height:100%;position:relative;overflow:hidden;color:var(--ink);fon
 #nb{background:radial-gradient(ellipse at 50% 20%,var(--n1),var(--n2) 75%)}
 #dw{opacity:0;background:linear-gradient(180deg,#ffe3bd,#ffc9d2 50%,#d9c8f5)}
 html.dawn #dw{opacity:1}html.dawn #nb{opacity:0}html.dim #nb{background:#050207}
+/* the waiting area follows her own clock: night, morning, day, evening */
+#sky{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:0;transition:opacity 2.4s}
+html.tod-day #sky{opacity:1;background:linear-gradient(180deg,#6DBDF2 0%,#A7DAFA 48%,#E6F6FF 100%)}
+html.tod-morning #sky{opacity:1;background:linear-gradient(180deg,#9CC5EE 0%,#F2CEC8 52%,#FFE3BF 100%)}
+html.tod-dusk #sky{opacity:1;background:linear-gradient(180deg,#2B2456 0%,#7C4B8B 42%,#E48A7B 78%,#FFC48A 100%)}
+html.tod-day #nb,html.tod-morning #nb,html.tod-dusk #nb{opacity:0}
+html.tod-light{--ink:#2E1C45;--soft:#5A4672;--gold:#B83D70;color-scheme:light}
+html.tod-light h1 em{color:#B83D70}
+html.tod-light #mute,html.tod-light #mus{color:#5A4672;border-color:rgba(90,40,90,.3);background:rgba(255,255,255,.5)}
 #cv{position:fixed;inset:0;z-index:1;pointer-events:none}
 [hidden]{display:none!important}
 .s{position:absolute;inset:0;z-index:2;display:none;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:56px 24px 64px;gap:18px;overflow-y:auto}
@@ -59,6 +69,7 @@ html.dawn .paper p.key{color:#b83a6f;border-color:#e58aa8;text-shadow:none}
 .pol{margin:0;background:#fff;padding:8px 8px 4px;border-radius:3px;box-shadow:0 14px 30px -10px rgba(60,20,50,.5);rotate:-3deg;width:150px;color:#6d4b58}
 .pol .ph{aspect-ratio:1;background:linear-gradient(#ffe3ee,#e8ddff);display:grid;place-items:center;font-size:26px;overflow:hidden;color:#d49ab4}
 .pol img{width:100%;height:100%;object-fit:cover}.pol figcaption{font:italic 13px "Instrument Serif",Georgia,serif;padding:6px 0 2px}
+.s[data-n="c"]{justify-content:flex-start;padding-top:max(64px,12vh)}   /* the words up top, a stage below for Snowki and Jessi */
 .cd{display:flex;gap:22px}.cd b{display:block;font:400 2.6rem/1 "Instrument Serif",Georgia,serif;color:var(--gold)}.cd small{font-size:12px;color:var(--soft)}
 .bear{overflow:visible;--smile:1;--sadm:0;--hat:0;filter:drop-shadow(0 10px 16px rgba(0,0,0,.35));animation:bob 3.4s ease-in-out infinite alternate}
 .bear.sad{--smile:0;--sadm:1}.bear.happy{--hat:1}@keyframes bob{to{transform:translateY(-6px) rotate(1.5deg)}}
@@ -208,6 +219,11 @@ body.has3d .ch svg,body.has3d #bearS,body.has3d .trio{visibility:hidden}body.has
 .dots i{width:4px;height:4px;border-radius:50%;background:var(--soft);opacity:.35;transition:.4s}.dots i.a{width:18px;border-radius:3px;background:var(--gold);opacity:1}
 #mute{position:fixed;right:12px;top:calc(env(safe-area-inset-top,0px) + 12px);z-index:4;border:1px solid rgba(255,255,255,.25);border-radius:99px;padding:7px 12px;background:rgba(0,0,0,.2);color:var(--soft);font:600 12px Figtree,sans-serif;cursor:pointer}
 html.dawn #mute{color:#7a5a80;border-color:rgba(90,40,90,.3);background:rgba(255,255,255,.4)}
+#mus{position:fixed;right:12px;top:calc(env(safe-area-inset-top,0px) + 50px);z-index:4;display:flex;align-items:center;gap:6px;max-width:min(320px,72vw);border:1px solid rgba(255,255,255,.22);border-radius:99px;padding:4px 5px 4px 12px;background:rgba(0,0,0,.22);color:var(--soft);font:600 11.5px/1.25 Figtree,sans-serif}
+#mus[hidden]{display:none}#mus span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+#mus button{flex:0 0 auto;border:0;border-radius:99px;background:rgba(255,255,255,.18);color:inherit;font:600 12px Figtree,sans-serif;padding:5px 10px;cursor:pointer}
+#mus button:focus-visible{outline:2px solid var(--blush);outline-offset:2px}
+html.dawn #mus{color:#7a5a80;border-color:rgba(90,40,90,.3);background:rgba(255,255,255,.4)}
 #star{position:fixed;left:6px;bottom:calc(env(safe-area-inset-bottom,0px) + 6px);z-index:40;background:none;border:0;padding:8px;font-size:13px;color:var(--gold);opacity:.35;cursor:pointer}
 #star:hover{opacity:1}
 #adm{position:fixed;inset:0;z-index:9;display:grid;place-items:center;background:rgba(10,3,15,.7);padding:20px}
@@ -235,7 +251,7 @@ html.guide .s[data-n="1"] .bear,html.guide .s[data-n="4"] .bear,html.guide .s[da
 </style>
 </head>
 <body>
-<div id="nb"></div><div id="dw"></div><canvas id="cv"></canvas>
+<div id="nb"></div><div id="dw"></div><div id="sky"></div><canvas id="cv"></canvas>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
 <symbol id="girl" viewBox="0 0 60 100"><defs><linearGradient id="dr" x1="0" x2="1"><stop offset="0" stop-color="#d93f6e"/><stop offset=".5" stop-color="#ff7aa5"/><stop offset="1" stop-color="#c03060"/></linearGradient><radialGradient id="sk" cx=".4" cy=".3" r=".8"><stop offset="0" stop-color="#f3c9a4"/><stop offset="1" stop-color="#d49a70"/></radialGradient></defs>
 <ellipse cx="30" cy="96" rx="18" ry="3" fill="#000" opacity=".35"/>
@@ -279,6 +295,7 @@ html.guide .s[data-n="1"] .bear,html.guide .s[data-n="4"] .bear,html.guide .s[da
 <path d="M60 111c-8-5-11-9-6-12 3-2 6 0 6 2 0-2 3-4 6-2 5 3 2 7-6 12z" fill="#ff5d8f"/>
 <g style="opacity:var(--hat,0)"><path d="M60 0L47 22h26z" fill="#f3c978"/><circle cx="60" cy="1.5" r="3.5" fill="#ff5d8f"/></g></symbol></svg>
 <button id="mute" aria-pressed="false">Sound off</button>
+<div id="mus" hidden><span id="mtt" aria-live="polite"></span><button id="mnx" type="button" aria-label="Next song">Next ♪</button></div>
 <button id="star" aria-label="Admin test area">✦</button>
 <div id="adm" hidden role="dialog" aria-label="Admin test area"><div class="abox">
   <b style="font:400 1.4rem 'Instrument Serif',serif">Admin test area</b>
@@ -368,6 +385,7 @@ html.guide .s[data-n="1"] .bear,html.guide .s[data-n="4"] .bear,html.guide .s[da
 <div class="dots" hidden><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
 
 <script>window.MEMORIES=[];window.ALBUM=null;</script>
+<script src="music.js"></script>
 <script src="album/list.js"></script>
 <script>
 // ===== EDIT ME ===================================================
@@ -376,6 +394,10 @@ const CONFIG={
   bear:"Snowki", dog:"Jessi",
   unlock:"2026-12-01T00:00:00+05:30",   // Asia/Kolkata midnight
   DEV_PREVIEW:false,                     // true = skip the countdown (testing only; not secure)
+  // her favourite songs (Tamil or any): put the MP3 files in the songs/ folder and list them here, e.g.
+  // songs:[{title:"Song name – Film", src:"songs/song-name.mp3"}],
+  // they play first when she turns the sound on; after them come the little Carnatic-style tunes in music.js.
+  songs:[],
   clock:["Things may have changed.","Life may have taken us in different directions.","Some chapters have ended, and some moments are now just memories.","But that doesn’t mean every beautiful moment has to become something we regret."],
   wishes:["I hope you achieve everything you’ve been dreaming about.","I hope you find reasons to smile even on difficult days.","I hope life surprises you with beautiful opportunities, genuine people, peaceful moments, and endless happiness.","Take care of yourself. Keep smiling. Never stop being the person you are.","And wherever life takes you, I sincerely hope it takes you somewhere beautiful."],
   bday:["Some wishes don’t need a reason.","Some memories don’t need to be revisited.","And some people will always be wished well.","I made this for you, something I’ve never made for anyone else.","I don’t want to disturb you with my voice.","KEY:Snowki is already by your side, and he will always stay there, in my place.","A little piece of my presence, asking nothing of you.","May your little world, home, Snowki and Jessi, always stay full of happiness.","SIG:With warmth and good wishes."]
@@ -384,7 +406,7 @@ const ADMIN_PASSWORD="54321"; // readable in this file: a testing convenience, N
 // ================================================================
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const H=document.documentElement,RM=matchMedia("(prefers-reduced-motion:reduce)").matches;
-let timers=[],cdT=0,on=false,ac,mg,pad=0,cur=null;
+let timers=[],cdT=0,on=false,cur=null;
 const later=(f,ms)=>timers.push(setTimeout(f,ms));
 
 window.__scr=()=>({cur});
@@ -406,15 +428,39 @@ const GOLD=["255,220,140","255,255,255","255,150,190","255,200,90"];
 function boom(x,y){peony(x,y,50,4,GOLD)}
 let PT=Array.from({length:26},()=>({x:Math.random()*innerWidth,y:Math.random()*innerHeight,v:.35+Math.random()*.55,s:5+Math.random()*5,r:Math.random()*6,w:Math.random()*6}));
 function petals(){PT.forEach(q=>{q.y+=q.v;q.x+=Math.sin(q.y*.02+q.w)*.5;q.r+=.01;if(q.y>cv.height+10){q.y=-10;q.x=Math.random()*cv.width}cx.save();cx.translate(q.x,q.y);cx.rotate(q.r);cx.fillStyle="rgba(232,90,130,.55)";cx.beginPath();cx.ellipse(0,0,q.s,q.s*.55,0,0,6.28);cx.fill();cx.restore()})}
+// ---- the waiting area follows her own clock (?tod=night|morning|day|dusk to preview)
+const TODQ=(new URLSearchParams(location.search).get("tod")||"").toLowerCase();
+function todNow(){if(/^(night|morning|day|dusk)$/.test(TODQ))return TODQ;const h=new Date().getHours();return h>=19||h<5?"night":h<7?"morning":h<17?"day":"dusk"}
+let TOD=todNow();
+function applyTod(){const t=cur==="c"?TOD:null;["night","morning","day","dusk"].forEach(k=>H.classList.toggle("tod-"+k,t===k));H.classList.toggle("tod-light",t==="day"||t==="morning");H.dataset.tod=t||"night"}
+setInterval(()=>{const t=todNow();if(t!==TOD){TOD=t;applyTod()}},60000);
+const SKY={st:Array.from({length:130},()=>({x:Math.random(),y:Math.random()*.8,r:.4+Math.random()*1.2,t:Math.random()*6.28,s:.6+Math.random()*1.6})),
+  cl:Array.from({length:7},()=>({x:Math.random()*1.2-.1,y:.05+Math.random()*.34,s:.6+Math.random()*.9,v:.004+Math.random()*.008})),bd:[],last:0};
+function puff(x,y,s,c){cx.fillStyle=c;cx.beginPath();cx.arc(x,y,26*s,0,6.28);cx.arc(x+28*s,y-10*s,32*s,0,6.28);cx.arc(x+62*s,y,24*s,0,6.28);cx.arc(x+30*s,y+8*s,26*s,0,6.28);cx.fill()}
+function drawSky(){
+  const W=cv.width,Hh=cv.height,now=performance.now(),t=now/1000,dt=SKY.last?Math.min(.05,(now-SKY.last)/1000):0,tod=TOD;SKY.last=now;
+  if(tod==="night"||tod==="dusk"){const a=tod==="night"?1:.5;cx.fillStyle="#fff";for(const q of SKY.st){if(tod==="dusk"&&q.y>.42)continue;cx.globalAlpha=a*(.3+.7*Math.abs(Math.sin(t*q.s+q.t)));cx.beginPath();cx.arc(q.x*W,q.y*Hh,q.r,0,6.28);cx.fill()}cx.globalAlpha=1}
+  if(tod==="night"){const mx=W*.86,my=Math.min(Hh*.13,104),r=Math.max(15,Math.min(W,Hh)*.028);cx.fillStyle=rad(mx,my,r*5,"rgba(255,240,200,.2)","rgba(255,240,200,0)");cx.fillRect(mx-r*5,my-r*5,r*10,r*10);
+    cx.save();cx.beginPath();cx.arc(mx,my,r,0,6.28);cx.clip();cx.fillStyle="#FFF4D6";cx.fillRect(mx-r,my-r,r*2,r*2);cx.globalCompositeOperation="destination-out";cx.beginPath();cx.arc(mx+r*.55,my-r*.28,r*.9,0,6.28);cx.fill();cx.restore()}
+  else{const sp=tod==="day"?[W*.13,Math.min(Hh*.14,112)]:tod==="morning"?[W*.1,Hh*.46]:[W*.9,Hh*.5],r=Math.max(18,Math.min(W,Hh)*.034),col=tod==="day"?"255,247,205":tod==="morning"?"255,216,165":"255,172,112";
+    cx.fillStyle=rad(sp[0],sp[1],r*6,"rgba("+col+",.55)","rgba("+col+",0)");cx.fillRect(sp[0]-r*6,sp[1]-r*6,r*12,r*12);cx.fillStyle="rgb("+col+")";cx.beginPath();cx.arc(sp[0],sp[1],r,0,6.28);cx.fill()}
+  const cc=tod==="day"?"rgba(255,255,255,.88)":tod==="morning"?"rgba(255,242,238,.8)":tod==="dusk"?"rgba(255,188,198,.36)":"rgba(170,150,230,.09)",ck=Math.max(.45,Math.min(1.3,W/1100));
+  for(const c of SKY.cl){c.x+=c.v*dt*(tod==="night"?.5:1);if(c.x>1.15)c.x=-.25;puff(c.x*W,c.y*Hh,c.s*ck,cc)}
+  if(tod!=="night"){if(SKY.bd.length<3&&Math.random()<dt*.15)SKY.bd.push({x:-30,y:Hh*(.07+Math.random()*.24),v:38+Math.random()*30,p:Math.random()*6,s:.7+Math.random()*.6});
+    cx.strokeStyle=tod==="dusk"?"rgba(60,30,70,.6)":"rgba(55,60,95,.55)";cx.lineWidth=1.6;cx.lineCap="round";
+    for(const b of SKY.bd){b.x+=b.v*dt;const f=Math.sin(t*9+b.p)*4*b.s,y=b.y+Math.sin(t*1.3+b.p)*6;cx.beginPath();cx.moveTo(b.x-8*b.s,y-f);cx.quadraticCurveTo(b.x-3*b.s,y-2*b.s,b.x,y);cx.quadraticCurveTo(b.x+3*b.s,y-2*b.s,b.x+8*b.s,y-f);cx.stroke()}
+    SKY.bd=SKY.bd.filter(b=>b.x<W+40)}
+}
 function frame(){
   if(!run)return;cx.setTransform(1,0,0,1,0,0);cx.clearRect(0,0,cv.width,cv.height);
-  const col=mode==="dawn"?"255,200,150":"255,225,150",dm=1;
-  F.forEach(f=>{f.t+=.03;f.d+=.004;f.x+=Math.cos(f.d)*f.s;f.y+=Math.sin(f.d)*f.s-.05;
+  const sky=mode==="tod",dayish=sky&&(TOD==="day"||TOD==="morning");if(sky)drawSky();
+  const col=mode==="dawn"?"255,200,150":"255,225,150",dm=sky&&TOD==="dusk"?.6:1;
+  if(!dayish)F.forEach(f=>{f.t+=.03;f.d+=.004;f.x+=Math.cos(f.d)*f.s;f.y+=Math.sin(f.d)*f.s-.05;
     const dx=px-f.x,dy=py-f.y,dd=Math.hypot(dx,dy)||1;if(dd<160){f.x+=dx/dd*.25;f.y+=dy/dd*.25}
     if(f.y<-10)f.y=cv.height+10;if(f.x<-10)f.x=cv.width+10;if(f.x>cv.width+10)f.x=-10;
     const a=(.25+.45*Math.sin(f.t))*dm;cx.shadowBlur=14;cx.shadowColor="rgba("+col+",.9)";cx.fillStyle="rgba("+col+","+Math.max(a,.04)+")";cx.beginPath();cx.arc(f.x,f.y,f.r,0,6.28);cx.fill()});
   cx.shadowBlur=0;
-  if(mode==="night"&&!shoot&&Math.random()<.002)shoot={x:Math.random()*cv.width*.7,y:Math.random()*cv.height*.3,l:40};
+  if((mode==="night"||(sky&&TOD==="night"))&&!shoot&&Math.random()<.002)shoot={x:Math.random()*cv.width*.7,y:Math.random()*cv.height*.3,l:40};
   if(shoot){cx.strokeStyle="rgba(255,240,210,"+shoot.l/40+")";cx.beginPath();cx.moveTo(shoot.x,shoot.y);cx.lineTo(shoot.x-40,shoot.y-18);cx.stroke();shoot.x+=7;shoot.y+=3;if(--shoot.l<=0)shoot=null}
   if(mode==="dawn"&&Math.random()<.006)boom(cv.width*(.15+Math.random()*.7),cv.height*(.12+Math.random()*.35));
   if(mode==="dawn")petals();
@@ -424,13 +470,13 @@ function frame(){
   cx.globalCompositeOperation="source-over";requestAnimationFrame(frame)}
 function setMode(m){mode=m;if(m==="still"){run=false;cx.clearRect(0,0,cv.width,cv.height);return}if(RM){run=true;frame();run=false;return}if(!run){run=true;frame()}}
 
-// ---- gentle synthesised music (only after she turns it on)
-function startMusic(){if(!ac){ac=new (window.AudioContext||window.webkitAudioContext)();mg=ac.createGain();mg.connect(ac.destination)}
-  ac.resume();mg.gain.cancelScheduledValues(ac.currentTime);mg.gain.setTargetAtTime(.06,ac.currentTime,.4);clearInterval(pad);
-  const ch=[[261.6,329.6,392],[220,261.6,329.6],[174.6,220,261.6],[196,246.9,293.7]];let k=0;
-  const play=()=>ch[k++%4].forEach(f=>{const o=ac.createOscillator(),g=ac.createGain();o.frequency.value=f;g.gain.setValueAtTime(0,ac.currentTime);g.gain.linearRampToValueAtTime(.5,ac.currentTime+1.3);g.gain.linearRampToValueAtTime(0,ac.currentTime+4);o.connect(g);g.connect(mg);o.start();o.stop(ac.currentTime+4.1)});
-  play();pad=setInterval(play,3800)}
-function stopMusic(slow){if(!ac)return;clearInterval(pad);mg.gain.setTargetAtTime(0,ac.currentTime,slow?.9:.05)}
+// ---- music (only after she turns the sound on): her own songs from CONFIG.songs, then the Carnatic-style tunes in music.js
+const MZ=window.Music||{setSongs(){},play(){},stop(){},next(){}};MZ.setSongs(CONFIG.songs);
+MZ.onchange=t=>{$("#mtt").textContent="♪ "+t};
+function chip(){$("#mus").hidden=!(on&&cur!==6&&!window.__albumOpen)}
+function startMusic(prefer){MZ.play(prefer);chip()}
+function stopMusic(slow){MZ.stop(slow);chip()}
+$("#mnx").addEventListener("click",()=>MZ.next());
 $("#mute").addEventListener("click",()=>{on=!on;on?startMusic():stopMusic();$("#mute").textContent=on?"Sound on":"Sound off";$("#mute").setAttribute("aria-pressed",on)});
 
 // ---- navigation
@@ -439,11 +485,11 @@ function go(n){
   $$(".s").forEach(e=>e.classList.toggle("on",e.dataset.n==String(n)));
   H.classList.toggle("dawn",n===7);
   $$(".dots i").forEach((d,i)=>d.classList.toggle("a",i===n));$(".dots").hidden=(n==="c");
-  setMode(n===7?"dawn":"night");film(n===6);
+  applyTod();setMode(n===7?"dawn":n==="c"?"tod":"night");film(n===6);chip();
   Wall.show(n===2);if(n==="p")resetPast();
   if(n===3)clockScene();if(n===5)wishes();
   window.Guide&&Guide.step(n);
-  if(n===7){$$("#bday p").forEach(p=>p.classList.remove("v"));later(()=>$$("#bday p").forEach(p=>p.classList.add("v")),400);if(on)startMusic()}
+  if(n===7){$$("#bday p").forEach(p=>p.classList.remove("v"));later(()=>$$("#bday p").forEach(p=>p.classList.add("v")),400);if(on)startMusic("birthday")}
 }
 // ---- 7 the film: "Light is the only words he has" (film/), full screen; its Continue button brings her to the reveal
 const filmBox=$("#film"),filmFr=$("#filmfr");
