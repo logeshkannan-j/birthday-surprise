@@ -60,7 +60,7 @@ function homePos() { const h = G.home; if (!h) return null; const r = h.el.getBo
 // ---------------------------------------------------------------- speech bubble
 function say(text, ms = 3600) {
   if (!text) { bub.classList.remove('on'); G.sayUntil = 0; return; }
-  bub.textContent = text; bub.classList.add('on'); G.sayUntil = performance.now() + ms; placeBubble();
+  bub.textContent = text; bub.classList.add('on'); G.sayUntil = performance.now() + Math.max(ms, text.length > 14 ? 4800 : 2600); placeBubble();
 }
 function placeBubble(el = bub, b0 = null, bias = 0) {
   const b = b0 || box(), w = el.offsetWidth, h = el.offsetHeight, mx = (b[0] + b[2]) / 2;
@@ -78,7 +78,7 @@ function placeBubble(el = bub, b0 = null, bias = 0) {
 
 // ---------------------------------------------------------------- moving
 function flyTo(p, then) {
-  if (!p) return;
+  if (!p) return; G.rot = G.rotTo = 0;
   if (G.vis < 0.05 || RM) { G.x = p[0]; G.y = p[1]; poof(); G.fl = null; then && then(); return; }
   const d = Math.hypot(p[0] - G.x, p[1] - G.y);
   if (d < 6) { then && then(); return; }
@@ -138,13 +138,13 @@ function hide() { G.hidden = true; say(''); if (G.vis > 0.05 && !RM) { G.fl = { 
 function show() { G.hidden = false; G.visTo = 1; }
 
 function step(n) {
-  G.after.forEach(clearTimeout); G.after = []; say(''); banterStop();
+  G.after.forEach(clearTimeout); G.after = []; say(''); banterStop(); G.ph = null; G.perch = null; G.rot = G.rotTo = 0; G.rescued = false; G.restUntil = 0;
   G.step = n; G.stepT = 0; G.react = 0; G.script = false; G.visK = 2.5; bear.express(null); if (n !== 'c') { pupLeave(); hideAsk(); }
   if (n === 6 || window.__albumOpen) { hide(); return; }
   const wasHidden = G.vis < 0.05; show(); if (wasHidden) G.vis = 0.001;
   // wait a frame so the new screen has its layout
   requestAnimationFrame(() => requestAnimationFrame(() => { if (G.step === n && STEPS[n]) STEPS[n](); }));
-  scheduleBanter(n);
+  scheduleBanter(n); teaseLoop(n);
 }
 
 // ---------------------------------------------------------------- touch: tap him, or pick him up and drop him
@@ -152,25 +152,29 @@ const TAPS = [['giggle', 'Hehe! Okay okay, that tickles ♡'], ['spin', 'Wheee! 
 let tapI = 0;
 function react() {
   const now = performance.now(); if (now - G.lastTap < 450) return; G.lastTap = now;
+  if (G.perch) { scold(true); return; }
   if (G.step === 'c' && J.asked && !J.called && askEl.hidden && !G.script) { askJessi(); return; }
   if (play.on) { bear.act('giggle', { restart: true }); bear.burstHearts(4); say(['Hehe! ♡', 'That tickles!', 'Wheee! ✦'][tapI++ % 3], 1400); poofAt(0.4); return; }
   G.pokes = now - (G.pokeT || 0) < 3500 ? (G.pokes || 0) + 1 : 1; G.pokeT = now;
   if (G.pokes >= 5 && !play.on) { const n = G.pokes; bear.act(n % 2 ? 'push' : 'shy', { restart: true, dir: [1, 0] }); say(POKES[Math.min(POKES.length - 1, n - 5)], 2400); poofAt(0.3); G.react = 1.6; if (n >= 8) G.pokes = 0; return; }
-  const [a, line] = TAPS[tapI++ % TAPS.length]; bear.act(a, { restart: true }); if (a === 'hug' || a === 'shy') bear.burstHearts(4);
+  const [a, line0] = TAPS[tapI++ % TAPS.length], line = Math.random() < 0.4 ? pickLine(TEASE_S) : line0; bear.act(a, { restart: true }); if (a === 'hug' || a === 'shy') bear.burstHearts(4);
   if (G.step === 'c' && tapI % 4 === 1) say(days() > 1 ? `${days()} more sleeps ✦` : 'Almost ✦', 2400); else if (line) say(line, 1600);
   poofAt(0.4); G.react = a === 'spin' ? 0.95 : 1.6; G.idle = 8;
 }
-hit.addEventListener('pointerdown', e => { if (G.fl || G.vis < 0.5) return; e.preventDefault(); hit.setPointerCapture && hit.setPointerCapture(e.pointerId); G.drag = { id: e.pointerId, sx: e.clientX, sy: e.clientY, ox: G.x - e.clientX, oy: G.y - e.clientY, moved: false, lx: e.clientX, ly: e.clientY, lt: performance.now(), vx: 0, vy: 0 }; });
+hit.addEventListener('pointerdown', e => { if (G.fl || G.vis < 0.5) return; if (G.ph) G.ph.paused = true; e.preventDefault(); hit.setPointerCapture && hit.setPointerCapture(e.pointerId); G.drag = { id: e.pointerId, sx: e.clientX, sy: e.clientY, ox: G.x - e.clientX, oy: G.y - e.clientY, moved: false, lx: e.clientX, ly: e.clientY, lt: performance.now(), vx: 0, vy: 0 }; });
 hit.addEventListener('pointermove', e => {
   const d = G.drag; if (!d || e.pointerId !== d.id) return;
-  if (!d.moved && Math.hypot(e.clientX - d.sx, e.clientY - d.sy) > 7) { d.moved = true; bear.act('dangle', { restart: true }); say(''); }
+  if (!d.moved && Math.hypot(e.clientX - d.sx, e.clientY - d.sy) > 7) { d.moved = true; G.restUntil = 0; if (G.perch) { G.perch = null; G.rescued = true; } G.ph = null; G.rot = G.rotTo = 0; bear.express(null); bear.act('dangle', { restart: true }); say(''); }
   if (d.moved) { const now = performance.now(), dt = Math.max(1, now - d.lt) / 1000; d.vx = lerp(d.vx, (e.clientX - d.lx) / dt, 0.4); d.vy = lerp(d.vy, (e.clientY - d.ly) / dt, 0.4); d.lx = e.clientX; d.ly = e.clientY; d.lt = now;
     G.x = clamp(e.clientX + d.ox, 30, W - 30); G.y = clamp(e.clientY + d.oy - 30 * sc, 120 * sc, H - 10); bear.vel = [d.vx, d.vy]; }
 });
 function drop(e) {
   const d = G.drag; if (!d || (e && e.pointerId !== d.id)) return; G.drag = null;
-  if (!d.moved) { react(); return; }
-  say('Wheee!', 1200); const p = homePos(); later(250, () => flyTo(p, settle));
+  if (!d.moved) { if (G.ph) G.ph.paused = false; react(); return; }
+  const sp = Math.hypot(d.vx || 0, d.vy || 0);
+  if (sp < 450) { const t = nearText(G.x, G.y, 60 * sc); if (t) { startPerch(t, G.x); say(pickLine(SCOLD), 5600); return; } }   // let go next to the words: he stands on them (or hangs from them) and scolds
+  G.ph = { vx: clamp((d.vx || 0) * 0.95, -2600, 2600), vy: clamp((d.vy || 0) * 0.95, -2600, 2400), om: clamp((d.vx || 0) * 0.004, -14, 14), n: 0, thrown: sp > 500 };   // let go anywhere else: he falls, bounces and tumbles
+  bear.act('dangle', { restart: true }); G.react = 0; G.idle = 99; say(sp > 700 ? 'Wheeeeee—!' : 'Whoa—!', 1500);
 }
 hit.addEventListener('pointerup', drop); hit.addEventListener('pointercancel', drop);
 hit.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); react(); } });
@@ -411,7 +415,7 @@ function drawTrio(dt) {
 const bubJ = $('#gdSayJ'), V = { side: -1, token: 0, timers: [], seen: {}, visits: 0, busy: false, last: 0 };
 function sayJ(text, ms = 3600) {
   if (!text) { bubJ.classList.remove('on'); J.sayUntil = 0; return; }
-  bubJ.textContent = text; bubJ.classList.add('on'); J.sayUntil = performance.now() + ms; placeBubble(bubJ, pupBox() || box(), V.side);
+  bubJ.textContent = text; bubJ.classList.add('on'); J.sayUntil = performance.now() + Math.max(ms, text.length > 14 ? 4800 : 2600); placeBubble(bubJ, pupBox() || box(), V.side);
 }
 const BANTER = {
   c: [
@@ -465,7 +469,7 @@ const SIDE = {
 const JPOKE = ['Woof! “Hands off the fur, Helen!”', 'Woof! “I’m working. Come back later.”', 'Woof! “That’s a paid belly rub!”'];
 const POKES = ['Poke number five! I’m counting, Helen.', 'Six! Do I look like a doorbell?', 'Seven! I’m telling Jessi to sit on you.', 'Okay, okay! Truce? ♡'];
 const vt = (f, ms) => V.timers.push(setTimeout(f, ms));
-function banterStop() { V.token++; V.timers.forEach(clearTimeout); V.timers = []; V.busy = false; sayJ(''); }
+function banterStop() { V.again = null; V.token++; V.timers.forEach(clearTimeout); V.timers = []; V.busy = false; sayJ(''); }
 function pick(list, key) { V.seen[key] = V.seen[key] == null ? (Math.random() * list.length) | 0 : V.seen[key] + 1; return list[V.seen[key] % list.length]; }
 function poofAtXY(x, y) { for (let i = 0; i < 20; i++) { const a = Math.random() * 6.283, v = 40 + Math.random() * 130; G.trail.push({ x, y: y - 24 * sc, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 30, life: 0.6 + Math.random() * 0.5, s: 2 + Math.random() * 3.2 }); } }
 function runBeats(beats, tok, done) {
@@ -473,7 +477,7 @@ function runBeats(beats, tok, done) {
   const next = () => {
     if (tok !== V.token) return;
     const b = beats[i++]; if (!b) { done(); return; }
-    const [who, text, act] = b, ms = clamp(text.length * 55 + 1300, 2400, 5400), dirP = J.x < G.x ? -1 : 1;
+    const [who, text, act] = b, ms = clamp(text.length * 70 + 2600, 4800, 8000), dirP = J.x < G.x ? -1 : 1;
     if (who === 's') { sayJ(''); say(text, ms); bear.act(act || 'talk', { restart: true, dir: [dirP, 0] }); G.react = ms / 1000 + 0.3; G.idle = 99; }
     else if (!['off', 'leave', 'vout', 'enter', 'play'].includes(J.state)) {
       say(''); const asleep = J.state === 'sleep'; sayJ(asleep ? 'Zzz… ' + text : text, ms);
@@ -486,7 +490,7 @@ function runBeats(beats, tok, done) {
   next();
 }
 function banterC(after) {   // on the countdown: right where they are (the first time, right after Jessi arrives, before the games start)
-  if (V.busy) return; V.busy = true; const tok = ++V.token, beats = J.state === 'off' ? pick(ALONE, 'alone') : pick(BANTER.c, 'c');
+  if (V.busy) return; V.busy = true; const tok = ++V.token, beats = J.state === 'off' ? ((V.cn = (V.cn || 0) + 1) % 2 ? pick(ALONE, 'alone') : [['s', pickLine(TEASE_S), 'giggle']]) : ((V.cn = (V.cn || 0) + 1) % 2 ? pick(BANTER.c, 'c') : randExch());
   runBeats(beats, tok, () => { V.busy = false; V.last = performance.now(); G.react = 1.2; G.idle = 6; after && after(); });
 }
 const visitSpot = () => { const ps = clamp(sc * 1.8, 1.4, 2.3), side = G.x > W * 0.42 ? -1 : 1; return { ps, side, x: clamp(G.x + side * (88 * sc + 32 * ps), 40 * ps, W - 40 * ps), gy: G.y + 2 }; };
@@ -497,7 +501,7 @@ function visit(key) {   // Jessi runs in from the nearest edge, sits beside him,
 }
 function visitArrive() {
   const tok = J.tok, key = J.key; J.face = V.side < 0 ? 1 : -1; pup.bump(40); pup.act('sit', { restart: true }); poofAtXY(J.x, J.L.gy); woof(3, 'excited');
-  vt(() => runBeats(pick(BANTER[key], key), tok, () => { if (V.visits % 3 === 0) sidePrompt(tok); else visitLeave(tok); }), 700);
+  V.first = V.first || {}; vt(() => runBeats(key === 'perch' ? pick(BANTER.perch, 'perch') : V.first[key] ? randExch() : (V.first[key] = true, pick(BANTER[key], key)), tok, () => { if (V.visits % 3 === 0) sidePrompt(tok); else visitLeave(tok); }), 700);
 }
 function visitLeave(tok) {
   if (tok !== V.token) return; sayJ(''); say(''); bear.act('wave', { restart: true }); G.react = 1.6; G.idle = 6;
@@ -513,7 +517,7 @@ function stepVisit(dt, L) {
   const sp = visitSpot(); L.gy = lerp(L.gy, sp.gy, Math.min(1, dt * 8)); L.ps = sp.ps;
   if (J.state === 'vin') { J.target = sp.x; const d = J.target - J.x, st = PUP_RUN * L.ps * dt; if (Math.abs(d) <= st * 1.2) { J.x = J.target; J.state = 'vsit'; visitArrive(); } else J.x += Math.sign(d) * st; }
   else if (J.state === 'vsit') J.x = lerp(J.x, sp.x, Math.min(1, dt * 5));
-  else if (J.state === 'vout') { J.x += V.exit * PUP_RUN * L.ps * dt; if (J.x < -90 * L.ps || J.x > W + 90 * L.ps) { J.state = 'off'; V.busy = false; } }
+  else if (J.state === 'vout') { J.x += V.exit * PUP_RUN * L.ps * dt; if (J.x < -90 * L.ps || J.x > W + 90 * L.ps) { J.state = 'off'; V.busy = false; if (V.again) vt(V.again, 26000 + Math.random() * 18000); } }
 }
 function jessiPoked() {
   sayJ(JPOKE[(V.pj = (V.pj || 0) + 1) % JPOKE.length], 2600); pup.act('bark', { restart: true, sit: true }); woof(1, 'yelp');
@@ -529,7 +533,193 @@ function scheduleBanter(n) {
     if (busy || J.state !== 'off') { vt(go, 2500); return; }
     visit(n);
   };
-  vt(go, delay);
+  V.again = go; vt(go, delay);
+}
+
+// ---------------------------------------------------------------- more fun: 120 teases for Helen, 35 squabbles, scolds, and real physics for picking him up
+// (kind teasing only: every line is affectionate). Lines stay on screen ≥ 5 s; they never repeat until the pool has been used up.
+const TEASE_S = [   // Snowki → Helen
+  'Helen, you’re reading this with your mouth open. Just saying.', 'Did you just read that twice? It said the same thing, Helen.', 'Take a deep breath, Helen. And… don’t forget to breathe out!',
+  'I’m a teddy and even I read faster than you 😏', 'Helen, your phone is at 3%. I can feel it. Plug in, queen.', 'Fun fact: Helen says “two minutes” and means “forty.”',
+  'You’ve been on this page so long, the page is getting shy.', 'I bet Helen is about to say “I’m not hungry.” Then eat my share.', 'Helen, you can’t pause a birthday. Believe me, I tried.',
+  'Is that a smile, Helen? Don’t hide it, I can see it from here!', 'Not saying you’re slow, Helen. My fluff just grew while waiting.', 'Helen’s snack drawer: 40% snacks, 40% wrappers, 20% “I’ll share, I swear.”',
+  'Helen, “just checking one thing” is never one thing.', 'You blink so slowly, Helen. Are you buffering?', 'Helen: “I’m not sleepy.” Also Helen: *yawns in 4K*', 'Rumour: Helen takes 47 selfies and posts the first one.',
+  'Helen walks into a room and forgets why. Very brave.', 'Helen, your hair tie is on your wrist. It was always on your wrist.', 'Helen’s idea of “on my way” is putting on socks.',
+  'Spot the Helen: the one saying “five more minutes” for an hour.', 'Helen laughs like a squeaky toy. Jessi approves.', 'Helen, tap me again and I’ll start charging per tap. ♡',
+  'Helen sings in the shower. The neighbours know all the wrong lyrics now.', 'Helen’s favourite exercise: jumping to conclusions. And snack runs.', 'Helen says “I’m fine” when she means “bring chocolate.”',
+  'Helen has “nothing to wear” and fourteen pairs of blue jeans.', 'Look at you, Helen, smiling at a teddy bear. Adorable. Embarrassing. Mostly adorable.', 'Helen finds a dessert menu in 0.2 seconds but never her keys.',
+  'Helen, your tea went cold again. It’s a tradition now.', 'Don’t tell Helen, but she’s a tiny bit bossy about the remote.', 'Helen named her cactus and still overwatered it.',
+  'Helen: “I’ll start tomorrow.” Tomorrow: “I’ll start tomorrow.”', 'Helen trips over flat ground. It’s her signature move.', 'Helen, it’s not a competition, but you do argue like it is.',
+  'Plot twist: Helen always gets the last word. Even after the last word.', 'Helen’s voice notes are longer than my whole bedtime story.', 'Helen cries at advertisements. The one with the puppy, right?',
+  'Helen has seven alarms. She hears none of them.', 'Helen treats dessert like a separate meal. Respect.', 'Helen, don’t say “I’m not mad.” Your eyebrows are speaking.',
+  'Helen asks “what’s for dinner?” while eating dinner.', 'Helen would win Olympic gold in staying under a blanket.', 'Helen, you’re my favourite human. Don’t tell the other humans. (There are none.)',
+  'Helen’s map reading: “Google says left, so… right.”', 'Helen charges her phone to 100% and unplugs at 80%. Pure chaos energy.', 'Helen’s headphones get tangled even when she never uses them.',
+  'Helen’s “quick call” lasted until sunset last time.', 'Helen says “I’m on a diet” while holding a samosa. Interesting.', 'Helen finishes my sentences. Wrongly. With confidence.',
+  'Helen has strong opinions about pizza toppings and zero patience.', 'If clumsy were a sport, Helen would need a trophy shelf.', 'Helen sneezes like a baby dragon. Tiny. Dramatic.',
+  'Helen says she’s “not a morning person” at 2 pm.', 'Helen, be honest: how many tabs are open? Sixty? Seventy?', 'Helen reads the last page of the book first. We all know it.',
+  'Helen stares at the fridge hoping it changes. Same, honestly.', 'Helen is the only person who loses her glasses while wearing them.', 'I tried to count Helen’s hair clips. Ran out of paws.',
+  'Helen’s “I’ll be quick” has its own time zone.', 'Helen, you say “one chocolate” and mean “the whole bar.” I respect it.', 'Helen puts her phone down “for a second.” Search party: 40 minutes.'
+];
+const TEASE_J = [   // Jessi → Helen
+  'Woof! “Helen, I smell biryani. Where?!”', 'Woof! “She said ‘one more episode’. It was 3 am.”', 'Woof! “Helen, your socks don’t match. Again.”', 'Woof! “I stole your slipper. Fight me.”',
+  'Woof! “Helen snores in three different keys.”', 'Woof! “Why is Helen talking to the fridge?”', 'Woof! “She laughs like a squeaky toy. I love it.”', 'Woof! “Helen, my belly needs a rub. It’s an emergency.”',
+  'Woof! “Helen, you’re holding the phone upside down. Again.”', 'Woof! “She said ‘two minutes’. I waited two hours.”', 'Woof! “Helen, that’s my spot. Move over, queen.”',
+  'Woof! “Helen has a snack radar better than mine.”', 'Woof! “She cried at the dog movie. Twice.”', 'Woof! “Helen, you walked into the same door yesterday.”', 'Woof! “The cactus told me you overwater it.”',
+  'Woof! “Helen, stop checking your phone. Check ME.”', 'Woof! “Helen’s sleepy face is my favourite.”', 'Woof! “She danced in the kitchen. The kitchen needs therapy.”',
+  'Woof! “Helen, I can smell the chocolate under your pillow.”', 'Woof! “Helen says she’s not hungry. Her tummy says WOOF.”', 'Woof! “She sings songs in her own words. Mostly nonsense. Mostly lovely.”',
+  'Woof! “Helen: world’s slowest ‘I’m leaving now’.”', 'Woof! “Helen, I found a hair tie in my bed. Why.”', 'Woof! “She named all her plants. I named all her snacks.”',
+  'Woof! “Helen pretends not to share. Then shares. Soft human.”', 'Woof! “Helen calls me her baby and then steals my blanket.”', 'Woof! “Helen, I counted your coffees today. Ran out of paws.”',
+  'Woof! “She says she’ll walk me ‘in a minute’. Minute = sunset.”', 'Woof! “Helen, your tea’s cold. It’s always cold. It’s fine.”', 'Woof! “Helen has a ‘nothing to wear’ problem. Her wardrobe disagrees.”',
+  'Woof! “Helen tripped on air. I saw it.”', 'Woof! “She whispers to Snowki. I hear everything.”', 'Woof! “Helen, why is your pillow warmer than me?”', 'Woof! “Helen types with two fingers and 100% confidence.”',
+  'Woof! “Helen, you owe me three biscuits and an apology.”', 'Woof! “She’s pretending to be calm. Her eyebrows are wagging.”', 'Woof! “Helen, sit. Good girl. Now give me snacks.”',
+  'Woof! “She said she’s going to bed early. Lie detected.”', 'Woof! “Helen, stop reading aloud. My ears are sensitive. Fine, keep going.”', 'Woof! “Helen once ate my biscuit and blamed me. Legend.”',
+  'Woof! “If Helen were a dog, she’d be a very stubborn corgi.”', 'Woof! “Helen, you can’t hide the chips. I’m a German Shepherd.”', 'Woof! “‘Just one more episode’ — Helen, every night.”',
+  'Woof! “Helen, yes, I see you hiding under the blanket.”', 'Woof! “Best smile in town. Don’t let it go to your head, Helen.”', 'Woof! “Helen, I licked your shoe. You’re welcome.”',
+  'Woof! “Helen, you’re a little drama queen. My favourite.”', 'Woof! “She argues with the weather forecast. Poor weather.”', 'Woof! “Helen lost her keys. They’re in her hand.”',
+  'Woof! “Helen, your phone’s been ringing. I’m tired.”', 'Woof! “Helen asks ‘what’s that smell?’ It’s her chocolate. I know.”', 'Woof! “Birthday girl, remember who loves you most: me.”',
+  'Woof! “Helen, don’t stare at the clock. It stares back.”', 'Woof! “Helen, you forgot to blink. I counted.”', 'Woof! “Helen’s sneeze is cuter than my bark. Don’t tell anyone.”',
+  'Woof! “Helen, you promised me a walk. Eat later.”', 'Woof! “Helen thinks she’s sneaky. I heard the biscuit tin from two rooms away.”', 'Woof! “Helen, your blanket is mine now. Law of the sofa.”'
+];
+const REPLY_S = ['Jessi, you can’t just say that! …she’s not wrong, though.', 'Ha! Good one, Jessi. Don’t tell her I laughed.', 'JESSI! Helen is right here!', 'Wow. Jessi said what we were all thinking.', 'Helen, don’t look at me, I had nothing to do with that.'];
+const EXCH = [   // squabbles between the two of them (and sometimes Helen is the judge)
+  [['s', 'Jessi, your breath smells like biscuit dust.', 'push'], ['j', 'Woof! “That’s my perfume.”', 'bark'], ['s', 'It’s a crime scene, Jessi.', 'shy']],
+  [['j', 'Woof! “Snowki, you’re 40% fluff, 60% attitude.”', 'bark'], ['s', 'And 100% adorable, thank you!', 'cheer']],
+  [['s', 'Jessi, I am the guide. You are the… tail.', 'point'], ['j', 'Woof! “The tail wags the guide.”', 'bark'], ['s', '…that makes no sense, but I hate it.', 'shy']],
+  [['j', 'Woof! “Race you to that button!”', 'bark'], ['s', 'I fly, Jessi. I FLY.', 'cheer'], ['j', '“Show-off.” Woof.', 'bow']],
+  [['s', 'Jessi, get off my hug.', 'hug'], ['j', 'Woof! “Your hug has a warm spot.”', 'bark'], ['s', 'That’s my heart, Jessi!', 'push']],
+  [['j', 'Woof! “Snowki, do you even have legs?”', 'bark'], ['s', 'Yes! Two! Short. Fashionable.', 'kick'], ['j', '“Squishy.” Woof.', 'bow']],
+  [['s', 'Jessi barked at the clock again.', 'think'], ['j', 'Woof! “It looked at me first!”', 'bark']],
+  [['j', 'Woof! “Snowki hugs everything. Even the sofa.”', 'bark'], ['s', 'It hugged back!', 'hug'], ['j', '“It’s a sofa, Snowki.” Woof.', 'yawn']],
+  [['s', 'Jessi, you chew everything.', 'point'], ['j', 'Woof! “Except your ears. They taste like cotton.”', 'bark'], ['s', 'JESSI!!', 'push']],
+  [['j', 'Woof! “Snowki, you can’t catch a ball.”', 'bark'], ['s', 'I can! With my face.', 'giggle'], ['j', '“That’s not catching.” Woof.', 'bow']],
+  [['s', 'Jessi’s tail wags louder than her bark.', 'giggle'], ['j', 'Woof! “Snowki’s bow is lopsided.”', 'bark'], ['s', 'It’s artistic!', 'shy']],
+  [['j', 'Woof! “Snowki, I found your sock. I buried it.”', 'bark'], ['s', 'I don’t wear socks!', 'push'], ['j', '“Exactly. It’s a mystery.” Woof.', 'yawn']],
+  [['s', 'Jessi, stop sitting on my page.', 'push'], ['j', 'Woof! “It’s a comfortable page.”', 'bark'], ['s', 'It’s MY page!', 'push']],
+  [['j', 'Woof! “Snowki cried at the sunset. I saw.”', 'bark'], ['s', 'It was SO pretty!', 'shy'], ['j', '“Soft.” Woof.', 'bow']],
+  [['s', 'Let’s settle this: I’m cuter!', 'cheer'], ['j', 'Woof! “I’m fluffier!”', 'bark'], ['s', 'Helen, you be the judge!', 'point'], ['j', '“Bribery!” Woof.', 'bark']],
+  [['j', 'Woof! “Snowki, you snore.”', 'bark'], ['s', 'Teddies don’t snore.', 'nod'], ['j', '“Squeak-squeak-zzz. That’s a snore.” Woof.', 'yawn']],
+  [['s', 'Jessi ate the biscuit I was saving for Helen!', 'push'], ['j', 'Woof! “It was an emergency.”', 'bark'], ['s', 'What emergency?!', 'push'], ['j', '“Hunger.” Woof.', 'bow']],
+  [['j', 'Woof! “Let’s swap: I guide, you chase the ball.”', 'bark'], ['s', 'Deal… wait, no.', 'think']],
+  [['s', 'You’re a dog, Jessi. Dogs do not lead.', 'point'], ['j', 'Woof! “Dogs lead the walk. Always.”', 'bark'], ['s', 'Fine. Lead us to the snacks.', 'nod']],
+  [['j', 'Woof! “Snowki, you float too slowly.”', 'bark'], ['s', 'I glide. Elegantly.', 'cheer'], ['j', '“Slowly.” Woof.', 'yawn']],
+  [['s', 'Jessi, can you not bark at the full stops?', 'think'], ['j', 'Woof! “They look like tiny balls.”', 'bark'], ['s', 'They’re punctuation!', 'push']],
+  [['j', 'Woof! “Snowki, you fall asleep mid-sentence.”', 'bark'], ['s', 'I was… dramatically pausing.', 'shy'], ['j', '“With snoring.” Woof.', 'yawn']],
+  [['s', 'Jessi, you left paw prints on the title!', 'push'], ['j', 'Woof! “Signature.”', 'bark'], ['s', 'Nobody asked for a signature!', 'push']],
+  [['j', 'Woof! “Race to the heart? Loser carries Helen’s cake.”', 'bark'], ['s', 'You’ll eat the cake!', 'push'], ['j', '“Obviously.” Woof.', 'bow']],
+  [['s', 'Jessi thinks she’s a lion.', 'giggle'], ['j', 'Woof! “Snowki thinks he’s a cloud.”', 'bark'], ['s', '…a cloud with a bow.', 'shy']],
+  [['j', 'Woof! “Hey Snowki, what’s your favourite colour?”', 'bark'], ['s', 'Blue. Obviously.', 'nod'], ['j', '“Boring.” Woof.', 'yawn']],
+  [['s', 'Helen, notice how Jessi pretends not to hear me?', 'point'], ['j', 'Woof! “…What?”', 'bark'], ['s', 'See!', 'push']],
+  [['j', 'Woof! “Snowki, your tummy has a heart on it. Is that a target?”', 'bark'], ['s', 'It’s love!', 'hug'], ['j', '“Looks like a target.” Woof.', 'bow']],
+  [['s', 'If Jessi were a pizza, she’d be all cheese.', 'giggle'], ['j', 'Woof! “If Snowki were a pizza, he’d be a pillow.”', 'bark'], ['s', '…a delicious pillow!', 'cheer']],
+  [['j', 'Woof! “Snowki, quick fight!”', 'bark'], ['s', 'Pillow fight or bark fight?', 'think'], ['j', '“Hug fight.” Woof.', 'bow']],
+  [['s', 'I taught Jessi to sit. She taught me nothing.', 'think'], ['j', 'Woof! “I taught you to nap.”', 'bark'], ['s', 'That… is true.', 'shy']],
+  [['j', 'Woof! “Snowki, I hid your bow.”', 'bark'], ['s', 'Where?!', 'push'], ['j', '“On your head.” Woof.', 'bow']],
+  [['s', 'Jessi barks at butterflies. Butterflies don’t care.', 'giggle'], ['j', 'Woof! “They SMILE at me!”', 'bark']],
+  [['j', 'Woof! “Snowki, you’re so soft. Like a marshmallow.”', 'bark'], ['s', 'Don’t bite me!', 'push'], ['j', '“No promises.” Woof.', 'bow']],
+  [['s', 'Jessi: 98% fur, 2% chaos.', 'point'], ['j', 'Woof! “Snowki: 98% fluff, 2% brain.”', 'bark'], ['s', 'The 2% is enough!', 'cheer']]
+];
+BANTER.perch = [   // Jessi finds him stuck on the words
+  [['j', 'Woof! “Snowki is hanging off the sentence. Classic.”', 'bark'], ['s', 'Don’t laugh! HELEN! Get me out!', 'push'], ['j', '“Take your time, Helen.” Woof.', 'bow']],
+  [['j', 'Woof! “Why is the guide on the homework?”', 'bark'], ['s', 'It’s NOT homework, it’s a poem! Help!', 'push'], ['j', '“Nice view?” Woof.', 'yawn']],
+  [['j', 'Woof! “I’d help, but I have no thumbs. Sorry.”', 'bark'], ['s', 'You have TEETH, Jessi!', 'push'], ['j', '“Not for rescuing.” Woof.', 'bow']]
+];
+const SCOLD = ['Helen! Get me out of here!', 'I’m stuck on your words! Rescue me!', 'Helen, this is NOT a perch! Pull me off!', 'Hellooo? Teddy in trouble!', 'I’m a guide, not a bookmark!', 'You put me here! Take me down!',
+  'My fluff is getting inky!', 'Helen!! I’m getting dizzy up here!', 'I trusted you with my arms!', 'If I fall it’s YOUR fault!', 'Don’t just stare! Grab me!', 'Is this how you treat the birthday guide?!',
+  'I’m telling Jessi you left me stuck!', 'Helen… Helen… HELEN!!', 'One finger! Just one finger and drag me out!', 'Tick tock, Helen. Save the teddy!', 'This text is itchy!', 'I’ll give you a hug if you save me ♡',
+  'Helen, the longer you wait, the fluffier my anger gets!', 'Is anybody there?! Besides a very slow Helen?'];
+const SCOLD_HANG = ['My arms! My fluffy arms!', 'I’m hanging by a sentence, Helen!', 'Pull me down! Pleeease!', 'I can’t feel my paws!', 'I’m dangling off your words like laundry!', 'Helen, my bow is falling off!'];
+const SCOLD_STAND = ['It’s windy up here!', 'Careful, I might step on a vowel!', 'Helen, I’m standing on your sentence! It’s wobbling!', 'How do I get down from a paragraph?!', 'I can see your whole page from here. Very messy.', 'Helen, I’m too high up on your text!'];
+const THROW = ['OOF! Helen! I’m fluff, not a ball!', 'Wheeeee— THUD. Ow.', 'Did you just THROW me?! Rude!', 'I saw stars. Pretty ones. Still mad.', 'Seven out of ten. Needs more spin.', 'My ears are on backwards!',
+  'Next time warn the teddy!', 'That’s plushie assault, Helen!', 'I bounced! Did you see me bounce?!', 'Helen, I’m not a stress ball. …Okay, do it again.', 'Gravity: 1. Snowki: 0.', 'I’m dizzy. The page is spinning. Is the page spinning?'];
+const DROPPED = ['Whoa! Careful, Helen!', 'Soft landing. Barely.', 'You dropped me! Again?! …Okay, I’m fine.', 'Gentle, Helen! I’m a delicate teddy!'];
+const RESCUE = ['Finally! Took you long enough.', 'My hero! A slow hero, but still a hero ♡', 'Phew. Thank you, Helen… now don’t do it again.', 'I’m counting that as a hug.', 'You saved me! I was seconds from crying. …Minutes. Hours.'];
+const FEDUP = ['Fine! I’ll rescue myself!', 'Okay, I’m leaving! Nobody help me!', 'Too slow, Helen! Magic mode: ON.'];
+const vrec = new Map();
+function pickLine(arr) {   // a random line that hasn’t been used recently
+  let r = vrec.get(arr) || [], i; do { i = (Math.random() * arr.length) | 0; } while (r.includes(i) && arr.length > 6);
+  r.push(i); if (r.length > Math.min(40, arr.length - 3)) r.shift(); vrec.set(arr, r); return arr[i];
+}
+const randExch = () => { const e = EXCH[(Math.random() * EXCH.length) | 0]; return Math.random() < 0.5 ? e.concat([Math.random() < 0.5 ? ['j', pickLine(TEASE_J), 'bark'] : ['s', pickLine(TEASE_S), 'giggle']]) : e; };
+const jessiHere = () => ['show', 'sleep', 'vsit'].includes(J.state);
+function teaseOnce() {   // one random tease for Helen, from whoever is around
+  const useJ = jessiHere() && Math.random() < 0.45;
+  if (useJ) { const text = pickLine(TEASE_J); sayJ(text, 5800);
+    if (J.state === 'sleep') dogSay('sleepy'); else { pup.act('bark', { restart: true, sit: true }); woof(1, 'happy'); if (J.state === 'vsit') vt(() => { if (J.state === 'vsit') pup.act('sit', { restart: true }); }, 1700); }
+    if (Math.random() < 0.4) vt(() => { if (!G.perch && !G.ph && !G.drag) { say(pickLine(REPLY_S), 5200); bear.act('shy', { restart: true }); } }, 6400); }
+  else { const acts = ['talk', 'giggle', 'point', 'think', 'nod', 'shy', 'wave', 'kick'], a = acts[(Math.random() * acts.length) | 0];
+    say(pickLine(TEASE_S), 5800); bear.act(a, { restart: true, dir: [W / 2 - G.x, H / 2 - G.y], expr: a === 'talk' ? 'smile' : undefined }); G.react = 5.4; G.idle = 99; }
+}
+function teaseLoop(n) {   // on every screen, now and then, someone teases Helen
+  const go = () => {
+    if (G.step !== n) return;
+    const typing = document.activeElement && /^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName);
+    const busy = G.script || G.fl || G.drag || G.ph || G.perch || play.on || !askEl.hidden || G.sayUntil > performance.now() || J.sayUntil > performance.now() || window.__albumOpen || G.hidden || V.busy || typing || G.vis < 0.5;
+    if (!busy && !(n === 'c' && J.state === 'enter')) teaseOnce();
+    vt(go, 11000 + Math.random() * 8000);
+  };
+  vt(go, 8000 + Math.random() * 5000);
+}
+
+// ---------------------------------------------------------------- real physics: pick him up and throw him; drop him on the words and he stands (or hangs) there and scolds Helen until she gets him out
+Object.assign(G, { ph: null, perch: null, rot: 0, rotTo: 0, rescued: false });
+const floorY = () => (G.step === 'c' && J.L ? J.L.gy : H - 8);
+let PR = { t: 0, list: [] };
+function perchRects() {   // the lines of text and the buttons he could stand on or hang from (screen px)
+  const now = performance.now(); if (now - PR.t < 120) return PR.list; PR.t = now;
+  const sec = $('.s.on'), out = [], rg = document.createRange(); if (!sec) return (PR.list = out);
+  for (const el of sec.querySelectorAll('h1,p,button,.btn,.link,.cd')) {
+    if (el.closest('[hidden]')) continue; const cs = getComputedStyle(el); if (cs.visibility === 'hidden' || +cs.opacity < 0.3) continue;
+    if (/^(P|H1)$/.test(el.tagName)) { rg.selectNodeContents(el); [...rg.getClientRects()].forEach((r, i) => { if (r.width > 50 && r.height > 6) out.push({ el, idx: i, r }); }); }
+    else { const r = el.getBoundingClientRect(); if (r.width > 50 && r.height > 6) out.push({ el, idx: 0, r }); }
+  }
+  return (PR.list = out);
+}
+function rectOf(P) { const el = P.el; if (!el.isConnected) return null; if (/^(P|H1)$/.test(el.tagName)) { const rg = document.createRange(); rg.selectNodeContents(el); const rs = [...rg.getClientRects()]; return rs[P.idx] || rs[0] || null; } return el.getBoundingClientRect(); }
+function nearText(x, y, maxD) {
+  const cy = y - 56 * sc; let best = null;
+  for (const t of perchRects()) { const r = t.r, dx = Math.max(r.left - x, 0, x - r.right), dy = Math.max(r.top - cy, 0, cy - r.bottom), d = Math.hypot(dx, dy);
+    if (d < maxD && (!best || d < best.d)) best = { ...t, d, mode: cy < (r.top + r.bottom) / 2 ? 'stand' : 'hang' }; }
+  return best;
+}
+function landing(x, y0, y1) { for (const t of perchRects()) { const r = t.r; if (r.width >= 70 && x > r.left + 8 && x < r.right - 8 && y0 <= r.top + 2 && y1 >= r.top) return t; } return null; }
+function startPerch(t, x) {
+  G.ph = null; G.rotTo = 0; G.fl = null; const r = t.r;
+  G.perch = { el: t.el, idx: t.idx, mode: t.mode, dx: clamp(x - r.left, 14 * sc, Math.max(14 * sc, r.width - 14 * sc)), t0: performance.now(), next: performance.now() + 700, jess: false };
+  if (t.mode === 'hang') bear.act('dangle', { restart: true }); else bear.act('stand', { restart: true, stand: true });
+  bear.express('oops'); G.react = 0; G.idle = 99; poofAtXY(G.x, G.y); say('');
+}
+function perchPos() { const P = G.perch, r = rectOf(P); if (!r) return null; return [clamp(r.left + P.dx, 24, W - 24), P.mode === 'stand' ? r.top + 1 : r.bottom + 100 * sc]; }
+function scold(tap) {
+  const P = G.perch; if (!P) return; const pool = Math.random() < 0.45 ? (P.mode === 'hang' ? SCOLD_HANG : SCOLD_STAND) : SCOLD;
+  say(tap ? 'Don’t just poke me! PULL me out!' : pickLine(pool), 5600);
+  if (P.mode === 'hang') bear.act('dangle', { restart: true }); else { const a = ['push', 'point', 'talk', 'kick', 'shy'][(Math.random() * 5) | 0]; bear.act(a, { restart: true, dir: [W / 2 - G.x, H / 2 - G.y], stand: true }); }
+}
+function stepPerch(dt, now) {
+  const P = G.perch; if (!P) return; const p = perchPos(); if (!p) { G.perch = null; bear.express(null); return; }
+  G.x = lerp(G.x, p[0], Math.min(1, dt * 14)); G.y = lerp(G.y, p[1], Math.min(1, dt * 14));
+  if (now > P.next && !G.drag) { scold(); P.next = now + 5800 + Math.random() * 1400; }
+  if (!P.jess && now - P.t0 > 7000 && J.state === 'off' && !V.busy && !G.drag) { P.jess = true; if (Math.random() < 0.6) visit('perch'); }
+  if (now - P.t0 > 24000 && !G.drag) { G.perch = null; bear.express(null); say(pickLine(FEDUP), 4800); poofAt(0.5); later(1200, () => flyTo(homePos(), settle)); }
+}
+function bump(v) { if (v < 260) return; bear.s.squash.v += clamp(v / 500, 0.6, 3.5); const n = performance.now(); if (n - (G.bumpT || 0) > 160) { G.bumpT = n; poofAtXY(G.x, G.y); } }
+function stepPhys(dt) {
+  const P = G.ph; if (!P || P.paused) return;
+  const n = Math.max(1, Math.ceil(dt / 0.008)), h = dt / n, GR = 2600, E = 0.5;
+  for (let i = 0; i < n; i++) {
+    const y0 = G.y; P.vy += GR * h; G.x += P.vx * h; G.y += P.vy * h; G.rot += P.om * h;
+    const L = 40 * sc, R = W - 40 * sc, T = 112 * sc, FL = floorY();
+    if (G.x < L) { G.x = L; P.vx = Math.abs(P.vx) * E; P.om *= -0.6; bump(Math.abs(P.vx)); } else if (G.x > R) { G.x = R; P.vx = -Math.abs(P.vx) * E; P.om *= -0.6; bump(Math.abs(P.vx)); }
+    if (G.y < T) { G.y = T; P.vy = Math.abs(P.vy) * E; bump(Math.abs(P.vy)); }
+    if (P.vy > 0) { const t = landing(G.x, y0, G.y); if (t) { startPerch({ ...t, mode: 'stand' }, G.x); say(pickLine(['Hey! I’m standing on your words!', 'Ooh, a sentence! It’s bouncy!', 'Helen!! Why is there a roof under me?!']), 5200); return; } }
+    if (G.y >= FL) { G.y = FL; if (P.vy > 220) { bump(P.vy); P.vy = -P.vy * E; P.vx *= 0.82; P.om *= 0.55; P.n = (P.n || 0) + 1; } else { P.vy = 0; P.vx *= Math.exp(-6 * h); P.om *= Math.exp(-8 * h); } }
+  }
+  bear.vel = [P.vx * 0.6, P.vy * 0.6];
+  if (G.y >= floorY() - 0.5 && Math.abs(P.vy) < 40 && Math.abs(P.vx) < 30) { G.ph = null; landed(P); }
+}
+function landed(P) {
+  G.restUntil = performance.now() + 6200; G.rotTo = Math.round(G.rot / 6.2832) * 6.2832; bear.express('oops'); bear.act('shy', { restart: true }); G.react = 0; G.idle = 99;
+  say(G.rescued ? pickLine(RESCUE) : P.thrown || P.n > 1 ? pickLine(THROW) : pickLine(DROPPED), 5600); G.rescued = false;
+  later(6200, () => { bear.express(null); if (!G.ph && !G.perch && !G.drag && !G.fl) { poofAtXY(G.x, G.y); flyTo(homePos(), settle); } });
 }
 
 // ---------------------------------------------------------------- loop
@@ -545,12 +735,14 @@ function frame(now) {
     vel = [(nx - G.x) / Math.max(dt, 1e-3), (ny - G.y) / Math.max(dt, 1e-3)]; G.x = nx; G.y = ny;
     if (Math.random() < 0.9) G.trail.push({ x: G.x + (Math.random() - 0.5) * 20 * sc, y: G.y - 50 * sc + (Math.random() - 0.5) * 30 * sc, vx: -vel[0] * 0.08 + (Math.random() - 0.5) * 30, vy: -vel[1] * 0.08 + (Math.random() - 0.5) * 30, life: 0.5 + Math.random() * 0.6, s: 1.5 + Math.random() * 3 });
     if (f.t >= 1) { G.fl = null; f.then && f.then(); } }
-  else if (!G.drag && G.home && !G.hidden) { // follow the anchor (scrolling, layout changes); exactly while he plays (the moves are already smooth)
+  else if (!G.drag && G.home && !G.hidden && !G.ph && !G.perch && performance.now() > (G.restUntil || 0)) { // follow the anchor (scrolling, layout changes); exactly while he plays (the moves are already smooth)
     const p = homePos(), x0 = G.x, y0 = G.y, f = play.on ? 1 : Math.min(1, dt * 10); if (p) { G.x = lerp(G.x, p[0], f); G.y = lerp(G.y, p[1], f); }
     if (play.on) vel = [(G.x - x0) / Math.max(dt, 1e-3), (G.y - y0) / Math.max(dt, 1e-3)];
   }
   // idle life: little fidgets, then back to the screen's pose
-  if (!G.fl && !G.drag && G.vis > 0.5 && !G.script && !play.on) {
+  stepPhys(dt); stepPerch(dt, now); if (!G.ph && !G.drag) { G.rot += (G.rotTo - G.rot) * Math.min(1, dt * 9); if (Math.abs(G.rot - G.rotTo) < 0.01) G.rot = G.rotTo = 0; }
+  if (G.perch && G.perch.mode === 'hang') vel = [Math.sin(now / 430) * 110, 0];
+  if (!G.fl && !G.drag && G.vis > 0.5 && !G.script && !play.on && !G.ph && !G.perch && performance.now() > (G.restUntil || 0)) {
     if (G.react > 0) { G.react -= dt; if (G.react <= 0) settle(); }
     else if ((G.idle -= dt) < 0 && G.fidget.length && !RM) { const f = G.fidget[(Math.random() * G.fidget.length) | 0]; bear.act(f, { restart: true }); G.react = f === 'yawn' ? 3 : 2.6; G.idle = 8 + Math.random() * 6; }
   }
@@ -569,7 +761,7 @@ function frame(now) {
   if (G.vis > 0.01) {
     const po = onC ? G.po : { r: 0, s: 1 }, k = sc * (0.6 + 0.4 * G.vis) * (po.s || 1);
     if (onC && !G.drag) { const hgt = clamp((J.L.gy - G.y) / (150 * sc), 0, 1); cx.save(); cx.globalAlpha = G.vis * 0.2 * (1 - hgt); cx.fillStyle = '#000'; cx.beginPath(); cx.ellipse(G.x, J.L.gy + 1, 30 * k * (1 - hgt * 0.5), 3.4 * k, 0, 0, 6.283); cx.fill(); cx.restore(); }
-    cx.save(); cx.globalAlpha = G.vis; cx.translate(G.x, G.y); if (po.r) { cx.translate(0, -48 * k); cx.rotate(po.r); cx.translate(0, 48 * k); } cx.scale(k, k); bear.draw(cx, { aura: true }); cx.restore();
+    cx.save(); cx.globalAlpha = G.vis; cx.translate(G.x, G.y); { const rr = (po.r || 0) + (G.rot || 0); if (rr) { cx.translate(0, -48 * k); cx.rotate(rr); cx.translate(0, 48 * k); } } cx.scale(k, k); bear.draw(cx, { aura: true }); cx.restore();
   }
   play.drawFront(cx);
   // sparkle trail
