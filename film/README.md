@@ -15,9 +15,9 @@ both hands, she takes him with both hands, smiles and hugs him. He kneels, cradl
 subtitles. He gives Snowki a gift and sets him down; Snowki and Jessi go back to her as he slips behind the tree.
 From in front of him, we see him light the fuse. The shell climbs over the sea and spells her birthday in firework
 stars, reflected in the moving water. Helen is surprised, then scans the shore for whoever sent it. Six of her
-female friends arrive; she stands and walks away with them, still carrying Snowki. He watches from behind the tree,
-his smile fading as he hides his hurt. The film ends on the friends disappearing into the night and the words
-"She follows her friends into the night. He stays behind the tree, hiding what it costs him."
+female friends arrive; she stands and walks away with them (Jessi hops off the wall and trots after, Snowki waves from her arms) and the
+four of them fade into the night. The camera goes to him at the tree: he steps out, happy – the surprise worked – and waves. The film ends on
+"Some surprises don't need you in the room. The love behind them arrives all the same."
 
 On the birthday page, Snowki guides her through every step; on the countdown he says hi, asks "Can I call Jessi?",
 and Jessi runs in, does tricks, falls asleep and dreams of Helen in a little cloud.
