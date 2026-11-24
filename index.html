@@ -385,6 +385,7 @@ html.guide .s[data-n="1"] .bear,html.guide .s[data-n="4"] .bear,html.guide .s[da
 <div class="dots" hidden><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
 
 <script>window.MEMORIES=[];window.ALBUM=null;</script>
+<script src="songs/list.js"></script>
 <script src="music.js"></script>
 <script src="album/list.js"></script>
 <script>
@@ -394,10 +395,7 @@ const CONFIG={
   bear:"Snowki", dog:"Jessi",
   unlock:"2026-12-01T00:00:00+05:30",   // Asia/Kolkata midnight
   DEV_PREVIEW:false,                     // true = skip the countdown (testing only; not secure)
-  // her favourite songs (Tamil or any): put the MP3 files in the songs/ folder and list them here, e.g.
-  // songs:[{title:"Song name – Film", src:"songs/song-name.mp3"}],
-  // they play first when she turns the sound on; after them come the little Carnatic-style tunes in music.js.
-  songs:[{title:"Apna Bana Le · Bhediya (Arijit Singh)", src:"songs/apna-bana-le.mp3"}],
+  // her favourite songs: just drop the MP3 files into the songs/ folder (see songs/README.txt) - nothing to list here
   clock:["Things may have changed.","Life may have taken us in different directions.","Some chapters have ended, and some moments are now just memories.","But that doesn’t mean every beautiful moment has to become something we regret."],
   wishes:["I hope you achieve everything you’ve been dreaming about.","I hope you find reasons to smile even on difficult days.","I hope life surprises you with beautiful opportunities, genuine people, peaceful moments, and endless happiness.","Take care of yourself. Keep smiling. Never stop being the person you are.","And wherever life takes you, I sincerely hope it takes you somewhere beautiful."],
   bday:["Some wishes don’t need a reason.","Some memories don’t need to be revisited.","And some people will always be wished well.","I made this for you, something I’ve never made for anyone else.","I don’t want to disturb you with my voice.","KEY:Snowki is already by your side, and he will always stay there, in my place.","A little piece of my presence, asking nothing of you.","May your little world, home, Snowki and Jessi, always stay full of happiness.","SIG:With warmth and good wishes."]
@@ -470,10 +468,10 @@ function frame(){
   cx.globalCompositeOperation="source-over";requestAnimationFrame(frame)}
 function setMode(m){mode=m;if(m==="still"){run=false;cx.clearRect(0,0,cv.width,cv.height);return}if(RM){run=true;frame();run=false;return}if(!run){run=true;frame()}}
 
-// ---- music (only after she turns the sound on): her own songs from CONFIG.songs, then the Carnatic-style tunes in music.js
-const MZ=window.Music||{setSongs(){},play(){},stop(){},next(){}};MZ.setSongs(CONFIG.songs);
+// ---- music (only after she turns the sound on): every song found in the songs/ folder (songs/list.js), played by music.js
+const MZ=window.Music||{count:0,setSongs(){},play(){},stop(){},next(){}};MZ.setSongs(window.SONGS);
 MZ.onchange=t=>{$("#mtt").textContent="♪ "+t};
-function chip(){$("#mus").hidden=!(on&&cur!==6&&!window.__albumOpen)}
+function chip(){$("#mus").hidden=!(on&&MZ.count>0&&cur!==6&&!window.__albumOpen)}
 function startMusic(prefer){MZ.play(prefer);chip()}
 function stopMusic(slow){MZ.stop(slow);chip()}
 $("#mnx").addEventListener("click",()=>MZ.next());
