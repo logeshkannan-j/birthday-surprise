@@ -41,7 +41,14 @@ if (!R) { q.kuwahara = false; R = new Renderer2D(canvas).init(q); }
 const GL = R instanceof GLRenderer;
 
 // ---------------------------------------------------------------- world, rigs, systems
-const layers = bakeWorld(q.res), atlas = makeAtlas();
+// hand-painted layers (film/paint/<layer>.png, listed in paint/paint.json; made by the local painting tool): each replaces
+// that layer's procedural paint and keeps its exact shape, so the camera, parallax and night lighting still line up
+const PAINT = await (async () => {
+  try { const r = await fetch('paint/paint.json', { cache: 'no-cache' }); if (!r.ok) return {}; const names = await r.json(), out = {};
+    await Promise.all(names.map(n => new Promise(ok => { const im = new Image(); im.onload = () => { out[n] = im; ok(); }; im.onerror = ok; im.src = `paint/${n}.png`; })));
+    return out; } catch (e) { return {}; }
+})();
+const layers = bakeWorld(q.res, PAINT), atlas = makeAtlas();
 R.setWorld(layers, atlas);
 const LY = Object.fromEntries(layers.map(l => [l.name, l]));
 const A = CFG.assets || {};

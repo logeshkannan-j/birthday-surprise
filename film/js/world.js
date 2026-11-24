@@ -685,8 +685,11 @@ export function worldFx(LY, lists, atlas, t, T, k = 1) {
     lists.lights.push(x, y, gy, 0, 1.5 * s, 1.5 * s, 0, 0, 1, 0.96, 0.86, 0.85 * k * tw); lists.lights.push(x, y, gy, 0, 4.5 * s, 4.5 * s, 0, 0, col[0], col[1], col[2], 0.16 * k * tw); });
 }
 
-export function bakeWorld(res) {
+export function bakeWorld(res, paint = {}) {
   const L = [farLayer(res * 0.75), groundLayer(res), wallLayer(res), lamp(60, res), lamp(560, res), jarLantern(res), cake(res), gifts(res), balloons(res), teaCart(res), wires(res), planter(res), crate(res), fuseCord(res), bigTree(res), foreground(res * 0.4)];
+  for (const l of L) if (paint[l.name]) {   // a hand-painted version of this layer (same shape): it replaces the procedural paint
+    const x = l.c.getContext('2d'); x.save(); x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, l.c.width, l.c.height); x.drawImage(paint[l.name], 0, 0, l.c.width, l.c.height); x.restore(); l.painted = true;
+  }
   for (const l of L) { l.blur = blurCopy(l.c, 7); if (l.em) l.emBlur = blurCopy(l.em, 7); }
   return L;
 }

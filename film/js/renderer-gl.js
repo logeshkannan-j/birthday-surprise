@@ -27,7 +27,7 @@ export class GLRenderer {
     this.atlas = texture(gl, atlas.canvas, { mip: true });
     for (const L of layers) {
       let tex;
-      if (this.q.kuwahara) {
+      if (this.q.kuwahara && !L.painted) {   // (hand-painted layers keep their brushwork)
         const src = texture(gl, L.c, { mip: false }), tg = target(gl, L.c.width, L.c.height, { mip: false });
         tg.bind(); gl.disable(gl.BLEND); this.p.kuwa.use().tex('uTex', src).f('uTexel', 1 / L.c.width, 1 / L.c.height);
         gl.bindVertexArray(gl.vao); gl.drawArrays(gl.TRIANGLES, 0, 3);
