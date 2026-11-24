@@ -1,6 +1,7 @@
 // Sound: a generated ambient score (piano + bell partials through a reverb tail) that swells at the message,
 // layered waves and wind, firework whoosh / boom / crackle, a candle breath and one heartbeat.
 // An mp3 at config.music replaces the score. Mute is remembered.
+import { DogVoice } from './dog.js';
 const NOTE = n => 440 * Math.pow(2, (n - 69) / 12);
 // D major: Dmaj9, Bm7, Gmaj7, A(sus4->3)
 const CHORDS = [[50, 62, 66, 69, 73, 76], [47, 59, 62, 66, 69, 74], [43, 55, 59, 62, 66, 71], [45, 57, 62, 64, 69, 73]];
@@ -83,6 +84,8 @@ export class FilmAudio {
     for (const n of [ch[0], ch[2], ch[3]]) for (const det of [-6, 6]) { const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.value = NOTE(n); o.detune.value = det; o.connect(g); o.start(t); o.stop(t + dur * 1.1); }
     g.connect(lp); lp.connect(this.music);
   }
+  // Jessi's voice (see dog.js): mood = happy | excited | angry | soft | sheepish | yelp | sleepy | whine | whimper | growl | yawn | sigh | pant | alert | awe …; o.far 0..1 (how far away she is)
+  jessi(mood, n, o) { if (!this.ctx || this.muted) return; if (!this.dogv) { this.dogv = new DogVoice(this.ctx, this.master); if (window.DOGSOUNDS && window.DOGSOUNDS.length) this.dogv.loadSamples(window.DOGSOUNDS, '../'); } this.dogv.say(mood, n, o); }
   setIntensity(i, melody = 0) { this.intensity = i; this.melody = melody; if (this.useFile && this.music) this.music.gain.setTargetAtTime(0.4 + i * 0.3, this.ctx.currentTime, 1.5); }
   // ---------------- effects
   noise(dur, f0, f1, v, q = 1, type = 'bandpass', t = 0) {

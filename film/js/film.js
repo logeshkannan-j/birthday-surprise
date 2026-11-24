@@ -278,7 +278,13 @@ function fire(ev, instant) {
           colors: [[1, 0.78, 0.34], [1, 0.44, 0.7]], heartColor: [1, 0.22, 0.35], font: '"Cinzel", serif' }); }
       fireworksShow(ago); audio.setIntensity && audio.setIntensity(0.8, 0.5); break; }
     case 'helenLookUp': S.helen.lookUp = 1; S.helen.expr = 'surprised'; ramp('hSm', 0, 0.4, instant); break;
-    case 'jessiLookUp': S.jessi.lookUp = true; break;
+    case 'jessiLookUp': S.jessi.lookUp = true; if (!instant) audio.jessi('awe'); break;
+    // Jessi's voice
+    case 'jAlert': if (!instant) audio.jessi('alert'); break;                                   // she hears someone: a soft 'wuf' and a curious whine
+    case 'jHop': if (!instant) audio.jessi('excited', 3); break;                                // she hops down and runs: happy yips
+    case 'jGreet': if (!instant) audio.jessi('happy', 2); break;                                // she reaches him: a glad bark
+    case 'jFollow': if (!instant) audio.jessi('excited', 4); break;                             // bounding after Helen and the six
+    case 'jFar': if (!instant) audio.jessi('happy', 2, { far: arg ?? 0.5, pan: -0.25 }); break;   // farther and farther away
     // her face (the reverse angle)
     case 'hSurprised': S.helen.lookUp = 1; S.helen.expr = 'surprised'; S.helen.turn = 0.1; S.helen.gaze = 0; break;
     case 'hExcited': S.helen.handsUp = 1; break;
@@ -286,7 +292,7 @@ function fire(ev, instant) {
     case 'hSmile': S.helen.expr = 'smile'; S.helen.handChest = 1; S.helen.lookUp = 0.7; break;
     case 'snLookUp': snAct('lookUp', { expr: 'love', hold: 'gift' }, 60); break;
     case 'snHold': snAct('hold', { expr: 'soft', hold: 'gift' }, 60); break;
-    case 'jessiHappy': S.jessi.lookUp = false; S.jessi.happy = true; break;
+    case 'jessiHappy': S.jessi.lookUp = false; S.jessi.happy = true; if (!instant) audio.jessi('happy', 2, { far: 0.1 }); break;
     // the ending: all four; she turns to him, one last gentle smile, he smiles back; back to the sky
     case 'finalPlaces': S.boy.kneel = false; S.boy.lighting = false; S.boy.lookDown = 0; S.boy.gazeUp = 0.7; S.boy.expr = 'contentment'; break;
     case 'helenSky': S.helen.lookUp = 0.6; S.helen.handChest = 0; S.helen.handsUp = 0; S.helen.expr = 'smile'; break;

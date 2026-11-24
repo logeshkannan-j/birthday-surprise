@@ -3,6 +3,7 @@
 // and hides while the private album or the film is open. The page calls Guide.step(n) and Guide.on(event).
 import { Snowki } from './film/js/snowki.js';
 import { Jessi } from './film/js/jessi.js';
+import { DogVoice } from './film/js/dog.js';
 import { makePlay } from './play.js';
 
 const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
@@ -206,16 +207,17 @@ function askJessi() { if (J.called) return; J.asked = true; say(''); G.homeAct =
 function notNow() { bear.act('nod', { restart: true }); G.react = 1.4; say('Okay! Tap me whenever you want her ♡', 3200); }
 function callJessi() { J.called = true; unlockAudio(); bear.act('call', { restart: true }); G.react = 0; G.idle = 99; say('Jessiii! ♡', 1500); later(650, () => pupEnter(false)); }
 function pupEnter(short) {
-  stage(); J.state = 'enter'; J.x = -70 * J.L.ps; J.face = 1; J.dreamTo = 0; pup.act('run', { restart: true, vx: PUP_RUN });
+  dogSay('pant', 5); stage(); J.state = 'enter'; J.x = -70 * J.L.ps; J.face = 1; J.dreamTo = 0; pup.act('run', { restart: true, vx: PUP_RUN });
   J.short = short;
 }
 const TRICKS = { bark: ['bark', 1.3, 'cheer'], flip: ['flip', 1.15, 'clap'], spin: ['spin', 1.3, 'giggle'], roll: ['roll', 1.45, 'clap'], bow: ['bow', 1.3, 'dance'], paw: ['paw', 1.9, 'clap', 'Good girl, Jessi! ♡'],
-  hi: ['bark', 1.4, 'cheer', 'Jessi! Let’s play together ✦'], lie: ['lie', 1.0, 'idle'], yawn: ['yawn', 1.6, 'yawn'], sleep: ['sleep', 0, 'shh', 'Shh… she’s dreaming of you ♡'], wake: ['wake', 0.7, 'idle'] };
+  hi: ['bark', 1.4, 'cheer', 'Jessi! Let’s play together ✦', 'excited'], lie: ['lie', 1.0, 'idle'], yawn: ['yawn', 1.6, 'yawn'], sleep: ['sleep', 0, 'shh', 'Shh… she’s dreaming of you ♡'], wake: ['wake', 0.7, 'idle'] };
 const SHOW = ['bark', 'flip', 'spin', 'roll', 'bow', 'paw', 'lie', 'yawn', 'sleep'];
 function queue(names) { J.q = names.filter(n => !(RM && ['flip', 'spin', 'roll'].includes(n))).map(n => TRICKS[n]); J.qt = 0; J.state = 'show'; nextTrick(); }
 function nextTrick() {
-  const t = J.q.shift(); if (!t) { if (J.state === 'show' && J.wantPlay) { if (!V.cdDone && !V.busy) { V.cdDone = true; banterC(() => { if (J.state === 'show' && J.wantPlay) startPlay(); }); } else if (!V.busy) startPlay(); } return; } const [a, d, b, line] = t;
-  pup.act(a, { restart: true }); J.qt = d || 1e9; if (a === 'bark') woof(2);
+  const t = J.q.shift(); if (!t) { if (J.state === 'show' && J.wantPlay) { if (!V.cdDone && !V.busy) { V.cdDone = true; banterC(() => { if (J.state === 'show' && J.wantPlay) startPlay(); }); } else if (!V.busy) startPlay(); } return; } const [a, d, b, line, mood] = t;
+  pup.act(a, { restart: true }); J.qt = d || 1e9;
+  if (a === 'bark') woof(mood === 'excited' ? 4 : 2, mood || 'happy'); else if (a === 'paw') woof(1, 'happy'); else if (a === 'yawn') dogSay('yawn'); else if (a === 'sleep') dogSay('sigh'); else if (a === 'wake') dogSay('soft'); else if (a === 'bow') dogSay('soft'); else if (a === 'flip' || a === 'spin' || a === 'roll') dogSay('excited', 2);
   if (b) { bear.act(b, { restart: true }); G.react = 0; G.idle = 99; } if (line) say(line, 3400);
   if (a === 'sleep') { J.state = 'sleep'; G.idle = 6; G.homeAct = ['kick', {}]; }
 }
@@ -234,14 +236,14 @@ const PUP_RUN = 220;   // her running speed in rig units/s: the rig plants each 
 let AC = null;
 const soundOn = () => { const m = $('#mute'); return !!m && m.getAttribute('aria-pressed') === 'true'; };
 function unlockAudio() { if (!soundOn()) return; try { AC = AC || new (window.AudioContext || window.webkitAudioContext)(); AC.resume(); } catch (e) { AC = null; } }
-function woof(n) {
-  for (let i = 0; i < n; i++) setTimeout(() => J.woofs.push({ t: 0, k: Math.random() }), i * 280);
-  if (!soundOn()) return; unlockAudio(); if (!AC) return;
-  const t0 = AC.currentTime + 0.03;
-  for (let i = 0; i < n; i++) { const t = t0 + i * 0.28, o = AC.createOscillator(), f = AC.createBiquadFilter(), g = AC.createGain();
-    o.type = 'sawtooth'; o.frequency.setValueAtTime(700, t); o.frequency.exponentialRampToValueAtTime(300, t + 0.12); f.type = 'bandpass'; f.frequency.value = 1150; f.Q.value = 1.3;
-    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.22, t + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.15);
-    o.connect(f); f.connect(g); g.connect(AC.destination); o.start(t); o.stop(t + 0.17); }
+const WOOFTXT = { happy: 'Woof!', excited: 'Yip!', angry: 'WOOF!', soft: 'woof', sheepish: 'woof…', sleepy: 'wuff…', yelp: 'Yelp!' };
+let DOG = null;
+function dogVoice() { if (!soundOn()) return null; unlockAudio(); if (!AC) return null; if (!DOG || DOG.c !== AC) { DOG = new DogVoice(AC, AC.destination); if (window.DOGSOUNDS && window.DOGSOUNDS.length) DOG.loadSamples(window.DOGSOUNDS); } return DOG; }
+function dogSay(mood, n) { const d = dogVoice(); if (d) d.say(mood, n || null); }   // yawn, sigh, pant, snore, whine… as well as the barks
+// woof(n, mood): floating words and (when her sound is on) a modelled puppy bark with that feeling: happy, excited, angry (indignant), soft, sheepish, sleepy, yelp
+function woof(n = 1, mood = 'happy') {
+  const txt = WOOFTXT[mood]; if (txt) for (let i = 0; i < n; i++) setTimeout(() => J.woofs.push({ t: 0, k: Math.random(), w: txt }), i * (mood === 'excited' ? 170 : 280));
+  dogSay(mood, n);
 }
 function stepPup(dt) {
   if (J.state === 'off') return; const L = J.L || stage();
@@ -250,6 +252,7 @@ function stepPup(dt) {
   else if (J.state === 'leave') { J.x += PUP_RUN * L.ps * dt; if (J.x > W + 160) { J.state = 'off'; } }
   else if (J.state === 'play') J.x = L.pupX + (J.ox || 0);
   else { J.x = lerp(J.x, L.pupX, Math.min(1, dt * 4)); if (J.state === 'show' && (J.qt -= dt) <= 0) nextTrick(); }
+  if (J.state === 'sleep' && pup.name === 'sleep' && pup.a > 1.3 && (J.zt = (J.zt ?? 6) - dt) <= 0) { J.zt = 7 + Math.random() * 6; dogSay(Math.random() < 0.5 ? 'sleepy' : 'snore'); }
   if (J.state === 'sleep' && pup.name === 'sleep' && pup.a > 1.3 && !J.dreamTo) { J.dreamTo = 1; J.scene = 0; J.sceneT = 0; setDream(); }
   J.fs = J.fs == null ? J.face : J.fs + (J.face - J.fs) * Math.min(1, dt * 12); J.fx = (J.fs >= 0 ? 1 : -1) * Math.max(0.3, Math.abs(J.fs));
   pup.update(dt);
@@ -349,7 +352,7 @@ function drawPup(t) {
   cx.save(); cx.translate(J.x, L.gy - oy); cx.scale(fx * L.ps, L.ps); pup.draw(cx); cx.restore();
   for (const w of J.woofs) { const x = J.x + (30 + w.t * 10) * L.ps * J.face, y = L.gy - oy - (44 + w.t * 26) * L.ps;
     cx.save(); cx.globalAlpha = 1 - w.t; cx.translate(x, y); cx.rotate(-0.15 + w.k * 0.3); cx.font = `600 ${Math.round(17 * sc + 4)}px Caveat, cursive`; cx.textAlign = 'center';
-    cx.lineWidth = 3; cx.strokeStyle = 'rgba(60,30,80,.6)'; cx.strokeText('Woof!', 0, 0); cx.fillStyle = '#FFF3C8'; cx.fillText('Woof!', 0, 0); cx.restore(); }
+    cx.lineWidth = 3; cx.strokeStyle = 'rgba(60,30,80,.6)'; cx.strokeText(w.w || 'Woof!', 0, 0); cx.fillStyle = '#FFF3C8'; cx.fillText(w.w || 'Woof!', 0, 0); cx.restore(); }
 }
 function pupBox() { const L = J.L; if (!L) return null; const a = J.x - 26 * L.ps, b = J.x + 32 * L.ps, oy = J.state === 'play' ? (J.oy || 0) : 0; return J.face > 0 ? [a, L.gy - 56 * L.ps - oy, b, L.gy + 4 - oy] : [2 * J.x - b, L.gy - 56 * L.ps - oy, 2 * J.x - a, L.gy + 4 - oy]; }
 pupHit.addEventListener('click', tapPup); pupHit.setAttribute('aria-label', 'Jessi the puppy. Tap for a trick');
@@ -474,7 +477,9 @@ function runBeats(beats, tok, done) {
     if (who === 's') { sayJ(''); say(text, ms); bear.act(act || 'talk', { restart: true, dir: [dirP, 0] }); G.react = ms / 1000 + 0.3; G.idle = 99; }
     else if (!['off', 'leave', 'vout', 'enter', 'play'].includes(J.state)) {
       say(''); const asleep = J.state === 'sleep'; sayJ(asleep ? 'Zzz… ' + text : text, ms);
-      if (!asleep) { pup.act(act || 'bark', { restart: true, sit: true }); if (/woof/i.test(text)) woof(1); if (J.state === 'vsit') vt(() => { if (J.state === 'vsit') pup.act('sit', { restart: true }); }, 1700); }
+      if (asleep) dogSay('sleepy');
+      if (!asleep) { pup.act(act || 'bark', { restart: true, sit: true }); const md = /^WOOF[!?]/.test(text) ? (/\?!/.test(text) ? 'yelp' : 'angry') : /^…/.test(text) ? 'sheepish' : /^(Woof\.|“)/.test(text) ? 'soft' : 'happy';
+        if (act === 'yawn') dogSay('yawn'); else if (act === 'bow' && md === 'happy') dogSay('soft'); else if (/woof/i.test(text) || act === 'bark' || act === 'paw') woof(md === 'angry' || (md === 'happy' && act === 'bark') ? 2 : 1, md); if (J.state === 'vsit') vt(() => { if (J.state === 'vsit') pup.act('sit', { restart: true }); }, 1700); }
     }
     vt(next, ms + 300);
   };
@@ -488,15 +493,15 @@ const visitSpot = () => { const ps = clamp(sc * 1.8, 1.4, 2.3), side = G.x > W *
 function visit(key) {   // Jessi runs in from the nearest edge, sits beside him, they talk, then she runs off again
   if (V.busy || J.state !== 'off') return; V.busy = true; V.visits++; const tok = ++V.token, sp = visitSpot(); V.side = sp.side;
   J.L = { gy: sp.gy, ps: sp.ps, cloud: [0, 0, 0, 0] }; J.dream = 0; J.dreamTo = 0; J.x = sp.side < 0 ? -70 * sp.ps : W + 70 * sp.ps; J.face = J.fs = sp.side < 0 ? 1 : -1; J.state = 'vin'; J.key = key; J.tok = tok;
-  pup.act('run', { restart: true, vx: PUP_RUN }); bear.act('alert', { restart: true, dir: [sp.side, 0] }); G.react = 2; G.idle = 99;
+  pup.act('run', { restart: true, vx: PUP_RUN }); dogSay('pant', 4); bear.act('alert', { restart: true, dir: [sp.side, 0] }); G.react = 2; G.idle = 99;
 }
 function visitArrive() {
-  const tok = J.tok, key = J.key; J.face = V.side < 0 ? 1 : -1; pup.bump(40); pup.act('sit', { restart: true }); poofAtXY(J.x, J.L.gy);
+  const tok = J.tok, key = J.key; J.face = V.side < 0 ? 1 : -1; pup.bump(40); pup.act('sit', { restart: true }); poofAtXY(J.x, J.L.gy); woof(3, 'excited');
   vt(() => runBeats(pick(BANTER[key], key), tok, () => { if (V.visits % 3 === 0) sidePrompt(tok); else visitLeave(tok); }), 700);
 }
 function visitLeave(tok) {
   if (tok !== V.token) return; sayJ(''); say(''); bear.act('wave', { restart: true }); G.react = 1.6; G.idle = 6;
-  V.exit = V.side; J.face = V.exit; J.state = 'vout'; pup.act('run', { restart: true, vx: PUP_RUN });
+  V.exit = V.side; J.face = V.exit; J.state = 'vout'; pup.act('run', { restart: true, vx: PUP_RUN }); woof(1, 'happy');
 }
 function sidePrompt(tok) {   // “who’s better?”: the loser fights back
   if (tok !== V.token) return; say(''); sayJ('');
@@ -511,7 +516,7 @@ function stepVisit(dt, L) {
   else if (J.state === 'vout') { J.x += V.exit * PUP_RUN * L.ps * dt; if (J.x < -90 * L.ps || J.x > W + 90 * L.ps) { J.state = 'off'; V.busy = false; } }
 }
 function jessiPoked() {
-  sayJ(JPOKE[(V.pj = (V.pj || 0) + 1) % JPOKE.length], 2600); pup.act('bark', { restart: true, sit: true }); woof(1);
+  sayJ(JPOKE[(V.pj = (V.pj || 0) + 1) % JPOKE.length], 2600); pup.act('bark', { restart: true, sit: true }); woof(1, 'yelp');
   vt(() => { if (J.state === 'vsit') { sayJ(''); say('Don’t poke her, Helen. She bites. Words. She bites words.', 2800); bear.act('shy', { restart: true }); } }, 2000);
 }
 function scheduleBanter(n) {

@@ -27,7 +27,7 @@ export function buildTimeline(cfg) {
   scenes.push({ n: 3, dur: d[3], tod: [1.75, 1.76], sub: [],
     cam: [K(0, 'treeMan', { z: 2.7, lens: 0.82, e: 'inOutSine' }), K(2.6, 'treeMan', { z: 2.55, lens: 0.82 }),
       K(2.6 + C, 'snowki', { z: 2.5, lens: 0.88, e: 'inOutSine' }), K(4.6, 'snowTrack', { z: 2.2, lens: 0.84, e: 'inOutSine' }), K(10.4, 'snowTrack', { z: 2.2, lens: 0.84, e: 'inOutSine' }), K(d[3], 'meet', { z: 2.5, lens: 0.88 })],
-    focus: [[0, 'boy'], [2.6, 'boy'], [2.6 + C, 'snowki'], [10.8, 'snowki'], [12.0, 'boy']], aper: 2.6, ev: [[10.8, 'boyLookDown'], [11.6, 'boySmile']] });
+    focus: [[0, 'boy'], [2.6, 'boy'], [2.6 + C, 'snowki'], [10.8, 'snowki'], [12.0, 'boy']], aper: 2.6, ev: [[6.0, 'jHop'], [10.8, 'boyLookDown'], [11.6, 'boySmile'], [12.9, 'jGreet']] });
   // ---- 4  The memory: years ago, at the seaside at golden hour, he gives Snowki to her (the #mem canvas over the scene)
   scenes.push({ n: 4, dur: d[4], tod: [1.76, 1.76], sub: [[1.4, sub(4), 4.2]],
     cam: [K(0, 'meet', { z: 2.5, lens: 0.88 }), K(d[4], 'meet', { z: 2.7, lens: 0.88 })], focus: 'boy', aper: 2.6, ev: [[0, 'memOn'], [d[4] - 1.3, 'memOff']] });
@@ -40,7 +40,7 @@ export function buildTimeline(cfg) {
     cam: [K(0, 'meetUp', { z: 2.9, lens: 0.92, e: 'inOutSine' }), K(2.2, 'meet', { z: 2.5, lens: 0.88 }),
       K(2.2 + C, 'snowTrack', { z: 2.0, lens: 0.84, e: 'inOutSine' }), K(8.0, 'trioBack', { z: 1.5, e: 'inOutSine' }), K(d[6], 'trioBack', { z: 1.5 })],
     focus: [[0, 'boy'], [2.2, 'boy'], [2.2 + C, 'snowki'], [d[6], 'snowki']], aper: 2.4,
-    ev: [[0.4, 'boyPutDown'], [1.4, 'boyStand']] });
+    ev: [[0.4, 'boyPutDown'], [1.4, 'boyStand'], [6.9, 'jHop']] });
   // ---- 7  From in front of him, we see him light the fuse, hide behind the tree, and send the firework over the sea
   scenes.push({ n: 7, dur: d[7], tod: [1.8, 1.84], sub: [],
     cam: [K(0, 'boyFront', { z: 2.15, lens: 0.92, e: 'inOutSine' }), K(4.36, 'boyFront', { z: 2.35, lens: 0.92 }),
@@ -66,7 +66,7 @@ export function buildTimeline(cfg) {
       K(12.9 + C, 'manSmile2', { z: 3.3, lens: 0.85, e: 'inOutSine' }), K(15.6, 'manSmile2', { z: 2.9, lens: 0.85, e: 'inOutSine' }), K(18.8, 'finalWide', { z: 1.0, lens: 0.5 }), K(d[9], 'finalWide', { z: 0.98, lens: 0.5 })],
     focus: [[0, 'helen'], [5.0, 'helen'], [5.0 + C, 'boy'], [6.8, 'boy'], [6.8 + C, 'helen'], [12.9, 'helen'], [12.9 + C, 'boy'], [d[9], 'boy']], aper: 1.6,
     ev: [[0, 'snHold'], [0, 'finalPlaces'], [0.2, 'jessiHappy'], [0.4, 'helenSky'], [0.5, 'softFireworks'],
-      [2.0, 'hSearch'], [4.8, 'hBackToSea'], [9.6, 'snWave'], [12.7, 'boyHappy'], [14.0, 'boyWave'], [16.6, 'line', 0], [18.6, 'fadeOut'], [d[9] - 0.4, 'end']] });
+      [2.0, 'hSearch'], [4.8, 'hBackToSea'], [7.0, 'jFollow'], [9.6, 'snWave'], [10.6, 'jFar', 0.45], [13.2, 'jFar', 0.78], [12.7, 'boyHappy'], [14.0, 'boyWave'], [16.6, 'line', 0], [18.6, 'fadeOut'], [d[9] - 0.4, 'end']] });
 
   let t = 0; for (const s of scenes) { s.start = t; t += s.dur; }
   return { scenes, duration: t, at(T) { for (let i = scenes.length - 1; i >= 0; i--) if (T >= scenes[i].start) return scenes[i]; return scenes[0]; } };

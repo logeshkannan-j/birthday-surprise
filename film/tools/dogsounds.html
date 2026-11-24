@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Jessi's voice (dev)</title>
+<style>body{font:16px system-ui;background:#1b1230;color:#f3e9ff;margin:0;padding:24px}h1{font-size:20px}button{margin:5px;padding:10px 16px;border:0;border-radius:99px;background:#f3c978;color:#2b1740;font-weight:600;cursor:pointer}p{opacity:.7;max-width:640px}</style></head>
+<body><h1>Jessi's voice</h1><p>Every sound the page and the film can make, synthesised live (dog.js). Click to hear them. Drag the sliders to hear her farther away or to the side.</p>
+<div id="b"></div><p>far <input id="far" type="range" min="0" max="1" step="0.05" value="0"> &nbsp; pan <input id="pan" type="range" min="-1" max="1" step="0.1" value="0"></p>
+<script type="module">
+import { DogVoice } from '../js/dog.js';
+let ctx, dog; const b = document.getElementById('b');
+for (const [label, mood, n] of [['happy bark ×2', 'happy'], ['happy bark ×3', 'happy', 3], ['excited yips', 'excited'], ['indignant WOOF!', 'angry'], ['soft woof', 'soft'], ['sheepish woof…', 'sheepish'], ['yelp', 'yelp'], ['double yelp', 'yelp', 2], ['whine', 'whine'], ['whimper', 'whimper'], ['growl (play)', 'growl'], ['yawn', 'yawn'], ['sigh', 'sigh'], ['pant', 'pant'], ['howl', 'howl'], ['snore', 'snore'], ['dream woof', 'sleepy'], ['"who\'s that?"', 'alert'], ['awe', 'awe']]) {
+  const e = document.createElement('button'); e.textContent = label; e.onclick = () => { if (!ctx) { ctx = new AudioContext(); dog = new DogVoice(ctx, ctx.destination); } dog.say(mood, n, { far: +document.getElementById('far').value, pan: +document.getElementById('pan').value }); }; b.appendChild(e);
+}
+</script></body></html>

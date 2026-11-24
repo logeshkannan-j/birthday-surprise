@@ -46,6 +46,8 @@ film/
   js/rigs.js              Helen (front + back view, slow head/body turn, cradle, standing poses for the flashback) and the man
                           (hide, peek, walk, walkHold, offer, kneel, cradle, talk): 2D skeletal rigs, IK, hands, Verlet hair/hem
   js/gait.js              the shared walking cycle (planted feet that never slide, heel strike / toe-off, hip rise, arm swing) used by the man, Helen and the crowd
+  js/dog.js               Jessi's voice: a model of a puppy's voice (barks that are happy / excited / indignant / sheepish / sleepy, yelps, whines, growls, yawns,
+                          pants, snores), used by the page and the film; real recordings dropped in sounds/dog/ replace it (see sounds/dog/README.txt)
   js/snowki.js            Snowki, the magical teddy: one rig (26 actions, 12 expressions, springs) for the page and the film
   js/jessi.js             Jessi, her black German Shepherd puppy: one side-view rig (walk, run, alert, sit, bark, flip, …) for both
   js/physics.js           wind field with travelling gusts, Verlet chains, cloth hem, balloons, springs
