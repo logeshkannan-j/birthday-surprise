@@ -95,17 +95,16 @@ const days = () => +(($('#cd') || {}).textContent || 0);
 const STEPS = {
   c() { stageHome(); G.fidget = ['kick', 'wave'];
     if (J.intro) { goHome('kick'); if (J.called && J.state === 'off') later(900, () => pupEnter(true)); else if (!J.called) later(900, askJessi); return; }
-    // the very first hello. At night he is already there, asleep, and wakes (a stretch, a yawn, rubbing his eyes); by day he is simply there and awake:
-    // he looks around, notices her and waves. No flying in, no landing bounce.
-    J.intro = true; G.script = true; G.fl = null; G.visK = 0.9; G.react = 0;
-    { const nt = isNight(); G.homeAct = [nt ? 'sleep' : 'idle', {}]; const p = homePos(); if (p) { G.x = p[0]; G.y = p[1]; } bear.act(nt ? 'sleep' : 'idle', { restart: true }); bear.magic = 0.2;
-      const T = nt ? [1800, 4200, 5000, 5800, 9200, 11800] : [900, 1700, 2500, 6000, 8800]; let i = 0;
-      if (nt) later(T[i++], () => bear.act('yawn', { restart: true }));
-      later(T[i++], () => bear.act('alert', { restart: true, dir: [-1, -0.2], expr: 'soft' }));
-      later(T[i++], () => bear.act('alert', { restart: true, dir: [0.9, -0.2], expr: 'soft' }));
-      later(T[i++], () => { bear.act('wave', { restart: true }); say(hello(), 3400); bear.magic = 0.35; });
-      later(T[i++], () => { bear.act('kick', { restart: true }); G.homeAct = ['kick', {}]; say(days() > 1 ? `${days()} more sleeps… let’s wait together ✦` : 'Almost time ✦', 2800); });
-      later(T[i++], () => { G.script = false; G.visK = 2.5; askJessi(); }); } },
+    // the very first hello: he is already there, asleep, and fades in softly; he wakes slowly (a long stretch and a yawn,
+    // rubs his eyes), looks around, notices her and waves. No flying in, no landing bounce.
+    J.intro = true; G.script = true; G.homeAct = ['sleep', {}]; G.fl = null; G.visK = 0.9; G.react = 0;
+    { const p = homePos(); if (p) { G.x = p[0]; G.y = p[1]; } } bear.act('sleep', { restart: true }); bear.magic = 0.2;
+    later(2600, () => bear.act('yawn', { restart: true }));
+    later(6700, () => bear.act('alert', { restart: true, dir: [-1, -0.2], expr: 'soft' }));
+    later(7700, () => bear.act('alert', { restart: true, dir: [0.9, -0.2], expr: 'soft' }));
+    later(8600, () => { bear.act('wave', { restart: true }); say(hello(), 3400); bear.magic = 0.35; });
+    later(12200, () => { bear.act('kick', { restart: true }); G.homeAct = ['kick', {}]; say(days() > 1 ? `${days()} more sleeps… let’s wait together ✦` : 'Almost time ✦', 2800); });
+    later(15300, () => { G.script = false; G.visK = 2.5; askJessi(); }); },
   0() { const env = $('#env'); G.home = spotNear(env, ['right', 'left', 'onBR', 'aboveR']); G.fidget = ['wave', 'kick'];
     goHome('point', { dir: dirTo('#seal') }); later(1300, () => say('Press and hold the heart ♡')); },
   1() { G.home = slotOf($('.s[data-n="1"] .bear')); G.fidget = ['hug', 'kick']; goHome('hug', { expr: 'soft' }); later(2400, () => { bear.burstHearts(6); bear.act('hug', { expr: 'love' }); }); },
@@ -119,7 +118,6 @@ const STEPS = {
     later(4200, () => { G.home = slotOf($('.trio .tb svg')); G.fidget = ['hug', 'kick', 'wave']; goHome('hug', { expr: 'soft' }); later(2600, () => bear.burstHearts(5)); }); }
 };
 const tod = () => document.documentElement.dataset.tod || 'night';
-const isNight = () => tod() === 'night';   // sleeping and dreaming happen only at night
 function hello() { const t = tod(), h = new Date().getHours();
   return t === 'morning' ? 'Good morning, Helen! ☀ It’s me, Snowki ♡' : t === 'dusk' ? 'Good evening, Helen! It’s me, Snowki ♡'
     : t === 'night' && h < 5 ? 'Still awake, Helen? It’s me, Snowki ♡' : 'Hey, hi Helen! It’s me, Snowki ♡'; }
@@ -217,8 +215,8 @@ function pupEnter(short) {
   J.short = short;
 }
 const TRICKS = { bark: ['bark', 1.3, 'cheer'], flip: ['flip', 1.15, 'clap'], spin: ['spin', 1.3, 'giggle'], roll: ['roll', 1.45, 'clap'], bow: ['bow', 1.3, 'dance'], paw: ['paw', 1.9, 'clap', 'Good girl, Jessi! ♡'],
-  hi: ['bark', 1.4, 'cheer', 'Jessi! Let’s play together ✦', 'excited'], lie: ['lie', 1.0, 'idle'], yawn: ['yawn', 1.6, 'yawn'], sleep: ['sleep', 0, 'shh', 'Shh… she’s dreaming of you ♡'], wake: ['wake', 0.7, 'idle'], happy: ['happy', 1.3, 'cheer'] };
-const SHOW = ['bark', 'flip', 'spin', 'roll', 'bow', 'paw', 'lie', 'yawn', 'sleep'], SHOW_DAY = ['bark', 'flip', 'spin', 'roll', 'bow', 'paw', 'happy'];
+  hi: ['bark', 1.4, 'cheer', 'Jessi! Let’s play together ✦', 'excited'], lie: ['lie', 1.0, 'idle'], yawn: ['yawn', 1.6, 'yawn'], sleep: ['sleep', 0, 'shh', 'Shh… she’s dreaming of you ♡'], wake: ['wake', 0.7, 'idle'] };
+const SHOW = ['bark', 'flip', 'spin', 'roll', 'bow', 'paw', 'lie', 'yawn', 'sleep'];
 function queue(names) { J.q = names.filter(n => !(RM && ['flip', 'spin', 'roll'].includes(n))).map(n => TRICKS[n]); J.qt = 0; J.state = 'show'; nextTrick(); }
 function nextTrick() {
   const t = J.q.shift(); if (!t) { if (J.state === 'show' && J.wantPlay) { if (!V.cdDone && !V.busy) { V.cdDone = true; banterC(() => { if (J.state === 'show' && J.wantPlay) startPlay(); }); } else if (!V.busy) startPlay(); } return; } const [a, d, b, line, mood] = t;
@@ -233,7 +231,7 @@ function tapPup() {
   if (J.state === 'play') { play.skip(); return; }
   if (!['show', 'sleep'].includes(J.state)) return;
   const pool = RM ? ['paw', 'bow'] : ['flip', 'spin', 'roll', 'bow', 'paw'], pick = pool[(Math.random() * pool.length) | 0];
-  J.dreamTo = 0; J.wantPlay = !RM; queue((J.state === 'sleep' ? ['wake'] : []).concat(isNight() ? ['bark', pick, 'lie', 'yawn', 'sleep'] : ['bark', pick, 'paw', 'happy']));
+  J.dreamTo = 0; queue((J.state === 'sleep' ? ['wake'] : []).concat(['bark', pick, 'lie', 'yawn', 'sleep']));
 }
 function pupLeave() { if (J.state === 'off') return; play.stop(); J.wantPlay = false; J.dreamTo = 0; J.state = 'leave'; J.face = 1; pup.act('run', { restart: true, vx: PUP_RUN }); hideAsk(); }
 const PUP_RUN = 220;   // her running speed in rig units/s: the rig plants each paw on the page at exactly this speed
@@ -254,31 +252,23 @@ function woof(n = 1, mood = 'happy') {
 function stepPup(dt) {
   if (J.state === 'off') return; const L = J.L || stage();
   if (J.state[0] === 'v') stepVisit(dt, L);
-  else if (J.state === 'enter') { J.x += PUP_RUN * L.ps * dt; if (J.x >= L.pupX) { J.x = L.pupX; pup.bump(40); if (RM) queue(J.short ? ['bark'].concat(isNight() ? ['lie', 'yawn', 'sleep'] : ['paw', 'happy']) : (isNight() ? SHOW : SHOW_DAY)); else { J.wantPlay = true; queue(J.short ? ['hi'] : ['hi', 'flip', 'paw']); } } }
+  else if (J.state === 'enter') { J.x += PUP_RUN * L.ps * dt; if (J.x >= L.pupX) { J.x = L.pupX; pup.bump(40); if (RM) queue(J.short ? ['bark', 'lie', 'yawn', 'sleep'] : SHOW); else { J.wantPlay = true; queue(J.short ? ['hi'] : ['hi', 'flip', 'paw']); } } }
   else if (J.state === 'leave') { J.x += PUP_RUN * L.ps * dt; if (J.x > W + 160) { J.state = 'off'; } }
   else if (J.state === 'play') J.x = L.pupX + (J.ox || 0);
   else { J.x = lerp(J.x, L.pupX, Math.min(1, dt * 4)); if (J.state === 'show' && (J.qt -= dt) <= 0) nextTrick(); }
   if (J.state === 'sleep' && pup.name === 'sleep' && pup.a > 1.3 && (J.zt = (J.zt ?? 6) - dt) <= 0) { J.zt = 7 + Math.random() * 6; dogSay(Math.random() < 0.5 ? 'sleepy' : 'snore'); }
-  if (J.state === 'sleep' && pup.name === 'sleep' && pup.a > 1.3 && !J.dreamTo && isNight()) { J.dreamTo = 1; J.sceneT = 0; setDream(); }
-  if (J.state === 'sleep') { J.slT = (J.slT || 0) + dt; if (J.slT > 17) { J.slT = 0; J.dreamTo = 0; J.wantPlay = true; queue(['wake']); } } else J.slT = 0;   // she never sleeps for long: she wakes and they play again
+  if (J.state === 'sleep' && pup.name === 'sleep' && pup.a > 1.3 && !J.dreamTo) { J.dreamTo = 1; J.scene = 0; J.sceneT = 0; setDream(); }
   J.fs = J.fs == null ? J.face : J.fs + (J.face - J.fs) * Math.min(1, dt * 12); J.fx = (J.fs >= 0 ? 1 : -1) * Math.max(0.3, Math.abs(J.fs));
   pup.update(dt);
   for (const w of J.woofs) w.t += dt; J.woofs = J.woofs.filter(w => w.t < 1);
   J.dream = J.dreamTo > J.dream ? Math.min(1, J.dream + dt * 1.1) : Math.max(0, J.dream - dt * 2.5);
-  if (J.dream > 0) { J.sceneT += dt; if (J.sceneT > 5.4) nextDream(); if ((J.dogT = (J.dogT || 0) + dt) > 1.9) { J.dogT = 0; dreamDog(); } dPup.update(dt); dBear.update(dt); }
+  if (J.dream > 0) { J.sceneT += dt; if (J.sceneT > 5.4) nextDream(); dPup.update(dt); dBear.update(dt); }
 }
 
 // ---- the dream: five little scenes of Jessi and Helen
-// ---- the dreams: only while she sleeps, and she only sleeps at night. Ten places × three night moods (evening, deep night, dawn) × five poses of Helen ×
-// eight things Jessi does × eight props = 9,600 different dreams, never the same place twice in a row.
-const D_PLACES = ['beach', 'meadow', 'rooftop', 'kitchen', 'forest', 'fair', 'snow', 'pond', 'library', 'balcony'], D_POSES = ['run', 'throw', 'sit', 'lie', 'hold'], D_DOG = ['run', 'happy', 'spin', 'roll', 'paw', 'bow', 'bark', 'flip'], D_PROPS = ['ball', 'kite', 'balloon', 'star', 'heart', 'flower', 'bone', 'bubble'];
-const dreamSlot = () => { const h = new Date().getHours(); return h >= 4 && h < 7 ? 'dawn' : h >= 18 ? 'evening' : 'deep'; };
-const D_PAL = { evening: ['#4B357E', '#F2A27A', 0.2], deep: ['#1B1848', '#5A4FA8', 0.36], dawn: ['#F2A9C4', '#FFE0B0', 0] };   // sky top, sky bottom, how much the night darkens the scene
-const rpick = a => a[(Math.random() * a.length) | 0];
-function newDream(prev) { let d; do { d = { place: rpick(D_PLACES), pose: rpick(D_POSES), dog: rpick(D_DOG), prop: rpick(D_PROPS), slot: dreamSlot() }; } while (prev && d.place === prev.place); return d; }
-function dreamDog() { const d = J.dr; if (d) dPup.act(d.dog, { restart: true, speed: 15 }); }
-function setDream() { J.dr = newDream(J.dr); J.dogT = 0; dreamDog(); dBear.act('idle', { expr: 'happy' }); }
-function nextDream() { J.sceneT = 0; setDream(); }
+const DREAMS = ['beach', 'ball', 'cuddle', 'sleep', 'trio'];
+function setDream() { const s = DREAMS[J.scene]; dPup.act({ beach: 'run', ball: 'stand', cuddle: 'pet', sleep: 'sleep', trio: 'happy' }[s], { restart: true, speed: 15 }); dBear.act('idle', { expr: 'happy' }); }
+function nextDream() { J.scene = (J.scene + 1) % DREAMS.length; J.sceneT = 0; setDream(); }
 const HC = { skin: '#CF9467', hair: '#1D1311', top: '#F8F4EA', topD: '#D8D1C1', jean: '#5276AE', jeanD: '#3A5A8E', shoe: '#FBFBFF', flower: '#E8B53A', blush: 'rgba(224,122,128,.55)', lip: '#B85C5E' };
 function helenMini(x, y, k, pose, t) {   // a tiny chibi Helen standing on (x, y); k = px per unit (about 34 units tall)
   const c = cx; c.save(); c.translate(x, y); c.scale(k, k); c.lineCap = c.lineJoin = 'round';
@@ -316,52 +306,31 @@ function helenMini(x, y, k, pose, t) {   // a tiny chibi Helen standing on (x, y
   c.restore();
 }
 function drawDream(mx, my, w, h, t) {
-  const d = J.dr || (J.dr = newDream()), u = h / 44, T = J.sceneT, fade = clamp(T / 0.5, 0, 1) * clamp((5.4 - T) / 0.5, 0, 1), c = cx, pal = D_PAL[d.slot], g = 14 * u;
-  const bg = c.createLinearGradient(0, my - h / 2, 0, my + h / 2); bg.addColorStop(0, pal[0]); bg.addColorStop(1, pal[1]); c.fillStyle = bg; c.fillRect(mx - w / 2, my - h / 2, w, h);
+  const s = DREAMS[J.scene], u = h / 44, T = J.sceneT, fade = clamp(T / 0.5, 0, 1) * clamp((5.4 - T) / 0.5, 0, 1), c = cx;
+  const night = s === 'sleep', bg = c.createLinearGradient(0, my - h / 2, 0, my + h / 2);
+  bg.addColorStop(0, night ? '#5A4FA8' : '#FFE0EE'); bg.addColorStop(1, night ? '#A08EE0' : '#D8C6FF'); c.fillStyle = bg; c.fillRect(mx - w / 2, my - h / 2, w, h);
   c.save(); c.globalAlpha *= fade; c.translate(mx, my);
-  if (d.slot !== 'dawn') { c.fillStyle = '#fff'; for (let i = 0; i < 10; i++) { c.globalAlpha = fade * (0.4 + 0.5 * Math.sin(t * 3 + i)); c.fillRect(((i * 37) % 70 - 35) * u, (-21 + (i * 13) % 12) * u, 1.2, 1.2); } c.globalAlpha = fade;
-    c.fillStyle = '#FFF6D8'; c.beginPath(); c.arc(21 * u, -15 * u, 4.6 * u, 0, 7); c.fill(); c.fillStyle = pal[0]; c.beginPath(); c.arc(23.4 * u, -16.4 * u, 4 * u, 0, 7); c.fill(); }
-  else { c.fillStyle = '#FFF1B8'; c.beginPath(); c.arc(-22 * u, g - 6 * u, 6 * u, 0, 7); c.fill(); }   // a low rising sun
-  const gr = (col, y = 2) => { c.fillStyle = col; c.fillRect(-w / 2, g - y * u, w, 30 * u); };
-  switch (d.place) {
-    case 'beach': c.fillStyle = '#7FC4E8'; c.fillRect(-w / 2, g - 14 * u, w, 7 * u); gr('#FFE2B8', 7); c.strokeStyle = 'rgba(255,255,255,.8)'; c.lineWidth = 1;
-      for (let i = 0; i < 6; i++) { const x = ((i * 23 - T * 40) % (w + 20) + w + 20) % (w + 20) - w / 2 - 10; c.beginPath(); c.moveTo(x, g - 8 * u); c.quadraticCurveTo(x + 4 * u, g - 9.5 * u, x + 8 * u, g - 8 * u); c.stroke(); } break;
-    case 'meadow': gr('#A9D98A', 3); for (let i = 0; i < 9; i++) { c.fillStyle = ['#FF9FC0', '#FFFFFF', '#FFE27A', '#C9B5FF'][i % 4]; c.beginPath(); c.arc(((i * 29) % 60 - 30) * u, g + (2 + (i * 7) % 6) * u, 1.1 * u, 0, 7); c.fill(); } break;
-    case 'rooftop': c.fillStyle = '#3B3158'; for (let i = 0; i < 8; i++) c.fillRect((-34 + i * 9) * u, g - (6 + (i * 7) % 9) * u, 8 * u, 20 * u); gr('#4A3F6B', 2); c.fillStyle = '#6B5C94'; c.fillRect(14 * u, g - 8 * u, 5 * u, 7 * u);
-      c.fillStyle = '#FFE7A8'; for (let i = 0; i < 12; i++) { c.globalAlpha = fade * (0.4 + 0.4 * Math.sin(t * 2 + i)); c.fillRect((-33 + (i * 17) % 66) * u, g - (3 + (i * 5) % 9) * u, 1.1 * u, 1.1 * u); } c.globalAlpha = fade; break;
-    case 'kitchen': c.fillStyle = '#FFE6C8'; c.fillRect(-w / 2, -22 * u, w, g + 22 * u); c.fillStyle = '#9FD4FF'; c.fillRect(-26 * u, -14 * u, 12 * u, 11 * u); c.strokeStyle = '#fff'; c.lineWidth = 1.2; c.strokeRect(-26 * u, -14 * u, 12 * u, 11 * u); c.beginPath(); c.moveTo(-20 * u, -14 * u); c.lineTo(-20 * u, -3 * u); c.stroke();
-      c.fillStyle = '#C48A55'; c.fillRect(8 * u, g - 8 * u, 18 * u, 2 * u); c.fillRect(10 * u, g - 6 * u, 1.6 * u, 6 * u); c.fillRect(22 * u, g - 6 * u, 1.6 * u, 6 * u); gr('#D9A66C', 3); break;
-    case 'forest': gr('#6FA46A', 2); for (let i = 0; i < 6; i++) { const x = (-30 + i * 12) * u; c.fillStyle = '#5A4632'; c.fillRect(x - 0.9 * u, g - 12 * u, 1.8 * u, 12 * u); c.fillStyle = i % 2 ? '#3E7A4A' : '#4C8F57'; c.beginPath(); c.moveTo(x, g - 25 * u); c.lineTo(x - 6 * u, g - 7 * u); c.lineTo(x + 6 * u, g - 7 * u); c.fill(); }
-      if (d.slot !== 'dawn') { c.fillStyle = '#FFF6C8'; for (let i = 0; i < 6; i++) { c.globalAlpha = fade * (0.3 + 0.7 * Math.abs(Math.sin(t * 1.4 + i * 2))); c.beginPath(); c.arc(((i * 31) % 56 - 28 + Math.sin(t + i) * 3) * u, (-4 + (i * 11) % 14) * u, 0.9 * u, 0, 7); c.fill(); } c.globalAlpha = fade; } break;
-    case 'fair': gr('#B79AD8', 2); c.save(); c.translate(17 * u, -4 * u); c.strokeStyle = '#FFE7A8'; c.lineWidth = 1.2; c.beginPath(); c.arc(0, 0, 11 * u, 0, 7); c.stroke(); c.rotate(T * 0.5);
-      for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; c.beginPath(); c.moveTo(0, 0); c.lineTo(Math.cos(a) * 11 * u, Math.sin(a) * 11 * u); c.stroke(); c.fillStyle = ['#FF7AA5', '#FFD27A', '#8EC9FF', '#B9A3FF'][i % 4]; c.beginPath(); c.arc(Math.cos(a) * 11 * u, Math.sin(a) * 11 * u, 1.4 * u, 0, 7); c.fill(); } c.restore(); break;
-    case 'snow': gr('#F4F8FF', 2); c.fillStyle = '#fff'; for (let i = 0; i < 18; i++) { const p = ((T * 0.3 + i * 0.137) % 1); c.beginPath(); c.arc(((i * 29) % 70 - 35 + Math.sin(T + i) * 2) * u, (-22 + p * 36) * u, 0.9 * u, 0, 7); c.fill(); } break;
-    case 'pond': gr('#8FC48B', 3); c.fillStyle = '#6FB6D8'; c.beginPath(); c.ellipse(4 * u, g + 4 * u, 24 * u, 5 * u, 0, 0, 7); c.fill(); c.fillStyle = '#5FA05A'; for (const x of [-8, 6, 16]) { c.beginPath(); c.ellipse(x * u, g + 4 * u, 3 * u, 1.1 * u, 0, 0, 7); c.fill(); }
-      c.strokeStyle = 'rgba(255,255,255,.55)'; c.lineWidth = 1; for (let i = 0; i < 2; i++) { const r = ((T * 0.5 + i * 0.5) % 1); c.globalAlpha = fade * (1 - r); c.beginPath(); c.ellipse(10 * u, g + 4 * u, (2 + r * 9) * u, (0.6 + r * 2) * u, 0, 0, 7); c.stroke(); } c.globalAlpha = fade; break;
-    case 'library': c.fillStyle = '#7A5638'; c.fillRect(-w / 2, -22 * u, w, g + 22 * u); for (let r = 0; r < 3; r++) { c.fillStyle = '#5A3E26'; c.fillRect(-w / 2, (-18 + r * 12) * u, w, 1.4 * u); for (let i = 0; i < 16; i++) { c.fillStyle = ['#C0426E', '#4F7FC9', '#E9B44C', '#5FA05A', '#8A5FC9'][(i + r) % 5]; c.fillRect((-34 + i * 4.4) * u, (-18 + r * 12 - 8 + (i % 3)) * u, 3.4 * u, (8 - (i % 3)) * u); } } gr('#B98A5A', 2); break;
-    default: /* balcony */ gr('#7A6AA8', 2); c.strokeStyle = '#E8DFFF'; c.lineWidth = 1.4; c.beginPath(); c.moveTo(-w / 2, g - 12 * u); c.lineTo(w / 2, g - 12 * u); c.stroke(); for (let i = 0; i < 9; i++) { c.beginPath(); c.moveTo((-32 + i * 8) * u, g - 12 * u); c.lineTo((-32 + i * 8) * u, g); c.stroke(); }
-      c.fillStyle = '#FFE7A8'; for (let i = 0; i < 12; i++) { c.globalAlpha = fade * (0.4 + 0.4 * Math.sin(t * 2 + i)); c.fillRect((-34 + (i * 19) % 68) * u, (-6 + (i * 5) % 8) * u, 1.1 * u, 1.1 * u); } c.globalAlpha = fade;
-  }
-  if (pal[2]) { c.fillStyle = `rgba(14,8,50,${pal[2]})`; c.fillRect(-w / 2, -h / 2, w, h); }   // the night over everything behind them
-  helenMini(-12 * u, g + (d.pose === 'lie' ? 1 * u : 0), u * 0.95, d.pose, t);
-  if (d.pose === 'hold') { c.save(); c.translate(-7.6 * u, g - 9.5 * u); c.scale(0.12 * u, 0.12 * u); dBear.draw(c, { aura: false, sparkle: false }); c.restore(); }
-  // the thing they play with
-  const a = (t % 2.2) / 2.2, kind = d.prop;
-  c.save();
-  if (kind === 'ball' || kind === 'bone' || kind === 'flower') { const x = lerp(-6, 11, a) * u, y = g - 12 * u - Math.sin(a * Math.PI) * 13 * u + a * 3 * u; c.translate(x, y); c.rotate(a * 9);
-    if (kind === 'ball') { c.fillStyle = '#FF7AA5'; c.beginPath(); c.arc(0, 0, 2.2 * u, 0, 7); c.fill(); c.strokeStyle = '#fff'; c.lineWidth = 0.7; c.beginPath(); c.arc(0, 0, 2.2 * u, 0.4, 2.4); c.stroke(); }
-    else if (kind === 'bone') { c.fillStyle = '#F6EBD6'; c.fillRect(-2.6 * u, -0.7 * u, 5.2 * u, 1.4 * u); for (const [px, py] of [[-2.6, -0.8], [-2.6, 0.8], [2.6, -0.8], [2.6, 0.8]]) { c.beginPath(); c.arc(px * u, py * u, 0.9 * u, 0, 7); c.fill(); } }
-    else { c.fillStyle = '#FF8FB8'; for (let i = 0; i < 5; i++) { const q = i * 1.2566; c.beginPath(); c.arc(Math.cos(q) * 1.2 * u, Math.sin(q) * 1.2 * u, 1.1 * u, 0, 7); c.fill(); } c.fillStyle = '#FFE27A'; c.beginPath(); c.arc(0, 0, 0.9 * u, 0, 7); c.fill(); } }
-  else if (kind === 'kite') { const x = (4 + Math.sin(t * 0.9) * 5) * u, y = (-18 + Math.cos(t * 1.3) * 3) * u; c.strokeStyle = 'rgba(255,255,255,.8)'; c.lineWidth = 0.7; c.beginPath(); c.moveTo(-9 * u, g - 11 * u); c.quadraticCurveTo(-2 * u, (g + y) / 2 / u * u, x, y + 4 * u); c.stroke();
-    c.translate(x, y); c.rotate(Math.sin(t * 1.4) * 0.25); c.fillStyle = '#FF6F91'; c.beginPath(); c.moveTo(0, -4.4 * u); c.lineTo(3 * u, 0); c.lineTo(0, 5 * u); c.lineTo(-3 * u, 0); c.fill(); c.fillStyle = '#FFD86A'; c.beginPath(); c.moveTo(0, -4.4 * u); c.lineTo(3 * u, 0); c.lineTo(0, 0); c.fill(); }
-  else if (kind === 'balloon') { const x = (-3 + Math.sin(t * 0.8) * 3) * u, y = (-12 + Math.sin(t * 1.1) * 2.5) * u; c.strokeStyle = 'rgba(255,255,255,.7)'; c.lineWidth = 0.7; c.beginPath(); c.moveTo(-9 * u, g - 11 * u); c.lineTo(x, y + 3.6 * u); c.stroke(); c.fillStyle = '#FF7AA5'; c.beginPath(); c.ellipse(x, y, 2.6 * u, 3.2 * u, 0, 0, 7); c.fill(); c.fillStyle = 'rgba(255,255,255,.4)'; c.beginPath(); c.ellipse(x - 0.9 * u, y - 1.2 * u, 0.7 * u, 1.1 * u, -0.4, 0, 7); c.fill(); }
-  else if (kind === 'star') { const x = (5 + Math.sin(t * 0.7) * 6) * u, y = (-16 + Math.sin(t * 1.5) * 3) * u; c.translate(x, y); c.rotate(t * 0.8); c.fillStyle = '#FFE27A'; c.beginPath(); for (let i = 0; i < 10; i++) { const q = i * Math.PI / 5, r = (i % 2 ? 1.5 : 3.4) * u; c.lineTo(Math.cos(q) * r, Math.sin(q) * r); } c.fill(); }
-  else if (kind === 'heart') { c.fillStyle = '#FF6F9C'; for (let i = 0; i < 3; i++) { const p = ((T * 0.4 + i / 3) % 1); c.globalAlpha = Math.sin(p * Math.PI) * fade; heart(c, (-2 + i * 6) * u, g - 14 * u - p * 16 * u, 2 * u); } c.globalAlpha = fade; }
-  else { c.fillStyle = 'rgba(200,230,255,.35)'; c.strokeStyle = 'rgba(255,255,255,.8)'; c.lineWidth = 0.7; for (let i = 0; i < 5; i++) { const p = ((T * 0.3 + i * 0.2) % 1), x = (-4 + i * 4 + Math.sin(t * 2 + i) * 1.5) * u, y = g - 8 * u - p * 26 * u, r = (1.2 + (i % 3) * 0.6) * u; c.beginPath(); c.arc(x, y, r, 0, 7); c.fill(); c.stroke(); } }
-  c.restore();
-  // the little dog in the dream, facing Helen
-  const hop = (kind === 'ball' || kind === 'bone' || kind === 'flower') && a > 0.62 && a < 0.92 ? Math.sin((a - 0.62) / 0.3 * Math.PI) * 9 * u : 0;
-  c.save(); c.translate(10 * u, g - hop + (d.pose === 'lie' ? 1 * u : 0)); const jk = 0.34 * u; c.scale(-jk, jk); dPup.draw(c); c.restore();
+  const g = 14 * u;   // ground line
+  if (s === 'beach') { c.fillStyle = '#9FD6F0'; c.fillRect(-w / 2, g - 14 * u, w, 7 * u); c.fillStyle = '#FFE7C4'; c.fillRect(-w / 2, g - 7 * u, w, 30 * u);
+    c.strokeStyle = 'rgba(255,255,255,.8)'; c.lineWidth = 1; for (let i = 0; i < 6; i++) { const x = ((i * 23 - T * 40) % (w + 20) + w + 20) % (w + 20) - w / 2 - 10; c.beginPath(); c.moveTo(x, g - 8 * u); c.quadraticCurveTo(x + 4 * u, g - 9.5 * u, x + 8 * u, g - 8 * u); c.stroke(); }
+    helenMini(-12 * u, g, u * 0.95, 'run', t); }
+  else if (s === 'ball') { c.fillStyle = '#BFE6B4'; c.fillRect(-w / 2, g - 3 * u, w, 30 * u);
+    helenMini(-22 * u, g, u * 0.95, 'throw', t);
+    const a = (t % 1.8) / 1.8, bp = a < 0.4 ? null : clamp((a - 0.4) / 0.5, 0, 1);
+    if (bp != null && bp < 1) { const bx = lerp(-17, 16, bp) * u, by = (g - 22 * u) - Math.sin(bp * Math.PI) * 14 * u + bp * 4 * u; c.fillStyle = '#FF7AA5'; c.beginPath(); c.arc(bx, by, 2.2 * u, 0, 7); c.fill(); c.strokeStyle = '#fff'; c.lineWidth = 0.6; c.beginPath(); c.arc(bx, by, 2.2 * u, 0.4, 2.4); c.stroke(); } }
+  else if (s === 'cuddle') { c.fillStyle = '#F7C9DE'; c.fillRect(-w / 2, g - 2 * u, w, 30 * u); helenMini(-10 * u, g, u, 'sit', t);
+    for (let i = 0; i < 4; i++) { const p = ((T * 0.5 + i / 4) % 1); c.globalAlpha = Math.sin(p * Math.PI) * fade; c.fillStyle = '#FF6F9C'; heart(c, (-4 + i * 4) * u, g - 26 * u - p * 14 * u, 2 * u); } c.globalAlpha = fade; }
+  else if (s === 'sleep') { c.fillStyle = '#FFF6D8'; c.beginPath(); c.arc(22 * u, -16 * u, 5 * u, 0, 7); c.fill(); c.fillStyle = '#7468C0'; c.beginPath(); c.arc(24.5 * u, -17.5 * u, 4.4 * u, 0, 7); c.fill();
+    c.fillStyle = '#fff'; for (let i = 0; i < 9; i++) { const sx = ((i * 37) % 70 - 35) * u, sy = (-20 + (i * 13) % 14) * u; c.globalAlpha = fade * (0.5 + 0.5 * Math.sin(t * 3 + i)); c.fillRect(sx, sy, 1.2, 1.2); } c.globalAlpha = fade;
+    c.fillStyle = '#C3B4F2'; c.fillRect(-w / 2, g - 1 * u, w, 30 * u); c.fillStyle = '#F7E3F0'; c.beginPath(); c.ellipse(-12 * u, g - 1 * u, 7 * u, 2.4 * u, 0, 0, 7); c.fill(); helenMini(-4 * u, g + 1 * u, u, 'lie', t); }
+  else { c.fillStyle = '#FFD9A8'; c.fillRect(-w / 2, g - 2 * u, w, 30 * u); helenMini(-10 * u, g, u, 'hold', t);
+    c.save(); c.translate(-7.6 * u, g - 9.5 * u); c.scale(0.12 * u, 0.12 * u); dBear.draw(c, { aura: false, sparkle: false }); c.restore();
+    for (let i = 0; i < 14; i++) { const p = ((T * 0.35 + i * 0.13) % 1); c.fillStyle = ['#FF8DB3', '#FFD27A', '#8EC9FF', '#B9A3FF'][i % 4]; c.fillRect(((i * 29) % 60 - 30) * u, (-28 + p * 52) * u, 1.6 * u, 1 * u); } }
+  // the little dog in the dream
+  const dx = { beach: 9, ball: 15, cuddle: 6, sleep: -3, trio: 9 }[s] * u, a = (t % 1.8) / 1.8, hop = s === 'ball' && a > 0.62 && a < 0.92 ? Math.sin((a - 0.62) / 0.3 * Math.PI) * 9 * u : 0;
+  if (s === 'ball' && hop > 0.5 * u) dPup.act('bark', {}); else if (s === 'ball') dPup.act('stand', {});
+  c.save(); c.translate(dx, g - hop + (s === 'sleep' ? 1 * u : 0)); const jk = 0.34 * u; c.scale(s === 'beach' ? jk : -jk, jk); dPup.draw(c); c.restore();
+  if (s === 'sleep') { c.fillStyle = 'rgba(255,255,255,.85)'; c.font = `600 ${6 * u}px Georgia, serif`; for (let i = 0; i < 3; i++) { const p = (T * 0.45 + i / 3) % 1; c.globalAlpha = Math.sin(p * Math.PI) * fade; c.fillText('z', (2 + p * 10) * u, (g - 14 * u) - p * 12 * u); } c.globalAlpha = fade; }
   c.restore();
 }
 function heart(c, x, y, r) { c.beginPath(); c.moveTo(x, y + r * 0.85); c.bezierCurveTo(x - r * 1.25, y, x - r, y - r, x, y - r * 0.35); c.bezierCurveTo(x + r, y - r, x + r * 1.25, y, x, y + r * 0.85); c.fill(); }
@@ -429,7 +398,7 @@ function freeSpot(w, h, x, y) {
 const play = makePlay({ bear, pup, G, J, say, woof, sc: () => sc, bk: () => sc * (0.6 + 0.4 * G.vis), W: () => W, H: () => H, tod, days,
   audio: () => { if (!soundOn()) return null; unlockAudio(); return AC; }, busy: () => !!(G.fl || G.drag), free: freeSpot,
   cdBottom: () => ($('.cd') ? $('.cd').getBoundingClientRect().bottom : 0),
-  nap: on => { const nt = on && isNight(); J.dreamTo = nt ? 1 : 0; if (nt) { J.sceneT = 0; setDream(); } } });
+  nap: on => { J.dreamTo = on ? 1 : 0; if (on) { J.scene = 0; J.sceneT = 0; setDream(); } } });
 
 // ---------------------------------------------------------------- the reveal's dog is Jessi too: the same rig, sitting and wagging beside Helensnowfia and Snowki
 const tdSvg = $('.trio .td svg'), trioPup = new Jessi(); let trioC = null;

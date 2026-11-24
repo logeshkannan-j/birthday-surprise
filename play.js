@@ -479,76 +479,10 @@ export function makePlay(api) {
   ];
   const title = a => (typeof a.t === 'function' ? a.t() : a.t);
 
-  // ---------------------------------------------------------------- endless games, chosen by the time of day. Snowki does something with a prop, Jessi does something with it,
-  // then a finale. 4 times of day × 10 props × 9 things Snowki does × 9 things Jessi does × 6 finales = 19,440 different games (besides the 52 above).
-  const WORD = { ball: 'ball', frisbee: 'frisbee', balloon: 'balloon', bone: 'bone', kite: 'kite', butterfly: 'butterfly', plane: 'paper plane', flower: 'flower', hat: 'party hat', shades: 'sunglasses', book: 'storybook', drum: 'drum', camera: 'camera', cupcake: 'cupcake', gift: 'gift', envelope: 'love letter', polaroid: 'photo', tophat: 'top hat', bunny: 'bunny', musicbox: 'music box', umbrella: 'umbrella' };
-  const FLOATY = new Set(['balloon', 'kite', 'butterfly', 'plane']);
-  const POPT = { balloon: () => ({ c: pick(COLS) }), flower: () => ({ c: pick(COLS) }), hat: () => ({ c: pick(COLS) }), butterfly: () => ({ c: pick(COLS), glow: N() }), kite: () => ({ glow: N() }) };
-  const TIMES = {
-    morning: { fx: 'petal', props: ['ball', 'flower', 'butterfly', 'balloon', 'kite', 'cupcake', 'bunny', 'plane', 'envelope', 'hat'], places: ['dewy lawn', 'sunny porch', 'garden path', 'sunrise hill', 'breakfast corner', 'little meadow'],
-      open: ['Good morning! The {place} is waking up, and look: {a}!', 'Dew on the grass… and {a} for us!', 'Rise and shine, Helen! {The} {prop} wants to play!', 'First game of the day: {the} {prop}!', 'Breakfast can wait. {A} first!', 'The birds are singing. {A} is calling!'],
-      close: ['What a start to the day! ♡', 'Best morning ever, Helen!', 'Ten out of ten! Now… breakfast?', 'Sunshine and giggles ✦', 'Helen, tell me you saw that!'] },
-    day: { fx: 'confetti', props: ['frisbee', 'ball', 'kite', 'plane', 'bone', 'camera', 'shades', 'balloon', 'drum', 'umbrella'], places: ['sunny field', 'shady tree', 'park bench', 'garden', 'dusty road', 'picnic blanket'],
-      open: ['Sunny at the {place}! Time for {a}!', 'Helen, watch this: {the} {prop}!', 'Lunchtime games! Who wants {a}?', 'Perfect weather for a {prop} game!', 'Okay, okay: {a}. Ready?', 'Sun’s out, {prop}’s out!'],
-      close: ['That was SO fun!', 'Again again again!', 'Jessi, you’re a champion!', 'Round of applause!', 'I’m exhausted. Let’s go again!'] },
-    dusk: { fx: 'leaf', props: ['kite', 'polaroid', 'camera', 'book', 'envelope', 'gift', 'plane', 'bone', 'musicbox', 'tophat'], places: ['golden hill', 'quiet lane', 'old bridge', 'sunset beach', 'lantern square', 'evening porch'],
-      open: ['Golden hour at the {place}… {a}!', 'The sky is all pink. Perfect for {a}.', 'One more game before the stars: {the} {prop}!', 'Sunset game: {the} {prop}!', 'Everything glows now, even {the} {prop}.', 'Let’s catch the last light with {a}!'],
-      close: ['Look at those colours ♡', 'Golden hour makes everything better.', 'The day’s ending but the fun isn’t.', 'Sunset score: ten out of ten.', 'Aww, even the sky clapped.'] },
-    night: { fx: 'fly', props: ['book', 'musicbox', 'butterfly', 'kite', 'cupcake', 'gift', 'envelope', 'polaroid', 'hat', 'bunny'], places: ['starry yard', 'moonlit porch', 'quiet window', 'firefly path', 'midnight garden', 'cosy corner'],
-      open: ['Shh… a quiet game with {a}.', 'The stars are out. Let’s play with {a}, gently.', 'Moonlight game: {the} {prop}!', 'Helen, it’s late. We’ll be very gentle with {the} {prop}.', 'A night-time {prop} game. Whisper rules!', 'The fireflies are watching… {a}!'],
-      close: ['Sweet dreams game ♡', 'The stars liked that one ✦', 'Okay… that was peaceful.', 'Nighty-night, {the} {prop}!', 'Shh… whisper-clap ♡'] }
-  };
-  const fmt = (tpl, kind, place) => { const w = WORD[kind], an = /^[aeiou]/.test(w) ? 'an ' : 'a ', cap = x => x[0].toUpperCase() + x.slice(1);
-    return tpl.replace('{a}', an + w).replace('{A}', cap(an + w)).replace('{the}', 'the ' + w).replace('{The}', 'The ' + w).replace(/\{prop\}/g, w).replace('{place}', place).replace('{Place}', cap(place)); };
-  const TFX = () => (TIMES[api.tod()] || TIMES.day).fx;
-  const near = p => clamp((p.x - L().pupX) / U() - 0.9, -3.8, 2.4);
-  const grab = p => { p.path = null; p.fn = null; p.at = JE.mouth; p.vx = p.vy = p.g = 0; p.floor = 0; sfx('pop'); };
-  const drop = (p, from) => { p.at = null; p.path = null; p.fn = null; if (from) [p.x, p.y] = from(); if (FLOATY.has(p.kind)) { p.vx = 12 * s(); p.vy = -24 * s(); p.g = -6 * s(); p.floor = 0; } else { p.vx = 30 * s(); p.vy = -60 * s(); p.g = 640 * s(); p.floor = L().gy - 9 * s(); } };
-  const throwTo = (p, end, dur, lift) => { const a = [p.x, p.y]; p.at = null; p.fn = null; p.path = { a, c: arcC(a, end(), lift * s()), end, t: 0, dur, spin: 6 }; };
-  const runTo = (A, p, t) => A(t, () => { P.look = () => [p.x, p.y]; pup.act('alert', { restart: true }); pupTo(near(p), 0.9, 'stand'); });
-  const BM = [   // what Snowki does with it (0.8 – 3.8 s)
-    { t: n => `Tossing the ${n}`, f(A, p) { A(1.2, () => bear.act('hold', { restart: true, hold: 'none' })); A(1.8, () => { throwTo(p, () => [gapX(), L().gy - 14 * s()], 1.1, 150); bear.act('cheer', { restart: true }); sfx('whoosh'); }); A(3.2, () => drop(p)); } },
-    { t: n => `Showing off the ${n}`, f(A, p) { A(1.4, () => { p.at = SN.above; bear.act('cheer', { restart: true }); sfx('chime'); burst('spark', SN.top, 10, { v: 110 }); }); A(3.4, () => { p.at = SN.hands; bear.act('hold', { restart: true, hold: 'none' }); }); } },
-    { t: n => `Hiding the ${n}`, f(A, p) { A(1.0, () => { bear.act('cover', { restart: true }); p.a = 1; tween(p, 'a', 0, 0.3); }); A(2.6, () => bear.act('peek', { restart: true })); A(3.4, () => { tween(p, 'a', 1, 0.3); bear.act('cheer', { restart: true }); pop('Ta-da!', SN.top); sfx('pop'); }); } },
-    { t: n => `Dancing with the ${n}`, f(A, p) { A(1.0, () => { bear.act('dance', { restart: true }); p.rotFn = t => Math.sin(t * 5) * 0.4; }); for (let i = 0; i < 4; i++) A(1.2 + i * 0.7, () => burst('note', SN.top, 2, { v: 70, g: -50 })); A(3.8, () => { p.rotFn = null; }); } },
-    { t: n => `Offering the ${n}`, f(A, p) { A(1.0, () => { bearTo(-1.4, 0, 0.9, 'walk', 'hold', { endO: { hold: 'none' } }); api.say('For you, Jessi!', 1600); }); A(3.4, () => bear.act('hold', { restart: true, hold: 'none' })); } },
-    { t: n => `Blowing the ${n} away`, f(A, p) { A(1.0, () => { bear.act('blow', { restart: true, dir: [-1, -0.3] }); sfx('whoosh'); }); A(1.8, () => { throwTo(p, () => [gapX() - 24 * s(), L().gy - 12 * s()], 1.2, 70); burst('seed', SN.mouth, 6, { v: 70, g: -14, life: 2 }); }); A(3.3, () => drop(p)); } },
-    { t: n => `Balancing the ${n}`, f(A, p) { A(1.0, () => { p.at = SN.top; p.rotFn = t => Math.sin(t * 6) * 0.25; bear.act('idle', { restart: true, expr: 'determined' }); }); A(2.4, () => pop('Steady…', SN.above)); A(3.5, () => { p.rotFn = null; p.at = SN.hands; bear.act('cheer', { restart: true }); }); } },
-    { t: n => `Cheering for the ${n}`, f(A) { A(1.0, () => { bear.act('cheer', { restart: true }); burst(TFX(), SN.top, 10, { v: 110 }); }); A(2.6, () => { bear.act('clap', { restart: true }); sfx('clap'); }); } },
-    { t: n => `Pointing at the ${n}`, f(A) { A(1.0, () => { bear.act('point', { restart: true, dir: [-1, -0.5] }); api.say('Look, Jessi!', 1500); burst('spark', SN.hands, 6, { v: 80 }); }); A(2.8, () => pup.act('alert', { restart: true })); } }
-  ];
-  const JM = [   // what Jessi does with it (4 – 7.6 s)
-    { t: 'Jessi fetches it', f(A, p) { runTo(A, p, 4.0); A(5.0, () => { grab(p); pop('Got it!', JE.top); pupTo(0.7, 1.0, 'sit', { face: 'bear' }); }); A(6.5, () => { drop(p, JE.mouth); bear.act('clap', { restart: true }); api.say('Good girl! ♡', 1500); burst('heart', JE.top, 5, { v: 70, g: -40 }); pup.act('happy', { restart: true }); }); } },
-    { t: 'Jessi balances it', f(A, p) { runTo(A, p, 4.0); A(5.0, () => { grab(p); pup.act('sit', { restart: true }); }); A(5.6, () => { p.at = JE.top; p.rotFn = t => Math.sin(t * 7) * 0.3; pupHop(0.3, 0.3); pop('Careful…', JE.top); }); A(7.0, () => { p.rotFn = null; drop(p, JE.top); pup.act('happy', { restart: true }); }); } },
-    { t: 'Jessi parades with it', f(A, p) { runTo(A, p, 4.0); A(5.0, () => { grab(p); pupTo(-3.2, 1.0, 'stand'); }); A(6.2, () => pupTo(1.2, 1.1, 'stand')); A(7.3, () => { pupTo(0.7, 0.6, 'sit', { face: 'bear' }); drop(p, JE.mouth); api.woof(1, 'happy'); }); } },
-    { t: 'Jessi spins with it', f(A, p) { runTo(A, p, 4.0); A(5.0, () => { grab(p); pup.act('spin', { restart: true }); }); A(6.7, () => { drop(p, JE.mouth); pup.act('happy', { restart: true }); sfx('sparkle'); }); } },
-    { t: 'Jessi buries it', f(A, p) { runTo(A, p, 4.0); A(5.0, () => { grab(p); pupTo(-3.4, 1.1, 'stand'); }); A(6.3, () => { drop(p, JE.mouth); pup.act('paw', { restart: true }); burst('crumb', JE.paw, 8, { v: 90, g: 400, c: '#7A5A3A' }); }); A(7.3, () => { fade(p, 0.5); pop('Shh, a secret!', JE.top); pupTo(0.7, 1.0, 'sit', { face: 'bear' }); }); } },
-    { t: 'Jessi guards it', f(A, p) { runTo(A, p, 4.0); A(5.0, () => grab(p)); A(5.4, () => { p.at = JE.paw; pup.act('alert', { restart: true }); api.woof(2, 'angry'); bear.act('shy', { restart: true }); }); A(7.0, () => { drop(p, JE.paw); bear.act('giggle', { restart: true }); pup.act('happy', { restart: true }); }); } },
-    { t: 'Jessi tosses it up', f(A, p) { runTo(A, p, 4.0); A(5.0, () => grab(p)); A(5.3, () => { p.at = null; [p.x, p.y] = JE.mouth(); p.vx = 0; p.vy = -330 * s(); p.g = 820 * s(); p.floor = 0; pup.act('alert', { restart: true }); }); A(6.4, () => { grab(p); pop('Caught!', JE.top); pupHop(0.5, 0.4); }); A(7.2, () => drop(p, JE.mouth)); } },
-    { t: 'Jessi bows with it', f(A, p) { runTo(A, p, 4.0); A(5.0, () => grab(p)); A(5.4, () => pup.act('bow', { restart: true })); A(6.8, () => { drop(p, JE.mouth); pup.act('paw', { restart: true }); }); } },
-    { t: 'Jessi rolls over', f(A, p) { runTo(A, p, 4.0); A(5.0, () => { grab(p); }); A(5.7, () => { drop(p, JE.mouth); pup.act('roll', { restart: true }); }); A(7.3, () => { pup.act('happy', { restart: true }); api.woof(1, 'excited'); }); } }
-  ];
-  const FIN = [   // the finale (7.6 – 9.6 s)
-    { f(A) { A(7.6, () => { burst('confetti', mid, 22, { v: 160 }); bear.act('cheer', { restart: true }); pup.act('happy', { restart: true }); sfx('sparkle'); }); } },
-    { f(A) { A(7.6, () => { burst('heart', mid, 10, { v: 80, g: -30 }); bear.act('hug', { restart: true, expr: 'soft' }); pup.act('happy', { restart: true }); }); } },
-    { f(A) { A(7.6, () => { burst('spark', JE.top, 14, { v: 140 }); bear.act('dance', { restart: true }); pup.act('spin', { restart: true }); sfx('chime'); }); } },
-    { f(A) { A(7.6, () => { burst(TFX(), mid, 16, { v: 100, g: 20 }); bear.act('giggle', { restart: true }); pup.act('happy', { restart: true }); }); } },
-    { f(A) { A(7.4, () => pupTo(0.9, 0.7, 'stand', { face: 'bear' })); A(8.2, () => { bear.act('clap', { restart: true }); pup.act('paw', { restart: true }); sfx('clap'); pop('High five!', mid); }); } },
-    { f(A) { A(7.8, () => { bear.act('bow', { restart: true }); pup.act('bow', { restart: true }); sfx('chime'); pop('Thank you!', mid); }); } }
-  ];
-  function genAct() {
-    const T = TIMES[api.tod()] || TIMES.day, kind = pick(T.props), place = pick(T.places), bm = pick(BM), jm = pick(JM), fin = pick(FIN);
-    return { gen: true, t: `${bm.t(WORD[kind])} · ${jm.t}`, d: 10.6, f(A) {
-      const p = prop(kind, POPT[kind] ? POPT[kind]() : {}); p.at = SN.hands;
-      A(0, () => { bear.act('hold', { restart: true, hold: 'none' }); faceBear(); pup.act('sit', { restart: true }); api.say(fmt(pick(T.open), kind, place), 3600); P.look = () => [p.x, p.y]; });
-      bm.f(A, p); jm.f(A, p); fin.f(A, p);
-      A(9.4, () => { P.look = null; api.say(fmt(pick(T.close), kind, place), 2800); }); A(10.2, () => fade(p, 0.4)); } };
-  }
-
   // ---------------------------------------------------------------- running the games
   function shuffle() { const o = ACTS.map((_, i) => i); for (let i = o.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; [o[i], o[j]] = [o[j], o[i]]; } return o; }
-  function begin(i, gen) {
-    const a = gen || ACTS[i]; P.act = a; P.idx = gen ? -1 : i; P.t = 0; P.beats = []; P.ticks = []; P.look = null; P.title = title(a); P.titleT = 0; P.n++;
+  function begin(i) {
+    const a = ACTS[i]; P.act = a; P.idx = i; P.t = 0; P.beats = []; P.ticks = []; P.look = null; P.title = title(a); P.titleT = 0; P.n++;
     G.po.r = 0; G.po.s = G.po.s || 1;
     a.f((t, fn) => P.beats.push([t, fn]), (t0, t1, fn) => P.ticks.push({ t0, t1, f: fn }));
     P.beats.sort((x, y) => x[0] - y[0]);
@@ -562,14 +496,14 @@ export function makePlay(api) {
   }
   function next() {
     if (!P.order.length) P.order = shuffle();
-    if (api.tod() === 'night' && P.done > 0 && P.done % 9 === 0 && !P.napped) { P.napped = true; nap(); return; }   // a short nap, and only at night
-    P.napped = false; if (Math.random() < 0.72) begin(-1, genAct()); else begin(P.order.shift());
+    if (P.done > 0 && P.done % 5 === 0 && !P.napped) { P.napped = true; nap(); return; }
+    P.napped = false; begin(P.order.shift());
   }
   function nap() {
     P.napping = true; P.act = null; P.title = 'Nap time'; P.titleT = 0; P.t = 0; P.ticks = [];
     faceBear(); pup.act('lie', { restart: true }); bear.act('yawn', { restart: true });
-    P.beats = [[1.0, () => pup.act('yawn', { restart: true })], [2.4, () => { pup.act('sleep', { restart: true }); bear.act('sleep', { restart: true }); api.say('Shh… nap time ♡', 2200); }], [3.4, () => api.nap(true)],
-      [13.5, () => { api.nap(false); pup.act('wake', { restart: true }); bear.act('yawn', { restart: true }); }], [15.5, () => { P.napping = false; P.after = 0.6; pup.act('sit', { restart: true }); bear.act('idle', { restart: true }); }]];
+    P.beats = [[1.4, () => pup.act('yawn', { restart: true })], [3.2, () => { pup.act('sleep', { restart: true }); bear.act('sleep', { restart: true }); api.say('Shh… nap time ♡', 2200); }], [4.8, () => api.nap(true)],
+      [21, () => { api.nap(false); pup.act('wake', { restart: true }); bear.act('yawn', { restart: true }); }], [25, () => { P.napping = false; P.after = 0.6; pup.act('sit', { restart: true }); bear.act('idle', { restart: true }); }]];
   }
 
   return {
@@ -645,7 +579,7 @@ export function makePlay(api) {
       if (P.flash > 0) { c.save(); c.fillStyle = `rgba(255,255,255,${P.flash * 0.4})`; c.fillRect(0, 0, api.W(), api.H()); c.restore(); }
       // what they are playing, small and soft, under the pair
       if (P.title && L()) { const a = clamp(P.titleT / 0.5, 0, 1) * clamp((4.4 - P.titleT) / 0.8, 0, 1); if (a > 0.01) { c.save(); c.globalAlpha = a; c.font = `600 ${Math.round(15 * z0 + 3)}px Caveat, cursive`; c.textAlign = 'center';
-        const txt = P.napping ? '✦ Nap time' : P.act && P.act.gen ? `✦ ${P.title}` : `✦ ${((P.n - 1) % ACTS.length) + 1} / ${ACTS.length} · ${P.title}`, x = clamp((L().snowX + L().pupX) / 2, 90, api.W() - 90), y = Math.min(api.H() - 14, L().gy + 28 * z0);
+        const txt = P.napping ? '✦ Nap time' : `✦ ${((P.n - 1) % ACTS.length) + 1} / ${ACTS.length} · ${P.title}`, x = clamp((L().snowX + L().pupX) / 2, 90, api.W() - 90), y = Math.min(api.H() - 14, L().gy + 28 * z0);
         c.lineWidth = 3; c.lineJoin = 'round'; c.strokeStyle = 'rgba(40,20,60,.55)'; c.strokeText(txt, x, y); c.fillStyle = '#FFF0D2'; c.fillText(txt, x, y); c.restore(); } }
     },
     drawProp(c, p) {
