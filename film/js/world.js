@@ -76,7 +76,7 @@ function farLayer(res) {
 
 // ---------------------------------------------------------------- the promenade: floor, sea wall, far end, launcher, shadows
 function groundLayer(res) {
-  const rect = [-700, 470, 2100, 1600], P = painter(rect, res), { ctx } = P, R = rng(21);
+  const rect = [-700, 470, 2100, 1600], P = painter(rect, res), { ctx } = P, R = rng(21); let PAR = null;
   const [c0, c1] = WALL.cap, [b0, b1] = WALL.base;
   // floor (reaches well past the frame on every side, so wider framings never find its edges)
   const floor = poly([[-700, baseY(-700) - 4], [b1[0], b1[1]], [2100, 482], [2100, 1600], [-700, 1600]]);
@@ -109,9 +109,29 @@ function groundLayer(res) {
     if (i % 3 === 0) { ctx.fillStyle = '#5E8F72'; ctx.beginPath(); ctx.arc(x, y - 9 * s, 5 * s, 0, 7); ctx.fill(); ctx.fillStyle = '#6B4A4E'; ctx.fillRect(x - 0.4 * s, y - 6 * s, 0.8 * s, 6 * s); }
     else if (i % 3 === 1) { ctx.fillStyle = ['#E2447C', '#3FA0D8', '#F2B33D'][i % 3]; ctx.fillRect(x - 4 * s, y - 7 * s, 8 * s, 2 * s); ctx.fillStyle = '#EED9C9'; ctx.fillRect(x - 3.4 * s, y - 5 * s, 6.8 * s, 5 * s); }
   }
+  // the low stone parapet along the far side of the promenade: it closes the strip of sea that used to show (and sparkle) between the
+  // paving and the far shore, and carries the sea wall on to the right with the same stone, courses and coping
+  { const e = x => b1[1] + (482 - b1[1]) * (x - b1[0]) / (2100 - b1[0]), hgt = x => 19 + 4 * clamp((x - b1[0]) / 300, 0, 1), X0 = b1[0] - 6, X1 = 2100;
+    const capT = x => e(x) - hgt(x), capF = x => capT(x) + 4.2, N = 40;
+    const strip = (fa, fb) => { const q = []; for (let i = 0; i <= N; i++) { const x = X0 + (X1 - X0) * i / N; q.push([x, fa(x)]); } for (let i = N; i >= 0; i--) { const x = X0 + (X1 - X0) * i / N; q.push([x, fb(x)]); } return poly(q); };
+    const face = strip(capF, x => e(x) + 1.5), cap = strip(capT, capF);
+    gouache(P, face, '#CDA2A4', { bb: [X0, 466, X1, 496], n: 520, r: 5, light: '#E8C4BC', dark: '#A27E96', lx: 1, seed: 31, a: 0.2 });
+    ctx.save(); ctx.clip(face);
+    ctx.strokeStyle = 'rgba(84,46,86,.55)'; ctx.lineWidth = 1.1;
+    for (let c = 1; c < 3; c++) { ctx.beginPath(); for (let i = 0; i <= N; i++) { const x = X0 + (X1 - X0) * i / N, y = capF(x) + (e(x) - capF(x)) * c / 3; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.stroke(); }
+    for (let c = 0; c < 3; c++) for (let x = X0 + ((c % 2) ? 30 : 0) + (c * 7) % 11; x < X1; x += 60 + ((x * 7) | 0) % 9) { const f0 = capF(x) + (e(x) - capF(x)) * c / 3, f1 = capF(x) + (e(x) - capF(x)) * (c + 1) / 3; ctx.beginPath(); ctx.moveTo(x, f0); ctx.lineTo(x, f1); ctx.stroke(); }
+    const sg = ctx.createLinearGradient(0, 466, 0, 496); sg.addColorStop(0, 'rgba(90,50,110,0)'); sg.addColorStop(0.62, 'rgba(90,50,110,0)'); sg.addColorStop(1, 'rgba(90,50,110,.4)'); ctx.fillStyle = sg; ctx.fillRect(X0, 466, X1 - X0, 32);
+    { const R3 = rng(52); for (let c = 0; c < 3; c++) for (let x = X0 + ((c % 2) ? 30 : 0); x < X1; x += 60) { const f0 = capF(x) + (e(x) - capF(x)) * c / 3, f1 = capF(x) + (e(x) - capF(x)) * (c + 1) / 3; ctx.fillStyle = R3() > 0.5 ? `rgba(255,226,208,${0.05 + R3() * 0.08})` : `rgba(80,48,100,${0.05 + R3() * 0.09})`; ctx.fillRect(x, f0, 60, f1 - f0); } }
+    ctx.fillStyle = 'rgba(70,36,86,.3)'; ctx.fill(strip(capF, x => capF(x) + 2.2));   // the shadow of the coping's lip
+    ctx.restore();
+    gouache(P, cap, '#F4DACB', { bb: [X0, 466, X1, 490], n: 180, r: 4, light: '#FFF0E0', seed: 32 });
+    ctx.strokeStyle = 'rgba(120,70,100,.35)'; ctx.lineWidth = 0.8; for (let x = X0 + 14; x < X1; x += 36 + ((x * 3) | 0) % 7) { ctx.beginPath(); ctx.moveTo(x, capT(x)); ctx.lineTo(x - 1.2, capF(x)); ctx.stroke(); }
+    ctx.strokeStyle = 'rgba(255,244,226,.85)'; ctx.lineWidth = 1.2; ctx.beginPath(); for (let i = 0; i <= N; i++) { const x = X0 + (X1 - X0) * i / N; i ? ctx.lineTo(x, capT(x)) : ctx.moveTo(x, capT(x)); } ctx.stroke();
+    PAR = { e, capT, capF, X0, X1, N, strip, cap, face }; }
   grain(P, 0.05);
   const E = litPools(P, rect, res, [[600, 604, 170, 44, 0.55], [150, 860, 300, 80, 0.5], [640, 690, 560, 130, 0.32], [TEA.x, TEA.y + 2, 120 * unitScale(TEA.y) / 4.3, 22 * unitScale(TEA.y) / 4.3, 0.8], [330, 742, 150, 36, 0.5], [1000, 575, 120, 26, 0.3],
     [TREE.x - 20 * unitScale(TREE.gy), TREE.gy + 4, 120 * unitScale(TREE.gy), 16 * unitScale(TREE.gy), 0.32]]);
+  if (PAR) { const ex = E.getContext('2d'); ex.fillStyle = 'rgba(150,160,215,.16)'; ex.fill(PAR.cap); ex.strokeStyle = 'rgba(215,222,255,.55)'; ex.lineWidth = 1.6; ex.beginPath(); for (let i = 0; i <= PAR.N; i++) { const x = PAR.X0 + (PAR.X1 - PAR.X0) * i / PAR.N; i ? ex.lineTo(x, PAR.capF(x)) : ex.moveTo(x, PAR.capF(x)); } ex.stroke(); }
   return { name: 'ground', ...P, em: E, kind: 'ground', grid: [56, 50], gyFn: (x, y) => Math.max(y, 482), fog: 0.5 };
 }
 // the sea wall on its own layer: every point of it shares the depth of its base line, so it stays upright when the camera moves
@@ -122,15 +142,29 @@ function wallLayer(res) {
   const face = poly([c0, c1, b1, b0]);
   gouache(P, face, '#DDB3AA', { bb: [-800, 478, 745, 1260], n: 900, r: 9, light: '#F3D2C2', dark: '#B48694', lx: 1, seed: 5, a: 0.18 });
   ctx.save(); ctx.clip(face);
-  ctx.strokeStyle = 'rgba(110,60,90,.22)'; ctx.lineWidth = 1.5;
-  for (let i = 0; i < 34; i++) { const u = Math.pow(i / 34, 1.6), x = -800 + u * 1540; ctx.beginPath(); ctx.moveTo(x, capY(x)); ctx.lineTo(x, baseY(x)); ctx.stroke(); }
-  ctx.beginPath(); for (let x = -800; x <= 740; x += 10) { const y = (capY(x) * 0.55 + baseY(x) * 0.45); x === -800 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); } ctx.stroke();
+  // dressed stone in four courses: bed joints follow the wall's perspective, the vertical joints sit at even steps in depth (running bond)
+  const wx = Z => 800 - 4950 / Z, rows = 4, fy = (x, c) => capY(x) + (baseY(x) - capY(x)) * c / rows, lw = x => 0.7 + 1.6 * clamp((x + 800) / 1500, 0, 1);
+  ctx.strokeStyle = 'rgba(104,58,92,.34)';
+  for (let c = 1; c < rows; c++) { ctx.lineWidth = 1.7; ctx.beginPath(); for (let x = -800; x <= 742; x += 14) x === -800 ? ctx.moveTo(x, fy(x, c)) : ctx.lineTo(x, fy(x, c)); ctx.stroke(); }
+  for (let c = 0; c < rows; c++) for (let Z = 2.0 + (c % 2 ? 0.9 : 0) + c * 0.13; Z < 90; Z += 1.8) { const x = wx(Z); if (x < -800 || x > 742) continue; ctx.lineWidth = lw(x); ctx.beginPath(); ctx.moveTo(x, fy(x, c)); ctx.lineTo(x, fy(x, c + 1)); ctx.stroke(); }
+  // each block gets its own value and a light top edge, so the face does not read as one smooth slab
+  { const R2 = rng(41); for (let c = 0; c < rows; c++) for (let Z = 2.0 + (c % 2 ? 0.9 : 0) + c * 0.13; Z < 90; Z += 1.8) { const xa = wx(Z), xb = wx(Z + 1.8); if (xb < -800 || xa > 742) continue;
+    ctx.fillStyle = R2() > 0.5 ? `rgba(255,226,208,${0.05 + R2() * 0.08})` : `rgba(86,52,104,${0.04 + R2() * 0.08})`; ctx.beginPath(); ctx.moveTo(xa, fy(xa, c)); ctx.lineTo(xb, fy(xb, c)); ctx.lineTo(xb, fy(xb, c + 1)); ctx.lineTo(xa, fy(xa, c + 1)); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,236,222,.2)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(xa, fy(xa, c) + 1.4); ctx.lineTo(xb, fy(xb, c) + 1.4); ctx.stroke();
+    if (R2() > 0.8) { ctx.fillStyle = 'rgba(96,56,92,.25)'; ctx.beginPath(); ctx.ellipse((xa + xb) / 2 + (R2() - 0.5) * 6, fy(xa, c + 0.5) + (R2() - 0.5) * 4, 1.5 + R2() * 2.5, 0.8 + R2(), 0, 0, 7); ctx.fill(); } } }
   const sh = ctx.createLinearGradient(0, 480, 0, 1260); sh.addColorStop(0, 'rgba(100,50,110,0)'); sh.addColorStop(1, 'rgba(100,50,110,.3)'); ctx.fillStyle = sh; ctx.fillRect(-800, 470, 1600, 850);
+  // the shadow of the coping's lip under the cap, and a soft dark seat where the wall meets the paving
+  { const g2 = ctx.createLinearGradient(0, 0, 0, 1); ctx.fillStyle = 'rgba(70,36,86,.30)'; ctx.beginPath(); ctx.moveTo(-800, capY(-800)); ctx.lineTo(742, capY(742)); ctx.lineTo(742, capY(742) + 2.4); ctx.lineTo(-800, capY(-800) + 12); ctx.closePath(); ctx.fill(); }
+  { const g3 = ctx.createLinearGradient(0, 0, 0, 1); ctx.fillStyle = 'rgba(70,36,86,.22)'; ctx.beginPath(); ctx.moveTo(-800, baseY(-800) - 26); ctx.lineTo(742, baseY(742) - 3); ctx.lineTo(742, baseY(742)); ctx.lineTo(-800, baseY(-800)); ctx.closePath(); ctx.fill(); }
   ctx.restore();
   // cap of the wall, catching the sun
   const cap = poly([[c0[0], c0[1] - d0], [c1[0], c1[1] - 3], c1, c0]);
   gouache(P, cap, '#F6DCCB', { bb: [-800, 470, 740, 1000], n: 220, r: 6, light: '#FFF0DE', seed: 6 });
+  ctx.save(); ctx.clip(cap); ctx.strokeStyle = 'rgba(120,70,100,.32)'; ctx.lineWidth = 1.3;
+  for (let Z = 2.0; Z < 90; Z += 2.4) { const x = 800 - 4950 / Z; if (x < -800 || x > 742) continue; ctx.beginPath(); ctx.moveTo(x, capY(x) - d0 * Math.max(0.04, (742 - x) / 1542)); ctx.lineTo(x, capY(x)); ctx.stroke(); }
+  ctx.restore();
   ctx.strokeStyle = 'rgba(255,244,226,.9)'; ctx.lineWidth = 2.2; ctx.beginPath(); ctx.moveTo(c0[0], c0[1] - d0); ctx.lineTo(c1[0], c1[1] - 3); ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,240,224,.7)'; ctx.lineWidth = 2.6; ctx.beginPath(); ctx.moveTo(c0[0], c0[1] + 0.5); ctx.lineTo(c1[0], c1[1] + 0.2); ctx.stroke();   // the front edge of the coping catching the light
   // her birthday garland: warm fairy lights looped along the wall face just under the cap, from the lamp to beyond Jessi
   const G = garland(); ctx.lineWidth = 0.9; ctx.strokeStyle = 'rgba(50,36,48,.7)';
   for (const sp of G.spans) { ctx.beginPath(); sp.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.stroke(); }

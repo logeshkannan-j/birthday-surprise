@@ -13,9 +13,10 @@
 //   const crowd = new Crowd();                  // or new Crowd({ avoid: [{ X, Z, r, t0, t1 }], density: 1 })
 //   for (const p of crowd.at(S.T)) { ... }      // p = { slot, who, x, y, gy, flip, alpha, rig: { bounds, draw(ctx) }, lights }
 import { HZ, unitScale, fromXZ, toXZ, CU, PLACE } from './space.js';
+import { foot as gaitFoot, hipRise, armSwing } from './gait.js';
 
 const TAU = Math.PI * 2, clamp = (v, a, b) => Math.max(a, Math.min(b, v)), lerp = (a, b, t) => a + (b - a) * t;
-const hx = c => { const n = parseInt(c.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; };
+const hx = c => { if (c[0] !== '#') return c.match(/[\d.]+/g).slice(0, 3).map(Number); const n = parseInt(c.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; };
 const shade = (c, k, to = [40, 30, 60]) => { const a = hx(c); return `rgb(${Math.round(a[0] + (to[0] - a[0]) * k)},${Math.round(a[1] + (to[1] - a[1]) * k)},${Math.round(a[2] + (to[2] - a[2]) * k)})`; };
 const rgba = (c, a) => { const [r, g, b] = hx(c); return `rgba(${r},${g},${b},${a})`; };
 const CHAR = 1 / CU;                                       // character units per floor unit (≈ 29.2)
@@ -85,14 +86,13 @@ function personSide(c, L, g) {
   const cTop = shade(L.tc, 0.08 + dk), cTopB = shade(L.tc, 0.3 + dk), cBot = shade(L.bc, 0.1 + dk), cBotB = shade(L.bc, 0.32 + dk), cSkin = shade(skin, dk), cSkinB = shade(skin, 0.25 + dk), cShoe = shade(L.shoe, dk);
   const long = L.bot === 'saree' || L.bot === 'veshti';
   // far arm and far leg
-  line(c, back, 4.2 * k, L.top === 'shirt' || L.top === 'kurti' ? cTopB : cSkinB); blob(c, back[2][0], back[2][1], 1.9 * k, 1.9 * k, cSkinB);
-  if (L.top === 'shirt' || L.top === 'kurti') line(c, [back[1], back[2]], 3.6 * k, cSkinB);
+  sideArm(c, back, L, k, dk, true);
   const legCol = (i, part) => (L.bot === 'shorts' && part ? (i ? cSkin : cSkinB) : L.bot === 'none' ? (i ? cSkin : cSkinB) : i ? cBot : cBotB);
-  for (const lg of legs) { if (lg.i) continue; if (!long) { line(c, [lg.h, lg.kn], 7.4 * k, legCol(0, 0)); line(c, [lg.kn, lg.an], 6 * k, legCol(0, 1)); } else line(c, [lg.kn, lg.an], 4.4 * k, cSkinB); blob(c, lg.an[0] + 2.4 * k, lg.an[1] - 0.8 * k, 3.4 * k, 1.5 * k, shade(L.shoe, 0.3 + dk)); }
+  for (const lg of legs) { if (lg.i) continue; sideLeg(c, lg, L, k, long, legCol(0, 0), legCol(0, 1), cSkinB, shade(L.shoe, 0.3 + dk)); }
   if (L.cane) { const h = front[2]; line(c, [h, [h[0] + 6 * k + Math.sin(ph) * 2 * k, 0]], 1.3 * k, shade('#6A4A30', dk)); }
   // torso and the near leg
   const T = [[-6, -77], [5, -77.5], [7, -67], [5, -55], [6.4, -46], [-6.6, -45.5], [-5.4, -55], [-6.6, -68]].map(([x, y]) => rot([x * k, y * k + bob], hip, lean));
-  for (const lg of legs) { if (!lg.i) continue; if (!long) { line(c, [lg.h, lg.kn], 7.6 * k, legCol(1, 0)); line(c, [lg.kn, lg.an], 6.2 * k, legCol(1, 1)); } else line(c, [lg.kn, lg.an], 4.4 * k, cSkin); blob(c, lg.an[0] + 2.4 * k, lg.an[1] - 0.8 * k, 3.5 * k, 1.6 * k, cShoe); }
+  for (const lg of legs) { if (!lg.i) continue; sideLeg(c, lg, L, k, long, legCol(1, 0), legCol(1, 1), cSkin, cShoe); }
   if (long) {   // saree / veshti: a long wrap to the ankles following both legs
     const a0 = legs[0].an, a1 = legs[1].an, lo = Math.min(a0[0], a1[0]) - 2.5 * k, hi = Math.max(a0[0], a1[0]) + 2.5 * k;
     polyF(c, [T[5], T[4], [hi, -3 * k], [lerp(lo, hi, 0.5), -2.2 * k], [lo, -3 * k]], cBot);
@@ -100,7 +100,7 @@ function personSide(c, L, g) {
   } else if (L.bot === 'none' || L.top === 'frock') {
     polyF(c, [T[6], T[3], [T[4][0] + 6 * k, -27 * k], [T[5][0] - 6 * k, -27 * k]], cTop);
   }
-  polyF(c, T, cTop);
+  { const Tm = isFem(L) ? T.map((p, i) => (i === 3 || i === 6 ? [lerp(p[0], hip[0], 0.14), p[1]] : p)) : T; body(c, cr(Tm, true), cTop, Math.min(...T.map(p => p[0])), Math.max(...T.map(p => p[0])), k, 0.45); }
   if (L.top === 'kurti') polyF(c, [T[5], T[4], [T[4][0] + 3 * k, -31 * k], [T[5][0] - 3 * k, -31 * k]], cTop);
   if (L.top === 'blouse') { polyF(c, [T[6], T[3], T[4], T[5]], cBot); line(c, [T[1], [T[4][0] - 2 * k, T[4][1] + 2 * k]], 3.4 * k, shade(L.pallu || L.bc, dk)); }
   if (L.top === 'shirt') line(c, [[T[1][0] - 1 * k, T[1][1] + 1.5 * k], [T[4][0] - 1.5 * k, T[4][1]]], 0.5 * k, shade(L.tc, 0.35 + dk));
@@ -117,17 +117,26 @@ function personSide(c, L, g) {
     if (L.hair === 'pigtails') for (const s of [-1, 1]) blob(c, head[0] - hr * 0.6 + s * 1.2 * k, head[1] + hr * 0.5, hr * 0.28, hr * 0.5, hc); }
   if (L.female) drawFaceSide(c, L, head, k, time, dk);
   // near arm (over the body)
-  const sleeve = L.top === 'shirt' || L.top === 'kurti' || L.top === 'jacket';
-  line(c, [front[0], front[1]], 4.4 * k, sleeve ? cTop : L.top === 'tee' ? cTop : cSkin); line(c, [front[1], front[2]], 3.8 * k, sleeve ? shade(L.tc, 0.05 + dk) : cSkin);
-  if (sleeve) line(c, [lerp2(front[1], front[2], 0.45), front[2]], 3.6 * k, cSkin);
-  else if (L.top === 'tee') line(c, [lerp2(front[0], front[1], 0.45), front[1], front[2]], 3.6 * k, cSkin);
-  blob(c, front[2][0], front[2][1], 2 * k, 2 * k, cSkin);
+  sideArm(c, front, L, k, dk, false);
   if (L.cup && g.mode === 'idle') { const h = front[2]; c.fillStyle = shade('#F2EEE6', dk); c.fillRect(h[0] - 0.6 * k, h[1] - 3.4 * k, 2.6 * k, 3.2 * k); }
   if (L.phone) { const h = front[2]; c.fillStyle = '#CFE4FF'; c.fillRect(h[0] - 0.4 * k, h[1] - 3 * k, 1.2 * k, 2.4 * k); }
   if (L.balloons) drawBalloonBunch(c, front[2], k, ph);
   return { hip, sh, head, front, back, k };
 }
 const lerp2 = (a, b, t) => [lerp(a[0], b[0], t), lerp(a[1], b[1], t)];
+const SLEEVE = { shirt: 0.95, kurti: 0.7, tee: 0.36, blouse: 0.36, frock: 0.28, vest: 0, jacket: 0.95 };   // how much of the arm the sleeve covers
+function sideArm(c, A, L, k, dk, far) {   // a shaped arm (skin) with its sleeve over it and a hand
+  const cSkin = shade(SKIN[L.skin], (far ? 0.25 : 0) + dk), sf = SLEEVE[L.top] ?? 0.5, [S, E, Hh] = A, sl = L.top === 'blouse' ? shade(L.bc, (far ? 0.3 : 0.1) + dk) : shade(L.tc, (far ? 0.3 : 0.06) + dk);
+  tube(c, [S, E, Hh], [4.4 * k, 3.6 * k, 2.8 * k], cSkin, k);
+  if (sf > 0) { const full = sf > 0.5, m = full ? lerp2(E, Hh, (sf - 0.5) * 2) : lerp2(S, E, sf * 2); tube(c, full ? [S, E, m] : [S, m], full ? [5.4 * k, 4.8 * k, 4.4 * k] : [5.4 * k, 5 * k], sl, k); }
+  blob(c, Hh[0], Hh[1] + 0.4 * k, 1.9 * k, 2.1 * k, cSkin);
+}
+function sideLeg(c, lg, L, k, long, col1, col2, cSkin, cShoe) {   // thigh -> knee -> ankle as one tapered limb, and a shoe that follows the ankle
+  const { h, kn, an } = lg;
+  if (!long) { if (L.bot === 'shorts') { tube(c, [h, kn], [8.2 * k, 6.6 * k], col1, k); tube(c, [kn, an], [5.6 * k, 4.2 * k], cSkin, k); } else tube(c, [h, kn, an], [8.4 * k, 6.4 * k, 4.6 * k], col1, k); }
+  else tube(c, [kn, an], [5 * k, 3.8 * k], cSkin, k);
+  c.save(); c.translate(an[0] + 1.6 * k, an[1] - 0.4 * k); c.fillStyle = cShoe; c.beginPath(); c.ellipse(0.8 * k, 0, 3.7 * k, 1.7 * k, 0, 0, TAU); c.fill(); c.fillStyle = 'rgba(220,214,208,.55)'; c.fillRect(-2.6 * k, 0.9 * k, 7.4 * k, 0.7 * k); c.restore();
+}
 function drawFaceSide(c, L, head, k, t, dk) {
   const x = head[0], y = head[1], blink = Math.max(0, 1 - Math.abs(Math.sin(t * 2.1 + L.facePhase)) * 30), eyeY = y - 0.55 * k;
   const eyeCol = shade('#29191C', dk * 0.35), skinCol = shade(SKIN[L.skin], 0.22 + dk);
@@ -176,64 +185,134 @@ function drawBalloonBunch(c, hand, k, ph) {
 }
 function balloonLights(hand, k) { return BAL.map(([col, dx, dy]) => { const a = hx(col); return [hand[0] + dx * k, hand[1] + (dy + 40) * k, a[0] / 255, a[1] / 255, a[2] / 255]; }); }
 
+// ---- shaped bodies for the people on the promenade: tapered limbs along a smoothed centre line, garments cut to the body, a gait
+// from gait.js (planted feet that never slide, the hip rising and dropping, arms swinging against the legs)
+const KF = 0.21;                                           // how much a step forward / back shows up as height, because the camera looks along the path
+const isFem = L => !!L.female || ['bun', 'braid', 'long', 'pigtails', 'pony'].includes(L.hair) || ['kurti', 'blouse', 'frock'].includes(L.top);
+function cr(pts, closed) {   // Catmull-Rom through points -> Path2D
+  const n = pts.length, p = new Path2D(); p.moveTo(pts[0][0], pts[0][1]); const seg = closed ? n : n - 1;
+  for (let i = 0; i < seg; i++) { const p1 = pts[i], p2 = pts[(i + 1) % n], p0 = closed ? pts[(i - 1 + n) % n] : pts[Math.max(0, i - 1)], p3 = closed ? pts[(i + 2) % n] : pts[Math.min(n - 1, i + 2)];
+    p.bezierCurveTo(p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6, p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6, p2[0], p2[1]); }
+  if (closed) p.closePath(); return p;
+}
+// a flat-shaded shape: lit on the left (the low moon), cooler on the right, and a soft darker edge
+function body(c, path, col, x0, x1, k = 1, edge = 0.4) {
+  const g = c.createLinearGradient(x0, 0, x1, 0); g.addColorStop(0, shade(col, 0.16, [255, 238, 218])); g.addColorStop(0.45, col); g.addColorStop(1, shade(col, 0.26));
+  c.fillStyle = g; c.fill(path); if (edge) { c.lineWidth = 0.34 * k; c.strokeStyle = `rgba(40,24,50,${edge * 0.5})`; c.stroke(path); }
+}
+function tube(c, pts, ws, col, k = 1) {   // a limb: a ribbon along a smoothed centre line with a width at every point, round at the far end
+  const n = pts.length, P = [], W = [];
+  for (let i = 0; i < n - 1; i++) { const p0 = pts[Math.max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(n - 1, i + 2)];
+    for (let j = 0; j < 4; j++) { const t = j / 4, t2 = t * t, t3 = t2 * t;
+      P.push([0.5 * (2 * p1[0] + (-p0[0] + p2[0]) * t + (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t2 + (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t3), 0.5 * (2 * p1[1] + (-p0[1] + p2[1]) * t + (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2 + (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3)]);
+      W.push(ws[i] + (ws[i + 1] - ws[i]) * t); } }
+  P.push(pts[n - 1]); W.push(ws[n - 1]);
+  const L = [], R = []; let x0 = 1e9, x1 = -1e9;
+  for (let i = 0; i < P.length; i++) { const a = P[Math.max(0, i - 1)], b = P[Math.min(P.length - 1, i + 1)]; let dx = b[0] - a[0], dy = b[1] - a[1]; const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l; const w = W[i] / 2;
+    L.push([P[i][0] - dy * w, P[i][1] + dx * w]); R.push([P[i][0] + dy * w, P[i][1] - dx * w]); x0 = Math.min(x0, L[i][0], R[i][0]); x1 = Math.max(x1, L[i][0], R[i][0]); }
+  const path = new Path2D(); path.moveTo(L[0][0], L[0][1]); for (const p of L) path.lineTo(p[0], p[1]); for (let i = R.length - 1; i >= 0; i--) path.lineTo(R[i][0], R[i][1]); path.closePath();
+  body(c, path, col, x0, x1, k, 0.35); const e = P[P.length - 1]; blob(c, e[0], e[1], W[W.length - 1] / 2, W[W.length - 1] / 2, col); return path;
+}
+function shoeF(c, an, p, k, col, back, dk) {   // a shoe seen from behind / from the front
+  c.save(); c.translate(an[0], an[1] + 0.9 * k); const up = Math.max(0, -p);
+  if (back) { if (up > 0.15) blob(c, 0, 1.2 * k, 1.7 * k, 0.9 * k, shade('#C9C4C0', dk)); blob(c, 0, 0, 1.9 * k, 1.5 * k * (1 - up * 0.2), col); blob(c, 0, 1.0 * k, 1.9 * k, 0.5 * k, shade('#D8D2CC', dk + 0.1)); }
+  else { blob(c, 0, 0.4 * k, 2.0 * k, 1.9 * k, col); blob(c, 0, 1.1 * k, 2.0 * k, 0.6 * k, shade('#D8D2CC', dk + 0.1)); blob(c, 0, -0.3 * k, 1.3 * k, 0.8 * k, shade(col, 0.12, [255, 240, 230])); }
+  c.restore();
+}
+
 // one person seen from the front or from behind (walking towards / away from the camera)
 function personFront(c, L, g) {
-  const k = L.H / 95, run = g.mode === 'run', idle = g.mode === 'idle', ph = g.ph, time = g.t ?? ph;
-  const back = g.view === 'back', dk = g.dark || 0, skin = SKIN[L.skin];
-  const bob = idle ? 0.22 * k * Math.sin(time * 1.5 + (L.facePhase || 0)) : run ? -2 * k * Math.abs(Math.sin(ph)) : -0.8 * k * Math.abs(Math.cos(ph));
-  const hipY = -47.5 * k + bob, cTop = shade(L.tc, 0.08 + dk), cBot = shade(L.bc, 0.12 + dk), cBotB = shade(L.bc, 0.3 + dk), cSkin = shade(skin, dk), hc = shade(L.hc, dk * 0.5);
-  const long = L.bot === 'saree' || L.bot === 'veshti';
-  for (const s of [-1, 1]) {   // legs: each foot lifts in turn
-    const phase = ph + (s > 0 ? 0 : Math.PI), p = Math.sin(phase);
-    const lift = idle ? Math.max(0, Math.sin(time * 1.3 + s + (L.facePhase || 0))) * 0.16 * k : Math.max(0, p) * (run ? 9 : 3.8) * k;
-    const stride = idle ? Math.sin(time * 1.1 + s) * 0.35 * k : Math.cos(phase) * 1.2 * k;
-    const fx = s * 3.4 * k + stride, fy = -lift;
-    const kn = [s * 3.9 * k + stride * 0.35, lerp(hipY, fy, 0.5) - lift * 0.38];
-    const col = L.bot === 'shorts' || L.bot === 'none' ? cSkin : cBot;
-    if (!long) { line(c, [[s * 3.6 * k, hipY], kn], 7.2 * k, L.bot === 'shorts' ? cBot : col); line(c, [kn, [fx, fy]], 5.8 * k, col); }
-    else line(c, [[fx, fy - 6 * k], [fx, fy]], 4 * k, cSkin);
-    blob(c, fx, fy - 0.6 * k, 2.6 * k, 1.5 * k, shade(L.shoe, dk));
+  const k = L.H / 95, run = g.mode === 'run', idle = g.mode === 'idle', ph = g.ph, time = g.t ?? ph, back = g.view === 'back', dk = g.dark || 0, fem = isFem(L), skin = SKIN[L.skin];
+  const cSkin = shade(skin, dk), cTop = shade(L.tc, 0.08 + dk), cBot = shade(L.bc, 0.12 + dk), hc = shade(L.hc, dk * 0.5), cShoe = shade(L.shoe, dk), long = L.bot === 'saree' || L.bot === 'veshti';
+  const dz = back ? -KF : KF;                              // a foot / hand that is forward shows higher up from behind, lower down from the front
+  // ---- gait: both feet, and the hip height they allow
+  const legLen = 45.2 * k, AH = 2.3 * k, Sd = (run ? 40 : 27) * k, u0 = ph / TAU, lift = (run ? 9 : 4.2) * k;
+  const F = [0, 1].map(i => (idle ? { x: (i ? 1.4 : -1.0) * k, y: Math.max(0, Math.sin(time * 1.3 + i + (L.facePhase || 0))) * 0.15 * k, p: 0, st: true } : gaitFoot(u0 + i * 0.5, Sd, lift)));
+  const dxMax = idle ? 0 : Math.max(...F.map(f => (f.st ? Math.abs(f.x) : 0)));
+  const hipY = idle ? -47.5 * k + 0.22 * k * Math.sin(time * 1.5 + (L.facePhase || 0)) : run ? -47.5 * k - 2 * k * Math.abs(Math.sin(ph)) : -(AH + hipRise(legLen, dxMax, 0.02));
+  const bob = hipY + 47.5 * k, swy = idle ? 0 : Math.cos(2 * Math.PI * (u0 - 0.3));   // the pelvis sways over the planted foot
+  const legs = [0, 1].map(i => { const s = i ? 1 : -1, f = F[i], hx = s * 3.6 * k + swy * 0.5 * k, hip = [hx, hipY + s * swy * 0.25 * k];
+    const az = -AH - f.y, I = ik([0, hip[1]], [f.x, az], legLen * 0.5, legLen * 0.5, 1), ax = hx + s * 0.35 * k * (f.st ? 1 : 0.4);
+    return { hip, kn: [lerp(hx, ax, 0.5) + s * 0.4 * k, I[0][1] + dz * I[0][0]], an: [ax, az + dz * f.x], f, s, z: f.x }; });
+  const ord = legs.slice().sort((a, b) => (back ? b.z - a.z : a.z - b.z));
+  const legCol = L.bot === 'shorts' || L.bot === 'none' ? cSkin : cBot;
+  for (const lg of ord) {
+    const wTh = (fem ? 8.4 : 9.0) * k;
+    if (!long) { if (L.bot === 'shorts') { tube(c, [lg.hip, lg.kn], [wTh, wTh * 0.82], cBot, k); tube(c, [lg.kn, lg.an], [5.4 * k, 4.2 * k], cSkin, k); } else tube(c, [lg.hip, lg.kn, lg.an], [wTh, 6.4 * k, 4.6 * k], legCol, k); }
+    else tube(c, [[lg.an[0], lg.an[1] - 9 * k], lg.an], [4.4 * k, 3.8 * k], cSkin, k);
+    shoeF(c, lg.an, lg.f.p, k, cShoe, back, dk);
   }
-  if (long) polyF(c, [[-7.4 * k, hipY + 2 * k], [7.4 * k, hipY + 2 * k], [8.6 * k, -3 * k], [-8.6 * k, -3 * k]], cBot);
-  if (L.bot === 'none' || L.top === 'frock') polyF(c, [[-6.4 * k, -56 * k + bob], [6.4 * k, -56 * k + bob], [10 * k, -27 * k], [-10 * k, -27 * k]], cTop);
-  if (L.top === 'kurti') polyF(c, [[-7.6 * k, hipY], [7.6 * k, hipY], [9 * k, -31 * k], [-9 * k, -31 * k]], cTop);
-  // arms
-  const arm = s => { const p = Math.sin(ph + (s > 0 ? Math.PI : 0)), sh = [s * 8.4 * k, -75 * k + bob];
-    const sway = idle ? Math.sin(time * 0.85 + s + (L.facePhase || 0)) * 0.9 * k : Math.cos(ph + (s > 0 ? Math.PI : 0)) * 1.4 * k;
-    let hd = [s * 9.8 * k + sway, -47 * k + bob - (idle ? 0 : Math.max(0, p) * (run ? 9 : 2.5) * k)];
-    if (g.holdL && s < 0) hd = g.holdL; if (g.holdR && s > 0) hd = g.holdR;
+  // ---- torso: shoulders, a waist, hips (women narrower at the shoulders and waist); the garment is cut on it
+  const sy = -76 * k + bob * 0.6, sw2 = (fem ? 7.4 : 9.4) * k, bw = (fem ? 6.8 : 8.6) * k, ww = (fem ? 5.2 : 7.4) * k, hw = 7.8 * k, wy = -57 * k + bob * 0.8, hyy = hipY + 1.5 * k;
+  const top = [[-sw2 * 0.4, sy - 3.4 * k], [-sw2, sy + 0.4 * k], [-sw2 * 0.97, sy + 6 * k], [-bw, sy + 13 * k], [-ww, wy]];
+  const bot = [[ww, wy], [bw, sy + 13 * k], [sw2 * 0.97, sy + 6 * k], [sw2, sy + 0.4 * k], [sw2 * 0.4, sy - 3.4 * k]];
+  let mid;   // the lower body of the garment: left side, then right side
+  if (L.top === 'kurti') mid = [[-hw - 0.4 * k, hyy - 2 * k], [-hw - 2.4 * k, -38 * k], [-hw - 3.4 * k, -31 * k], [hw + 3.4 * k, -31 * k], [hw + 2.4 * k, -38 * k], [hw + 0.4 * k, hyy - 2 * k]];
+  else if (L.top === 'frock' || L.bot === 'none') mid = [[-hw, hyy - 4 * k], [-hw - 4.2 * k, -34 * k], [-hw - 6 * k, -27 * k], [hw + 6 * k, -27 * k], [hw + 4.2 * k, -34 * k], [hw, hyy - 4 * k]];
+  else if (L.top === 'blouse') mid = [[-ww - 0.4 * k, wy + 1.4 * k], [ww + 0.4 * k, wy + 1.4 * k]];
+  else mid = [[-hw, hyy + 0.5 * k], [hw, hyy + 0.5 * k]];
+  if (long) {   // saree / veshti: a pleated wrap from the waist to the ankles (the feet show only below it)
+    const lo = Math.min(legs[0].an[0], legs[1].an[0]) - 4.6 * k, hi = Math.max(legs[0].an[0], legs[1].an[0]) + 4.6 * k, ay = Math.max(legs[0].an[1], legs[1].an[1]) - 3.2 * k, sh2 = L.top === 'blouse' ? wy + 1 * k : hyy - 6 * k;
+    const wrap = cr([[-ww - 0.8 * k, sh2], [-hw - 0.4 * k, hyy + 4 * k], [Math.min(lo, -hw - 3 * k), ay - 12 * k], [lo, ay], [hi, ay], [Math.max(hi, hw + 3 * k), ay - 12 * k], [hw + 0.4 * k, hyy + 4 * k], [ww + 0.8 * k, sh2]], true);
+    body(c, wrap, cBot, lo - 4 * k, hi + 4 * k, k, 0.45);
+    c.save(); c.clip(wrap); c.lineWidth = 0.5 * k; c.strokeStyle = rgba(shade(L.bc, 0.5), 0.35);
+    for (let i = -3; i <= 3; i++) { c.beginPath(); c.moveTo(i * 2.1 * k, sh2 + 4 * k); c.quadraticCurveTo(i * 2.7 * k + Math.sin(ph + i) * 0.4 * k, (sh2 + ay) / 2, i * 3.5 * k + (legs[0].an[0] + legs[1].an[0]) * 0.1, ay); c.stroke(); }
+    c.fillStyle = shade(L.pallu || '#E3A13B', 0.1 + dk); c.fillRect(lo - 1 * k, ay - 2.4 * k, hi - lo + 2 * k, 2.4 * k); c.restore();
+  }
+  const torso = cr(top.concat(mid, bot), true);
+  body(c, torso, L.top === 'blouse' ? cBot : cTop, -hw - 4 * k, hw + 4 * k, k, 0.45);
+  c.save(); c.clip(torso);
+  if (L.top === 'kurti') { c.strokeStyle = rgba(shade(L.tc, 0.5), 0.4); c.lineWidth = 0.45 * k; c.beginPath(); c.moveTo(0, sy + 4 * k); c.lineTo(0, -33 * k); c.stroke(); c.beginPath(); c.moveTo(-hw - 2.8 * k, -33 * k); c.lineTo(-hw - 2.6 * k, -31 * k); c.moveTo(hw + 2.8 * k, -33 * k); c.lineTo(hw + 2.6 * k, -31 * k); c.stroke(); }
+  if (L.top === 'shirt') { c.strokeStyle = rgba(shade(L.tc, 0.5), 0.36); c.lineWidth = 0.4 * k; c.beginPath(); if (back) { c.moveTo(-sw2 + 1 * k, sy + 5 * k); c.quadraticCurveTo(0, sy + 7.5 * k, sw2 - 1 * k, sy + 5 * k); } else { c.moveTo(0.5 * k, sy + 4 * k); c.lineTo(0.4 * k, hyy); } c.stroke(); }
+  c.fillStyle = 'rgba(255,240,230,.09)'; c.fillRect(-sw2, sy, 3 * k, 36 * k);
+  c.restore();
+  if (L.top === 'blouse') {   // the pallu: over the left shoulder, across the back (or the chest) and round the waist
+    const sd = back ? 1 : -1, pts = [[-sd * sw2 * 0.8, sy + 0.2 * k], [-sd * sw2 * 0.2, sy + 10 * k], [sd * ww * 0.6, wy + 8 * k], [sd * hw * 0.9, hyy + 8 * k]];
+    tube(c, pts, [6.2 * k, 6.8 * k, 7 * k, 6 * k], shade(L.pallu || '#E3A13B', 0.06 + dk), k);
+  }
+  // ---- arms: they swing from the shoulder against the legs; the elbow bends as the arm comes forward; hands go where the person holds something
+  const sleeveF = { shirt: 0.95, kurti: 0.7, tee: 0.36, blouse: 0.36, frock: 0.28, vest: 0, jacket: 0.95 }[L.top] ?? 0.5, Lu = 15.2 * k, Lf = 14 * k, amp = idle ? 0.04 : run ? 0.7 : 0.3;
+  const armOf = s => { const S = [s * (sw2 - 0.9 * k), sy + 1.6 * k];   // the screen-right arm swings with the screen-left leg (leg 0)
+    let hd = null; if (g.holdL && s < 0) hd = g.holdL; if (g.holdR && s > 0) hd = g.holdR;
     if (L.phone && s > 0) hd = [4 * k, -66 * k + bob]; if (L.balloons && s > 0) hd = [9 * k, -62 * k + bob]; if (L.cane && s > 0) hd = [10 * k, -46 * k + bob];
-    const el = [lerp(sh[0], hd[0], 0.5) + s * 1.6 * k, lerp(sh[1], hd[1], 0.5)];
-    return [sh, el, hd]; };
-  const A = [arm(-1), arm(1)], sleeve = L.top === 'shirt' || L.top === 'kurti';
-  const body = () => { polyF(c, [[-8.8 * k, -77 * k + bob], [8.8 * k, -77 * k + bob], [6.4 * k, -55 * k + bob], [7.6 * k, hipY], [-7.6 * k, hipY], [-6.4 * k, -55 * k + bob]], cTop);
-    if (L.top === 'blouse') { polyF(c, [[-6.4 * k, -58 * k + bob], [6.4 * k, -58 * k + bob], [7.6 * k, hipY + 1 * k], [-7.6 * k, hipY + 1 * k]], cBot); line(c, [[back ? 7 * k : -7 * k, -77 * k + bob], [back ? -6 * k : 6 * k, hipY]], 4 * k, shade(L.pallu || L.bc, dk)); } };
-  body();
-  for (const a of A) { line(c, [a[0], a[1]], 4.4 * k, sleeve || L.top === 'tee' ? cTop : cSkin); line(c, [a[1], a[2]], 3.8 * k, sleeve ? cTop : cSkin); if (sleeve) line(c, [lerp2(a[1], a[2], 0.5), a[2]], 3.6 * k, cSkin); blob(c, a[2][0], a[2][1], 2 * k, 2 * k, cSkin); }
-  if (L.cane) line(c, [A[1][2], [12 * k, 0]], 1.3 * k, shade('#6A4A30', dk));
-  if (L.phone && !back) { const h = A[1][2]; c.fillStyle = '#CFE4FF'; c.fillRect(h[0] - 1 * k, h[1] - 2.8 * k, 2 * k, 2.8 * k); }
-  if (L.balloons) drawBalloonBunch(c, A[1][2], k, ph);
-  // head
-  line(c, [[0, -76 * k + bob], [0, -80 * k + bob]], 4.4 * k, cSkin);
-  const hy = -87 * k + bob, hr = 6 * k;
-  if (back) {
-    blob(c, 0, hy, hr * 0.95, hr, hc);
-    if (L.hair === 'grey' || L.hair === 'short' || L.hair === 'curly') { blob(c, 0, hy + hr * 0.65, hr * 0.6, hr * 0.3, cSkin); blob(c, 0, hy - hr * 0.2, hr * 0.98, hr * 0.9, hc); }
-    if (L.hair === 'braid') line(c, [[0, hy + hr * 0.6], [Math.sin(ph) * 0.8 * k, hy + hr * 3.2], [Math.sin(ph) * 1.4 * k, hy + hr * 4.6]], 2.2 * k, hc);
-    if (L.hair === 'long') polyF(c, [[-hr, hy], [hr, hy], [hr * 1.05, hy + hr * 3], [-hr * 1.05, hy + hr * 3]], hc);
-    if (L.hair === 'bun') blob(c, 0, hy + hr * 0.2, hr * 0.5, hr * 0.45, shade(L.hc, 0.1));
-    if (L.hair === 'pony') line(c, [[0, hy - hr * 0.3], [Math.sin(ph * 2) * 1.6 * k, hy + hr * 1.8]], 2.6 * k, hc);
+    if (hd) return [S, [lerp(S[0], hd[0], 0.5) + s * 1.8 * k, lerp(S[1], hd[1], 0.5) + 2.2 * k], hd];
+    let a, el; if (idle) { a = 0.05 * Math.sin(time * 0.85 + s + (L.facePhase || 0)); el = 0.15; } else { const A = armSwing(u0 + (s > 0 ? 0 : 0.5), amp, run ? 1.1 : 0.2); a = A.sh; el = A.el; }
+    const a2 = a + el, z1 = Lu * Math.sin(a), y1 = Lu * Math.cos(a), z2 = z1 + Lf * Math.sin(a2), y2 = y1 + Lf * Math.cos(a2);
+    return [S, [S[0] + s * 1.2 * k, S[1] + y1 + dz * z1], [S[0] + s * 2.1 * k, S[1] + y2 + dz * z2]]; };
+  for (const s of [-1, 1]) { const [S, E, Hh] = armOf(s);
+    tube(c, [S, E, Hh], [4.4 * k, 3.6 * k, 2.8 * k], cSkin, k);
+    if (sleeveF > 0) { const full = sleeveF > 0.5, m = full ? [lerp(E[0], Hh[0], (sleeveF - 0.5) * 2), lerp(E[1], Hh[1], (sleeveF - 0.5) * 2)] : [lerp(S[0], E[0], sleeveF * 2), lerp(S[1], E[1], sleeveF * 2)];
+      tube(c, full ? [S, E, m] : [S, m], full ? [5.4 * k, 4.8 * k, 4.4 * k] : [5.4 * k, 5 * k], L.top === 'blouse' ? cBot : cTop, k); }
+    blob(c, Hh[0], Hh[1] + 0.6 * k, 1.9 * k, 2.2 * k, cSkin); }
+  if (L.cane) { const h = armOf(1)[2]; line(c, [h, [12 * k, 0]], 1.3 * k, shade('#6A4A30', dk)); }
+  if (L.phone && !back) { const h = armOf(1)[2]; c.fillStyle = '#CFE4FF'; c.fillRect(h[0] - 1 * k, h[1] - 2.8 * k, 2 * k, 2.8 * k); }
+  if (L.balloons) drawBalloonBunch(c, armOf(1)[2], k, ph);
+  // ---- neck and head
+  const hy = sy - 11 * k, hr = 6 * k;
+  tube(c, [[0, sy + 1 * k], [0, hy + hr * 0.6]], [4.4 * k, 4 * k], cSkin, k);
+  if (back) {   // the back of the head: hair over the skull, the style falling from it
+    if (L.hair === 'long') { const sway = Math.sin(ph) * 0.8 * k, m = cr([[-hr * 0.98, hy - hr * 0.2], [-hr * 1.12, hy + hr * 1.6], [-hr * 1.0 + sway, hy + hr * 3.0], [sway, hy + hr * 3.35], [hr * 1.0 + sway, hy + hr * 3.0], [hr * 1.12, hy + hr * 1.6], [hr * 0.98, hy - hr * 0.2]], true);
+      body(c, m, hc, -hr, hr, k, 0.2); c.strokeStyle = 'rgba(138,122,138,.18)'; c.lineWidth = 0.4 * k; c.beginPath(); c.moveTo(-hr * 0.4, hy + hr * 0.8); c.quadraticCurveTo(-hr * 0.6 + sway * 0.5, hy + hr * 2, -hr * 0.45 + sway, hy + hr * 3); c.stroke(); }
+    if (L.hair === 'braid') { const sway = Math.sin(ph) * 1.1 * k; tube(c, [[0, hy + hr * 0.5], [sway * 0.4, hy + hr * 1.9], [sway * 0.9, hy + hr * 3.2], [sway * 1.3, hy + hr * 4.4]], [3.4 * k, 3 * k, 2.6 * k, 1.8 * k], hc, k);
+      c.strokeStyle = 'rgba(138,122,138,.22)'; c.lineWidth = 0.35 * k; for (let i = 0; i < 6; i++) { const yy = hy + hr * (0.9 + i * 0.6); c.beginPath(); c.moveTo(-1.2 * k + sway * i * 0.2, yy); c.lineTo(1.2 * k + sway * i * 0.2, yy + 0.7 * k); c.stroke(); } }
+    if (L.hair === 'pony') tube(c, [[0, hy - hr * 0.4], [Math.sin(ph * 2) * 1.6 * k, hy + hr * 1.2], [Math.sin(ph * 2) * 2.2 * k, hy + hr * 2.4]], [3.2 * k, 3 * k, 1.8 * k], hc, k);
+    const crop = L.hair === 'grey' || L.hair === 'short' || L.hair === 'curly';
+    blob(c, 0, hy, hr * 0.94, hr, crop ? cSkin : hc);
+    if (crop) { blob(c, 0, hy - hr * 0.2, hr * 0.99, hr * 0.92, hc); if (L.hair === 'curly') for (let i = 0; i < 5; i++) blob(c, -hr * 0.8 + i * hr * 0.4, hy - hr * 0.8, hr * 0.3, hr * 0.28, hc); }
+    if (L.hair === 'bun') blob(c, 0, hy - hr * 0.2, hr * 0.5, hr * 0.46, shade(L.hc, 0.1));
     if (L.hair === 'pigtails') for (const s of [-1, 1]) blob(c, s * hr * 1.0, hy + hr * 0.5, hr * 0.3, hr * 0.5, hc);
+    blob(c, -hr * 0.55, hy - hr * 0.45, hr * 0.28, hr * 0.5, 'rgba(255,240,230,.08)');
   } else {
+    if (L.hair === 'long' || L.hair === 'braid') for (const s of [-1, 1]) tube(c, [[s * hr * 0.85, hy - hr * 0.1], [s * hr * 1.0, hy + hr * 1.3], [s * hr * (L.hair === 'long' ? 1.05 : 0.9), hy + hr * (L.hair === 'long' ? 2.6 : 1.5)]], [2.8 * k, 2.6 * k, 2.2 * k], hc, k);
     blob(c, 0, hy, hr * 0.9, hr, cSkin);
-    if (L.hair === 'bun') blob(c, 0, hy - hr * 0.9, hr * 0.52, hr * 0.5, hc);
-    blob(c, 0, hy - hr * 0.55, hr * 0.96, hr * 0.4, hc);
-    if (L.hair === 'long' || L.hair === 'braid') { line(c, [[-hr * 0.85, hy - hr * 0.2], [-hr * 0.95, hy + hr * 1.6]], 2.4 * k, hc); line(c, [[hr * 0.85, hy - hr * 0.2], [hr * 0.95, hy + hr * (L.hair === 'long' ? 1.6 : 0.6)]], 2.4 * k, hc); }
+    if (L.hair === 'bun') blob(c, 0, hy - hr * 0.95, hr * 0.52, hr * 0.5, hc);
+    blob(c, 0, hy - hr * 0.5, hr * 0.98, hr * 0.46, hc);
     if (L.hair === 'pigtails') for (const s of [-1, 1]) blob(c, s * hr * 1.05, hy + hr * 0.4, hr * 0.3, hr * 0.5, hc);
     if (L.hair === 'curly') for (let i = 0; i < 5; i++) blob(c, -hr * 0.8 + i * hr * 0.4, hy - hr * 0.85, hr * 0.3, hr * 0.28, hc);
+    blob(c, -hr * 0.92, hy + hr * 0.1, hr * 0.14, hr * 0.26, shade(skin, 0.2 + dk)); blob(c, hr * 0.92, hy + hr * 0.1, hr * 0.14, hr * 0.26, shade(skin, 0.2 + dk));
     if (L.female) drawFaceFront(c, L, 0, hy, k, time);
   }
-  return { A, k };
+  return { k };
 }
 function dogSide(c, ph, k, dk = 0) {   // a small fawn dog trotting (diagonal pairs), facing +x, feet at y = 0
   const col = shade(DOG.c, dk), col2 = shade(DOG.c2, dk), colB = shade(DOG.c, 0.3 + dk), by = -12 * k + Math.abs(Math.sin(ph * 2)) * 0.6 * k;

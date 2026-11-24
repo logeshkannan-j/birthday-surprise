@@ -365,7 +365,7 @@ void main() {
   if (orig.a < 0.004) { o = vec4(0.0); return; }
   vec3 m[4]; vec3 s[4]; float am[4];
   for (int k = 0; k < 4; k++) { m[k] = vec3(0.0); s[k] = vec3(0.0); am[k] = 0.0; }
-  const int R = 4;
+  const int R = 3;
   for (int j = -R; j <= R; j++) for (int i = -R; i <= R; i++) {
     vec4 t = texture(uTex, vUV + vec2(float(i), float(j)) * uTexel); vec3 c = t.a > 0.004 ? t.rgb / t.a : vec3(0.0);
     float w = t.a;

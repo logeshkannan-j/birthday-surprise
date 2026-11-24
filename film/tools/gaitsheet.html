@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gait sheet (dev)</title>
+<style>body{margin:0;background:#cfc7dd}canvas{display:block}</style>
+</head>
+<body>
+<!-- dev tool: the rigs drawn large – a walk cycle of the man, Helen walking away and standing, her seated pose.  ?w=1800&h=1000&k=… -->
+<canvas id="c"></canvas>
+<script type="module">
+import { Helen, Boy } from '../js/rigs.js';
+import { crowdSample, CROWD_GROUPS } from '../js/crowd.js';
+const q = new URLSearchParams(location.search), W = +(q.get('w') || 1800), H = +(q.get('h') || 1000), mode = q.get('m') || 'all';
+const cv = document.getElementById('c'); cv.width = W; cv.height = H; const x = cv.getContext('2d');
+const g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#d9d2e6'); g.addColorStop(1, '#b8aed0'); x.fillStyle = g; x.fillRect(0, 0, W, H);
+x.strokeStyle = 'rgba(60,40,90,.35)'; x.lineWidth = 2;
+const label = (t, px, py) => { x.fillStyle = '#3a2a4a'; x.font = '600 16px system-ui'; x.textAlign = 'center'; x.fillText(t, px, py); };
+function boyWalk(px, gy, k, u, speed, arms, name, pose = 'walkHold') {
+  const b = new Boy(); b.walkPh = u * Math.PI * 2;
+  const st = { pose, speed, armsFree: arms, wind: 0, expr: 'smile', look: 0.2 };
+  for (let i = 0; i < 20; i++) b.update({ ...st, t: 1 + i / 60, dt: 0.0001 });
+  b.walkPh = u * Math.PI * 2; b.update({ ...st, t: 2, dt: 0.0001 });
+  x.save(); x.translate(px, gy); x.beginPath(); x.moveTo(-80, 0); x.lineTo(80, 0); x.stroke(); x.scale(k, k); b.draw(x, { ...st, t: 2.5, dt: 1 / 60 }); x.restore(); label(name, px, gy + 28);
+}
+function helen(px, gy, k, st, u, name) {
+  const h = new Helen(); const s = { wind: 0, ...st, walkPhase: u * Math.PI * 2 };
+  for (let i = 0; i < 80; i++) h.update({ ...s, t: i / 60, dt: 1 / 60 });
+  x.save(); x.translate(px, gy); x.beginPath(); x.moveTo(-80, 0); x.lineTo(80, 0); x.stroke(); x.scale(k, k); h.draw(x, { ...s, t: 2.5, dt: 1 / 60 }); x.restore(); label(name, px, gy + 28);
+}
+const kb = +(q.get('kb') || 5.2), kh = +(q.get('kh') || 6.2);
+if (mode === 'all' || mode === 'man') {
+  for (let i = 0; i < 6; i++) boyWalk(110 + i * 150, 480, kb, i / 6, 24, true, 'man u=' + (i / 6).toFixed(2));
+  boyWalk(1050, 480, kb, 0, 0, false, 'stand', 'stand'); boyWalk(1230, 480, kb, 0, 0, false, 'hide', 'hide'); boyWalk(1420, 480, kb, 0, 0, false, 'kneel', 'stand');
+}
+if (mode === 'all' || mode === 'helen') {
+  const y1 = mode === 'all' ? 700 : 400, y2 = mode === 'all' ? 960 : 900;
+  for (let i = 0; i < 6; i++) helen(110 + i * 150, y1, kh * 0.78, { back: true, stand: true, walking: true, pose: 'standHug' }, i / 6, 'back u=' + (i / 6).toFixed(2));
+  helen(1050, y1, kh * 0.78, { back: true, stand: true, walking: false, pose: 'standHug' }, 0, 'back standing');
+  helen(1230, y1, kh * 0.78, { stand: true, walking: false, pose: 'standHug', expr: 'smile' }, 0, 'front standing');
+  helen(1420, y1, kh * 0.78, { stand: true, walking: true, pose: 'standHug', expr: 'smile' }, 0.2, 'front walking');
+  helen(160, y2, kh * 0.78, { back: true }, 0, 'seated back');
+  helen(420, y2, kh * 0.78, { back: true, headTurn: 1, bodyTurn: 0.3, turnDir: 1, smile: 1 }, 0, 'seated turning');
+  helen(700, y2, kh * 0.78, { expr: 'smile' }, 0, 'seated front');
+}
+if (mode === 'crowd') {
+  const one = (px, gy, k, grp, view, ph, mode2) => { x.save(); x.translate(px, gy); x.beginPath(); x.moveTo(-60, 0); x.lineTo(60, 0); x.stroke(); x.scale(k, k); crowdSample(x, grp, view, ph, mode2); x.restore(); };
+  const kc = +(q.get('kc') || 3.4);
+  const nn = +(q.get('n') || 6); for (let i = 0; i < nn; i++) one(+(q.get('x0') || 80) + i * +(q.get('dx') || 150), 380, kc, 'friendsSix', 'back', i * 0.9, 'walk');
+  const names = ['couple', 'family', 'jogger', 'oldman', 'seller', 'phone', 'dogwalk', 'vendor'];
+  names.forEach((n, i) => one(100 + i * 215, 760, kc * 0.95, n, i % 2 ? 'side' : 'back', 1 + i * 0.7, undefined));
+  one(1100, 380, kc, 'friendsSix', 'front', 1.2, 'walk');
+}
+if (mode === 'zoom') {
+  const kz = +(q.get('kz') || 11);
+  helen(300, 660, kz, { back: true, stand: true, walking: true, pose: 'standHug' }, 0.15, 'back walking');
+  helen(750, 660, kz, { stand: true, walking: false, pose: 'standHug', expr: 'smile' }, 0, 'front standing');
+  helen(1250, 660, kz, { back: true }, 0, 'seated');
+}
+window.__done = true;
+</script>
+</body>
+</html>

@@ -22,7 +22,7 @@ const NAME = CFG.recipient, fill = s => s.replace('{name}', NAME).replace('{NAME
 
 // ---------------------------------------------------------------- quality tiers
 const TIERS = {
-  high: { name: 'high', pr: Math.min(devicePixelRatio || 1, 2), sprites: 16000, letters: 2600, pool: 6500, petals: 70, motes: 90, kuwahara: true, res: 1.35, postDiv: 1, rays: 0.6, flare: 0.28, thread: 320 },
+  high: { name: 'high', pr: Math.min(devicePixelRatio || 1, 2), sprites: 16000, letters: 2600, pool: 6500, petals: 70, motes: 90, kuwahara: true, res: 1.6, postDiv: 1, rays: 0.6, flare: 0.28, thread: 320 },
   medium: { name: 'medium', pr: Math.min(devicePixelRatio || 1, 1.5), sprites: 10000, letters: 1800, pool: 4200, petals: 45, motes: 60, kuwahara: true, res: 1.05, postDiv: 1, rays: 0.45, flare: 0, thread: 220 },
   low: { name: 'low', pr: 1, sprites: 6000, letters: 1100, pool: 2600, petals: 24, motes: 30, kuwahara: false, res: 0.8, postDiv: 2, rays: 0, flare: 0, thread: 140 }
 };
@@ -175,7 +175,7 @@ function helenPlace(T = S.T) {
   const stand = local >= 5;
   const walked = Math.hypot(-4.7 - startX, 12.6 - startZ) * ease.inOutSine(walkIn)
     + Math.hypot(-5.0 + 4.7, 18.5 - 12.6) * ease.inOutSine(walkOut);
-  const walkPhase = Math.PI * 2 * walked / CU / 46;
+  const walkPhase = Math.PI * 2 * walked / CU / 50;
   return { x, y: stand ? gy - Helen.STAND_GROUND * us(gy) : HS.y, gy, stand,
     walking: local >= 6.2 && local < 13.6, walkPhase };
 }
@@ -688,9 +688,9 @@ function step(dtReal, warm) {
   }
   view.set(innerWidth, innerHeight, cam);
   const mv = [(prevCam.x - cam.x) * view.S * cam.z, (prevCam.y - cam.y) * view.S * cam.z], ml = Math.hypot(mv[0], mv[1]);
-  motion = !RM && ml > 6 && ml < 140 && !warm ? [clamp(mv[0] * 0.8, -60, 60), clamp(mv[1] * 0.8, -60, 60)] : [0, 0];
+  motion = !RM && ml > 6 && ml < 140 && !warm ? [clamp(mv[0] * 0.3, -24, 24), clamp(mv[1] * 0.3, -24, 24)] : [0, 0];
   Object.assign(prevCam, { x: cam.x, y: cam.y, z: cam.z });
-  S.focus = focus; S.aper = sc.aper * 0.012 * (Math.max(0, cam.z - 1) + 0.2) * (portrait ? 0.85 : 1);   // depth of field grows with the push-in
+  S.focus = focus; S.aper = sc.aper * 0.0035 * (Math.max(0, cam.z - 1) + 0.2) * (portrait ? 0.85 : 1);   // depth of field grows with the push-in
   S.tod = lerp(sc.tod[0], sc.tod[1], clamp(lt / sc.dur, 0, 1));
   audio.setWind && audio.setWind(hw.g); audio.setNight && audio.setNight(clamp(S.tod - 1, 0, 1));
 }
@@ -728,7 +728,7 @@ function frame() {
   const fogC = todMix(SKYC, tod), emK = smoothstep(0.45, 1.15, tod);
   for (const k in lists) lists[k].reset();
   const clip = clipOn && S.phase === 'film' ? { el: clipOn.el, zoom: 1 + Math.max(0, S.lt - (clipOn.el.duration || 99)) * 0.01 } : null;
-  const F = { clip, view, W, H, pr: q.pr, t: S.real, simT: S.simT, tod, sun, sunVis, moon, amb: ambL, fog: fogC, fogK: 1, emK, focus: S.focus ?? 700, aper: S.aper ?? 0.01, maxBlur: 18, lists,
+  const F = { clip, view, W, H, pr: q.pr, t: S.real, simT: S.simT, tod, sun, sunVis, moon, amb: ambL, fog: fogC, fogK: 1, emK, focus: S.focus ?? 700, aper: S.aper ?? 0.01, maxBlur: 5, lists,
     sky: { aurora: rv('aurora') * (1 - smoothstep(TL.scenes[6].start + 6, TL.scenes[7].start + 4, S.T)), stars: smoothstep(1.0, 1.7, tod), cloudK: (S.phase === 'wish' ? 0 : rv('cloudK', 1)) * 0.7 },
     sea: { night, gustX: wind.front().x, gustA: wind.front().a * 0.8, waveA: 1.25, reflK: 0.65 + 0.6 * rv('refl'), rip: new Float32Array(32) } };
   (S.rip || []).forEach((r, i) => F.sea.rip.set(r, i * 4));

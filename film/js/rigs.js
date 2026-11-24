@@ -2,6 +2,8 @@
 // thin warm outlines. Character space: feet (or seat, for Helen) at (0,0), up is -y, ~100 units = a standing adult.
 import { clamp, lerp, rng, noise2 } from './core.js';
 import { Chain, Hem, Spring } from './physics.js';
+import { foot as gaitFoot, hipRise, armSwing, DUTY } from './gait.js';
+const HELEN_STRIDE = 50;   // one full stride of Helen's walk in her units (film.js: walkPhase = 2π · distance / CU / 50)
 
 // ---------------------------------------------------------------- drawing helpers
 const P2 = s => new Path2D(s);
@@ -76,7 +78,7 @@ function limb(ctx, a, b, c, prof, base, out, o = {}) {
   const dx = c[0] - a[0], dy = c[1] - a[1], l = Math.hypot(dx, dy) || 1, nx = -dy / l, ny = dx / l, w = Math.max(...prof) * 0.7, sgn = nx < 0 ? 1 : -1;   // light from the upper left
   const g = ctx.createLinearGradient(m[0] + nx * w * sgn, m[1] + ny * w * sgn, m[0] - nx * w * sgn, m[1] - ny * w * sgn);
   g.addColorStop(0, mixc(base, o.light || '#FFE8CF', 0.22)); g.addColorStop(0.5, base); g.addColorStop(1, mixc(base, o.shade || '#6E4E8C', 0.3));
-  ctx.fillStyle = g; ctx.fill(p);
+  ctx.fillStyle = g; ctx.fill(p); if (o.gradOut) o.gradOut.g = g;
   if (out !== false) { ctx.lineWidth = o.lw || 0.2; ctx.strokeStyle = out || rgba(mixc(base, '#5A2632', 0.7), 0.8); ctx.stroke(p); }
   return p;
 }
@@ -149,6 +151,15 @@ function sneaker(ctx, ax, ay, C) {
   for (let i = 0; i < 3; i++) line(ctx, P2(`M${ax - 0.2 + i * 0.6} ${ay - 0.9 + i * 0.2} L${ax + 0.6 + i * 0.6} ${ay - 0.4 + i * 0.2}`), '#9DB4E6', 0.18);
 }
 
+// a white sneaker seen from behind: the heel cup and its tab, the sole; when the heel is up (toe-off) the underside of the sole shows
+function sneakerBack(ctx, ax, ay, pitch, C) {
+  const up = Math.max(0, -pitch), k = 1 - up * 0.18;
+  if (up > 0.15) fill(ctx, P2(`M${ax - 2.1} ${ay + 0.9} C${ax - 2.1} ${ay + 2.6 + up} ${ax + 2.1} ${ay + 2.6 + up} ${ax + 2.1} ${ay + 0.9} Z`), '#C9CBDD');   // the sole, tilted toward us
+  const sh = P2(`M${ax - 2.2 * k} ${ay - 1.7} C${ax - 2.6 * k} ${ay + 0.6} ${ax - 2.0 * k} ${ay + 1.6} ${ax} ${ay + 1.7} C${ax + 2.0 * k} ${ay + 1.6} ${ax + 2.6 * k} ${ay + 0.6} ${ax + 2.2 * k} ${ay - 1.7} Z`);
+  cel(ctx, sh, C.shoe, ax - 2.6, ax + 2.6, { lc: C.out, lw: 0.14, shade: '#8A96C0' });
+  line(ctx, P2(`M${ax - 2.3 * k} ${ay + 1.2} L${ax + 2.3 * k} ${ay + 1.2}`), 'rgba(160,170,210,.9)', 0.4); line(ctx, P2(`M${ax} ${ay - 1.6} L${ax} ${ay + 0.4}`), 'rgba(150,160,205,.7)', 0.3);
+}
+
 // =====================================================================================  HELEN (seated on the sea wall)
 // Helen after the user's photo (2026-11-23): warm brown skin, big dark-brown eyes with soft kohl, a small bindi, silver jhumka
 // earrings, loose wavy near-black hair parted in the middle and falling to her chest, a gentle smile; a cream long-sleeve top
@@ -195,7 +206,7 @@ const STAND_POSES = {
   standHug: { near: [[-8.6, -14.6], [2.6, -12.8]], far: [[9.6, -16.4], [0.2, -17.6]], p: [2.6, -13.2], curl: [0.85, 0.85], cup: false, tilt: 0.12, farOver: true }
 };
 export class Helen {
-  static STAND_GROUND = 32.4;   // standing (st.stand): the soles of her sneakers, in her units (seated: the seat is y = 0)
+  static STAND_GROUND = 35.4;   // standing (st.stand): the soles of her sneakers, in her units (seated: the seat is y = 0)
   constructor() {
     this.hair = []; for (let i = 0; i < 9; i++) this.hair.push(new Chain(8, 2.75 + (i % 3) * 0.2, { drag: 1.5, grav: 300, bend: 0.8, iter: 4, lift: 0.03 }));
     this.locks = [new Chain(6, 2.9, { drag: 2.4, grav: 240, bend: 0.8 }), new Chain(6, 3.0, { drag: 2.4, grav: 240, bend: 0.8 })];
@@ -293,7 +304,7 @@ export class Helen {
     ctx.restore();
     }
     // ---- torso: the cream top (crew neck, long sleeves, little flowers), tucked into the jeans' waistband
-    ctx.save(); ctx.translate(0, breathe * 0.5);
+    ctx.save(); ctx.translate(st.stand ? this.lowSway || 0 : 0, breathe * 0.5);
     cel(ctx, P2('M-1.8 -31.4 L-2.0 -26.4 C-0.8 -25.6 1.6 -25.6 2.6 -26.2 L2.2 -31.0 Z'), C.skin, -2, 2.6, { line: false });
     fill(ctx, ell(0.5, -30.6, 2.6, 0.9), 'rgba(110,50,40,.3)');
     const bod = smooth([[-2.8, -27.6], [-6.0, -27.1], [-7.4, -25.6], [-7.3, -21.5], [-6.6, -16.5], [-5.7, -11.6], [5.9, -11.6], [6.9, -16.5], [7.7, -21.5], [7.8, -25.6], [6.4, -27.1], [3.4, -27.6], [0.4, -26.6]], true);
@@ -304,10 +315,10 @@ export class Helen {
     ctx.restore();
     line(ctx, P2('M-2.9 -27.5 C-1.6 -26.2 1.6 -26.0 3.5 -27.5'), C.topD, 0.45);                              // the crew neckline
     // the jeans' high waistband with its button and belt loops
-    cel(ctx, P2('M-6.2 -12.9 Q0.4 -12.4 6.4 -12.9 L6.6 -10.4 Q0.4 -9.9 -6.0 -10.4 Z'), C.jean, -6, 6.6, { lc: C.out, lw: 0.15, shade: '#2C3E72' });
-    line(ctx, P2('M-6.0 -11.7 Q0.4 -11.2 6.5 -11.7'), C.stitch, 0.12);
-    for (const x of [-4.4, 4.6]) fill(ctx, P2(`M${x - 0.3} -13.0 L${x + 0.3} -13.0 L${x + 0.3} -10.3 L${x - 0.3} -10.3 Z`), C.jeanD);
-    fill(ctx, ell(0.5, -11.6, 0.42, 0.42), '#C8A060');
+    cel(ctx, P2('M-5.8 -13.4 Q0.4 -12.9 6.3 -13.4 L7.1 -10.2 Q0.4 -9.7 -7.0 -10.2 Z'), C.jean, -6, 6.6, { lc: C.out, lw: 0.15, shade: '#2C3E72' });
+    line(ctx, P2('M-6.4 -11.8 Q0.4 -11.3 6.7 -11.8'), C.stitch, 0.12);
+    for (const x of [-4.4, 4.6]) fill(ctx, P2(`M${x - 0.3} -13.2 L${x + 0.3} -13.2 L${x + 0.3} -10.3 L${x - 0.3} -10.3 Z`), C.jeanD);
+    fill(ctx, ell(0.9, -11.7, 0.42, 0.42), '#C8A060');
     ctx.restore();
     // ---- Snowki in her lap (drawn by the film with his own rig, so he is the same teddy when he comes alive)
     if (st.lap) st.lap(ctx);
@@ -376,19 +387,27 @@ export class Helen {
     // ---- the skirt on the wall, bulging over her right thigh toward the knee
     if (st.stand) this.standBackLower(ctx, t, st);
     else {
-      // the jeans seat on the wall, her right thigh turning toward the knee (her legs hang over the sea side)
-      const sk = smooth([[-6.4, -11.6], [-8.2, -7.6], [-8.6, -3.4], [-7.8, 1.6], [-3.6, 3.1], [2.6, 3.2], [8.0, 2.6], [12.4, 1.6], [15.0, 0.2], [15.6, -2.4], [13.0, -5.0], [9.4, -7.6], [6.6, -11.6]], true);
-      cel(ctx, sk, C.jean, -8.6, 15.6, { lc: C.out, shade: '#2C3E72' });
-      ctx.save(); ctx.clip(sk);
-      { const g = ctx.createLinearGradient(0, -12, 0, -4); g.addColorStop(0, 'rgba(20,30,80,.3)'); g.addColorStop(1, 'rgba(20,30,80,0)'); ctx.fillStyle = g; ctx.fillRect(-14, -12, 31, 8); }
-      line(ctx, P2('M0.5 -11.4 C0.6 -6 0.5 -1 0.4 3.2'), rgba(C.jeanD, 0.9), 0.3);                             // centre seam
-      jeanPocket(ctx, -3.4, -6.6, 4.4, 4.6); jeanPocket(ctx, 4.4, -6.6, 4.4, 4.6);
-      line(ctx, P2('M6.6 -8.4 C9.8 -6.4 12.8 -4.2 15.2 -1.6'), rgba(C.jeanL, 0.55), 0.45);
-      line(ctx, P2('M-8.0 -6.6 C-8.6 -3.6 -8.4 -0.8 -7.6 1.4'), 'rgba(255,255,255,.18)', 0.45);                 // moonlight on her left hip
+      // sitting on the wall: the hips rest flat on the stone (a soft shadow under them), her right thigh turns off toward the knee;
+      // the other thigh runs away from us under her back. Same one-piece jeans as when she stands: waist, hips, a centre seam, pockets.
+      { const sg = ctx.createRadialGradient(2.5, 3.6, 0, 2.5, 3.6, 15); sg.addColorStop(0, 'rgba(40,24,70,.38)'); sg.addColorStop(1, 'rgba(40,24,70,0)'); ctx.save(); ctx.translate(0, 0); ctx.scale(1, 0.34); ctx.fillStyle = sg; ctx.fillRect(-14, -30, 36, 70); ctx.restore(); }
+      const go = {}, knee = [15.0, -1.4], th = [[3.4, -5.4], [9.4, -3.6], knee];
+      limb(ctx, th[0], th[1], th[2], [8.6, 7.8, 7.2, 6.8, 6.2], C.jean, false, { gradOut: go, shade: '#2C3E72' });
+      const hipP = smooth([[-5.8, -13.3], [6.4, -13.3], [7.9, -9], [8.2, -5], [6.8, 0.2], [2.4, 3.0], [-3.2, 3.1], [-7.2, 1.6], [-8.5, -3], [-8.1, -8.4]], true);
+      cel(ctx, hipP, C.jean, -8.5, 8.4, { lc: C.out, shade: '#2C3E72', lw: 0.16 });
+      { const p = limbPath(th[0], th[1], th[2], [8.6, 7.8, 7.2, 6.8, 6.2]); ctx.save(); ctx.beginPath(); ctx.rect(5.6, -20, 30, 40); ctx.clip(); ctx.lineWidth = 0.16; ctx.strokeStyle = C.out; ctx.stroke(p); ctx.restore(); }
+      ctx.save(); ctx.clip(smooth([[-5.8, -13.3], [6.4, -13.3], [7.9, -9], [8.2, -5], [15.8, -4.4], [16.4, 1.2], [8, 3.4], [-3.2, 3.1], [-7.2, 1.6], [-8.5, -3], [-8.1, -8.4]], true));
+      { const g = ctx.createLinearGradient(0, -13, 0, -5); g.addColorStop(0, 'rgba(20,30,80,.28)'); g.addColorStop(1, 'rgba(20,30,80,0)'); ctx.fillStyle = g; ctx.fillRect(-10, -14, 30, 9); }
+      line(ctx, P2('M0.3 -13 C0.4 -8 0.3 -2 0.2 3.2'), rgba(C.jeanD, 0.9), 0.32);                                // centre seam
+      jeanPocket(ctx, -3.4, -6.4, 4.4, 4.6); jeanPocket(ctx, 4.0, -6.4, 4.4, 4.6);
+      line(ctx, P2('M-5.9 -12.9 L0.3 -9.6 L6.4 -12.9'), C.stitch, 0.14);                                       // the yoke
+      line(ctx, P2('M7.4 -3.2 C10.4 -1.4 13 -0.4 15.2 -0.2'), rgba(C.jeanL, 0.6), 0.5);                       // the light along her thigh
+      for (const [x0, y0, x1, y1] of [[7.2, -6.4, 9.6, -3.0], [10.6, -6.0, 12.6, -2.6], [-8, -9, -5.2, -7.6]]) line(ctx, P2(`M${x0} ${y0} Q${(x0 + x1) / 2 - 0.6} ${(y0 + y1) / 2 + 0.7} ${x1} ${y1}`), rgba(C.jeanD, 0.45), 0.3);   // the folds where the thigh turns
+      line(ctx, P2('M-8.0 -7 C-8.7 -4 -8.4 -1 -7.2 1.2'), 'rgba(255,255,255,.2)', 0.5);                       // moonlight on her left hip
+      line(ctx, P2('M14.2 -4.4 Q15.4 -1.6 14.0 1.2'), rgba(C.jeanD, 0.5), 0.3);                                // the knee
       ctx.restore();
     }
     // ---- bodice (turns a little with her shoulders), collar, belt
-    ctx.save(); ctx.translate(sx * 0.4 + 0.5, sh); ctx.scale(1 - Math.abs(bs) * 0.05, 1); ctx.translate(-0.5, 0);
+    ctx.save(); ctx.translate(sx * 0.4 + 0.5 + (st.stand ? this.lowSway || 0 : 0), sh); ctx.scale(1 - Math.abs(bs) * 0.05, 1); ctx.translate(-0.5, 0);
     const bod = smooth([[-2.9, -28.0], [-5.9, -27.5], [-7.4, -25.9], [-7.4, -22.6], [-7.0, -18.6], [-6.3, -14.6], [-5.9, -11.8], [6.1, -11.8], [6.6, -14.6], [7.3, -18.6], [7.9, -22.6], [8.0, -25.9], [6.6, -27.5], [3.6, -28.0], [0.5, -28.5]], true);
     cel(ctx, bod, C.top, -7.4, 8.0, { lc: C.out, shade: '#8F8098' });
     ctx.save(); ctx.clip(bod);
@@ -399,9 +418,9 @@ export class Helen {
     ctx.restore();
     line(ctx, P2('M-3.2 -28.6 C-1.2 -27.9 2.2 -27.9 4.2 -28.6'), C.topD, 0.4);                               // the back of the crew neck
     // the waistband of her jeans with belt loops (the top is tucked in)
-    cel(ctx, P2('M-6.2 -12.9 Q0.5 -12.4 6.4 -12.9 L6.6 -10.4 Q0.5 -9.9 -6.0 -10.4 Z'), C.jean, -6, 6.6, { lc: C.out, lw: 0.15, shade: '#2C3E72' });
-    line(ctx, P2('M-6.0 -11.7 Q0.5 -11.2 6.5 -11.7'), C.stitch, 0.12);
-    for (const x of [-4.6, 0.5, 5.6]) fill(ctx, P2(`M${x - 0.32} -13.0 L${x + 0.32} -13.0 L${x + 0.32} -10.3 L${x - 0.32} -10.3 Z`), C.jeanD);
+    cel(ctx, P2('M-5.8 -13.4 Q0.5 -12.9 6.4 -13.4 L7.2 -10.2 Q0.5 -9.7 -7.0 -10.2 Z'), C.jean, -6, 6.6, { lc: C.out, lw: 0.15, shade: '#2C3E72' });
+    line(ctx, P2('M-6.4 -11.8 Q0.5 -11.3 6.8 -11.8'), C.stitch, 0.12);
+    for (const x of [-4.6, 0.5, 5.6]) fill(ctx, P2(`M${x - 0.32} -13.2 L${x + 0.32} -13.2 L${x + 0.32} -10.3 L${x - 0.32} -10.3 Z`), C.jeanD);
     ctx.restore();
     // ---- arms (shoulder, elbow, wrist, a real hand), puff sleeves over the shoulders. With Snowki her right forearm
     // goes across his back and the hand curls round his side.
@@ -521,23 +540,52 @@ export class Helen {
     const walkSw = walking ? Math.sin(phaseBase) : 0, sw = Math.sin(t * 1.3) * 0.5 + walkSw * 0.8;
     this.jeanLegs(ctx, t, walking, phaseBase, false);
   }
-  // high-waisted wide-leg jeans from the waist to the sneakers (front: pockets and fly; back: back pockets)
+  // high-waisted wide-leg jeans from the waist to the sneakers (front: pockets and fly; back: back pockets). ONE garment: the waist
+  // flares into the hips and each leg grows out of its own half of the seat (no box, no tubes hung from a block). The gait comes from
+  // gait.js: planted feet that never slide, a heel strike and a toe-off, a hip that rises and drops, a pelvis that sways and tilts
+  // (seen from behind, forward/back steps show as the feet being higher/lower, because the camera looks along her path).
   jeanLegs(ctx, t, walking, phaseBase, back) {
-    const C = HC;
-    for (const x of [-3.0, 3.2]) {
-      const phase = phaseBase + (x < 0 ? 0 : Math.PI), swing = walking ? Math.sin(phase) * 3.1 : 0, lift = walking ? Math.max(0, Math.cos(phase)) * 2.8 : 0;
-      const hip = [x * 0.85, -9.0], knee = [x * 1.02 + swing * 0.45, 12.4 - lift * 0.35], ankle = [x * 1.08 + swing, 29.0 - lift];
-      sneaker(ctx, ankle[0], ankle[1] + 1.6, C);
-      limb(ctx, hip, knee, ankle, [5.6, 4.6, 4.1, 4.3, 4.7], C.jean, C.out, { lw: 0.16, shade: '#2C3E72' });
-      line(ctx, P2(`M${hip[0] + 1.0} ${hip[1] + 2} L${knee[0] + 1.0} ${knee[1]} L${ankle[0] + 1.3} ${ankle[1] - 0.6}`), rgba(C.jeanL, 0.5), 0.35);   // the crease
+    const C = HC, u = phaseBase / (Math.PI * 2), L1 = 20.8, L2 = 20.4, AH = 2.6, GA = Helen.STAND_GROUND - AH, S = HELEN_STRIDE * DUTY, KF = 0.21;
+    const F = [0, 1].map(i => (walking ? gaitFoot(u + i * 0.5, S, 3.8) : { x: i ? 1.8 : -1.0, y: 0, p: 0, st: true }));
+    const dxMax = walking ? Math.max(...F.map(f => (f.st ? Math.abs(f.x) : 0))) : 0, rise = hipRise(L1 + L2, dxMax, walking ? 0.03 : 0.004);
+    const cyc = walking ? Math.cos(2 * Math.PI * (u - 0.3)) : Math.sin(t * 0.55) * 0.35, sway = -cyc * (back ? 0.9 : 0.35), tilt = cyc * (walking ? 0.03 : 0.012), hipY = GA - rise;
+    this.lowSway = sway * 0.55;
+    const legs = [0, 1].map(i => {
+      const f = F[i], hx = (i ? 3.4 : -3.4) + sway, hy = hipY + tilt * (i ? 3.4 : -3.4), hip = [hx, hy];
+      let kn, an;
+      if (back) {   // the sagittal plane (z forward, y up) is solved first, then squashed onto the screen: z becomes a small climb
+        const ax = hx * 1.06 + (i ? 0.5 : -0.5) * (f.st ? 0.6 : 0.2), tz = f.x, ty = GA - f.y, ik2 = ik([0, hy], [tz, ty], L1, L2, -1);
+        an = [ax, ty - KF * tz]; kn = [lerp(hx, ax, 0.5) + (i ? 0.45 : -0.45), ik2[1][1] - KF * ik2[1][0]];
+      } else { const I = ik(hip, [hx + f.x * 0.92, GA - f.y], L1, L2, -1); kn = I[1]; an = I[2]; }
+      return { hip, kn, an, f, i, z: f.x };
+    });
+    const prof = [8.0, 7.2, 6.3, 6.4, 7.4];
+    for (const lg of (back ? legs.slice().sort((a, b) => b.z - a.z) : legs)) {
+      const { hip, kn, an, f, i } = lg, go = {};
+      if (back) sneakerBack(ctx, an[0], an[1] + 0.9, f.p, C); else { ctx.save(); ctx.translate(an[0], an[1] + 1.7); ctx.rotate(-f.p); sneaker(ctx, 0, 0, C); ctx.restore(); }
+      limb(ctx, hip, kn, [an[0], an[1] - 2.0], prof, C.jean, C.out, { lw: 0.16, shade: '#2C3E72', gradOut: go });
+      const sgn = i ? 1 : -1;
+      line(ctx, P2(`M${hip[0] - sgn * 1.3} ${hip[1] + 4} L${kn[0] - sgn * 1.2} ${kn[1]} L${an[0] - sgn * 1.3} ${an[1] - 1.4}`), rgba(C.jeanL, 0.42), 0.5);   // the light on the leg
+      line(ctx, P2(`M${an[0] - 3.5} ${an[1] - 3.6} Q${an[0]} ${an[1] - 2.8} ${an[0] + 3.5} ${an[1] - 3.6}`), rgba(C.jeanD, 0.5), 0.3);   // the hem folds over the shoe
+      if (!back) for (const k of [0.1, 0.22]) line(ctx, P2(`M${kn[0] - 2.8} ${kn[1] + k * 7 - 1} Q${kn[0] + 0.4} ${kn[1] + k * 7 + 0.6} ${kn[0] + 2.8} ${kn[1] + k * 7 - 1}`), rgba(C.jeanD, 0.35), 0.28);   // the creases at the knee
+      lg.g = go.g;
     }
-    const seat = smooth([[-6.2, -11.6], [-7.4, -6.0], [-6.2, -2.0], [0.4, -0.8], [6.8, -2.0], [7.8, -6.0], [6.4, -11.6]], true);
-    cel(ctx, seat, C.jean, -7.4, 7.8, { lc: C.out, shade: '#2C3E72' });
-    cel(ctx, P2('M-6.2 -12.9 Q0.4 -12.4 6.4 -12.9 L6.6 -10.4 Q0.4 -9.9 -6.0 -10.4 Z'), C.jean, -6, 6.6, { lc: C.out, lw: 0.15, shade: '#2C3E72' });
-    line(ctx, P2('M-6.0 -11.7 Q0.4 -11.2 6.5 -11.7'), C.stitch, 0.12);
-    if (back) { jeanPocket(ctx, -3.2, -6.4, 4.0, 4.2); jeanPocket(ctx, 3.8, -6.4, 4.0, 4.2); }
-    else { line(ctx, P2('M0.4 -10.4 C0.4 -7.6 0.2 -5.2 -0.6 -3.4'), C.stitch, 0.14); line(ctx, P2('M5.4 -10.4 C5.0 -7.4 3.2 -5.4 1.4 -4.8'), C.stitch, 0.14);
-      line(ctx, P2('M-4.8 -10.4 C-4.6 -7.6 -3.0 -5.6 -1.4 -5.0'), C.stitch, 0.14); fill(ctx, ell(0.5, -11.6, 0.42, 0.42), '#C8A060'); }
+    // the seat: each half continues its leg's gradient, so the leg and the hip are one piece of denim
+    const pel = (i, g) => { const sgn = i ? 1 : -1, hx = sgn * 3.4 + sway, X = (a, y) => [sgn * a + sway * (1 + (y + 13) * 0.02), y + tilt * sgn * a], c0 = 0.25 + sway;
+      const lg = legs[i], ax = [lg.kn[0] - lg.hip[0], lg.kn[1] - lg.hip[1]], tp = [lg.hip[0] + ax[0] * 0.42, lg.hip[1] + ax[1] * 0.42], hw = 3.65;   // a point on the thigh, where the seat ends
+      const pts = [[c0, -13.3], X(5.8, -13.2), X(7.1, -10), X(7.8, -6), [tp[0] + sgn * hw, tp[1] - 1.0], [tp[0] - sgn * hw * 0.9, tp[1] + 0.6], [c0 + sgn * 0.2, 2.0]];
+      const path = smooth(pts, true); ctx.fillStyle = g; ctx.fill(path);
+      line(ctx, smooth(pts.slice(1, 5), false), C.out, 0.16);   // only the outer edge: the middle is one garment
+      return path; };
+    for (const lg of (back ? legs.slice().sort((a, b) => b.z - a.z) : legs)) lg.pel = pel(lg.i, lg.g);
+    ctx.save(); ctx.clip(smooth([[-5.8, -13.3], [6.4, -13.3], [7.9, -6], [7.5, 1.4], [0.3, 3.4], [-7.5, 1.4], [-7.9, -6]], true));
+    line(ctx, P2(`M${0.25 + sway} -13 C${0.35 + sway} -8 ${0.3 + sway} -2 ${0.25 + sway} 3.4`), rgba(C.jeanD, 0.85), 0.34);   // the centre seam
+    if (back) { jeanPocket(ctx, -3.5 + sway, -6.3, 4.4, 4.6); jeanPocket(ctx, 4.0 + sway, -6.3, 4.4, 4.6);
+      line(ctx, P2(`M${-5.9 + sway} -12.9 L${0.25 + sway} -9.6 L${6.4 + sway} -12.9`), C.stitch, 0.14);   // the yoke
+      for (const sx of [-1, 1]) line(ctx, P2(`M${sx * 7.3 + sway} -8 C${sx * 7.6 + sway} -4 ${sx * 7.4 + sway} -1 ${sx * 6.8 + sway} 1.6`), 'rgba(255,255,255,.2)', 0.5); }   // moonlight on the hips
+    else { line(ctx, P2(`M${5.8 + sway} -12.6 C${5.6 + sway} -9 ${3.8 + sway} -6.8 ${1.6 + sway} -6`), C.stitch, 0.14); line(ctx, P2(`M${-5.2 + sway} -12.6 C${-5 + sway} -9 ${-3.4 + sway} -6.8 ${-1.4 + sway} -6`), C.stitch, 0.14);
+      line(ctx, P2(`M${0.9 + sway} -12.6 C${0.9 + sway} -9.6 ${0.7 + sway} -7 ${0.2 + sway} -3.6`), C.stitch, 0.14); }
+    ctx.restore();
   }
   standBackLower(ctx, t, st) {
     const C = HC, walking = !!st.walking, phaseBase = Number.isFinite(st.walkPhase) ? st.walkPhase : t * 6;
@@ -599,7 +647,7 @@ export class Helen {
 }
 
 // =====================================================================================  THE BOY (standing / hiding / lighting / walking)
-const WALK_W = 5.2;   // walkHold cadence (rad/s of the gait cycle): ~1.65 steps a second
+const STEP_D = 34;   // one full stride (two steps) of the man's walk, in character units: the cadence follows his speed, so a planted foot never slides
 // He after the user's photo (2026-11-23): warm brown skin, thick swept-up wavy near-black hair, dark eyes under strong brows,
 // a thin moustache and a goatee; a black tee under an open lilac shirt (sleeves rolled), a blue patterned backpack on black straps
 const BC = { skin: '#B5784D', skinD: '#87512F', hair: '#15100F', hairHi: '#5C4A40', shirt: '#C9BEE3', shirtD: '#9A8EC4', shirtS: '#5E527F', shirtL: '#F1ECFF', cuffC: '#B5A8D8',
@@ -620,13 +668,11 @@ export class Boy {
     const dt = st.dt; this.blinkT -= dt; if (this.blinkT < 0) { this.blink = 0.13; this.blinkT = 2.6 + Math.random() * 3; } this.blink = Math.max(0, this.blink - dt);
     this.curl.step(dt, (st.wind || 0) * 0.004); this.kn = clamp(this.knS.step(dt, st.kneel ? 1 : 0), 0, 1.05); this.tilt = this.tiltS.step(dt, st.lookDown || 0);
     if (st.pose === 'walk') this.walkPh += dt * 4.4;
-    if (st.pose === 'walkHold' && st.speed !== 0) this.walkPh += dt * WALK_W;
+    if (st.pose === 'walkHold' && st.speed > 0.01) this.walkPh += dt * Math.PI * 2 * st.speed / STEP_D;
     if (st.pose !== this.lastPose) { this.legFrom = this.P && this.lastPose != null ? this.P.legs.map(L => L.slice(0, 3).map(q => q.slice())) : null; this.legBlend = 0; this.lastPose = st.pose; }
     this.legBlend = Math.min(1, this.legBlend + Math.max(0, dt) / 0.5);
-    const pose = this.pose(st), anch = [], rest = [];
+    const pose = this.pose(st);
     if (this.legFrom && this.legBlend < 1) { const e = ss(this.legBlend); pose.legs = pose.legs.map((L, i) => L.map((q, j) => (j < 3 && this.legFrom[i] ? [lerp(this.legFrom[i][j][0], q[0], e), lerp(this.legFrom[i][j][1], q[1], e)] : q))); }
-    for (let i = 0; i < 7; i++) { const u = i / 6; anch.push([lerp(-8.8, 8.9, u), -59]); rest.push([lerp(-9.3, 9.4, u), -45.8 + Math.sin(u * Math.PI) * 0.5]); }
-    this.hem.step(dt, anch, rest, (st.wind || 0) * 0.55, st.t);
     if (this.armP && dt > 0 && dt < 0.2) { const k = 1 - Math.exp(-dt * 11); pose.arms = pose.arms.map((arm, i) => arm.map((q, j) => (j === 0 || !this.armP[i] ? q : [lerp(this.armP[i][j][0], q[0], k), lerp(this.armP[i][j][1], q[1], k)]))); }
     this.armP = pose.arms.map(a => a.map(q => q.slice()));
     this.P = pose;
@@ -644,12 +690,11 @@ export class Boy {
         const kn = [hip[0] + hx * 0.06 + lift * 0.4, hip[1] + 22.5 - lift * 2.2 + stance * 0.2], an = [kn[0] - lift * 0.3, Math.min(-0.2, kn[1] + 21.6 * (1 - lift * 0.5) - lift * 1.5)];
         return [hip, kn, an, lift]; };
       P.legs = [side(-3.8, ph), side(4.0, ph + Math.PI)];
-    } else if (st.pose === 'walkHold') {   // a gentle walk toward +x: the planted foot slides back at exactly st.speed, the hip rides over it
-      const S = clamp((st.speed ?? 26) * Math.PI / WALK_W, 4, 24), u = this.walkPh / (Math.PI * 2);
-      const foot = v => { v = ((v % 1) + 1) % 1; if (v < 0.5) return [S / 2 - S * v * 2, 0]; const w = (v - 0.5) * 2; return [-S / 2 + S * ss(w), Math.sin(w * Math.PI) * 3.2]; };
-      const fB = foot(u), fF = foot(u + 0.5), dx = Math.max(fB[1] === 0 ? Math.abs(fB[0] + 3.1) : 0, fF[1] === 0 ? Math.abs(fF[0] - 3.3) : 0);   // planted foot vs its hip
-      P.hip = [0, -(Math.sqrt(Math.max(1, 44.1 * 44.1 - dx * dx)) + 2.25)]; P.lean = 0.05; P.headTilt = 0.04;
-      P.legs = [leg(-3.9, [-0.8 + fB[0], -2.25 - fB[1]], -1), leg(4.1, [0.8 + fF[0], -2.25 - fF[1]], -1)]; P.legOrder = [1, 0];   // feet nearly in line; his near (right) leg in front
+    } else if (st.pose === 'walkHold') {   // a gentle walk toward +x: the planted foot slides back at exactly his speed, heel strike -> toe-off, the swing foot clears the ground
+      const u = this.walkPh / (Math.PI * 2), S = STEP_D * DUTY, moving = st.speed > 0.01, fa = moving ? gaitFoot(u, S, 5.2) : { x: -3, y: 0, p: 0, st: true }, fb = moving ? gaitFoot(u + 0.5, S, 5.2) : { x: 3, y: 0, p: 0, st: true };
+      const dx = Math.max(fa.st ? Math.abs(fa.x) : 0, fb.st ? Math.abs(fb.x) : 0), AH = 2.25;
+      P.hip = [0, -(hipRise(44.1, dx, 0.015) + AH)]; P.lean = moving ? 0.05 : 0.02; P.headTilt = 0.04; P.walkU = moving ? u : null;
+      P.legs = [leg(-2.6, [-2.6 + fa.x, -AH - fa.y], -1), leg(2.6, [2.6 + fb.x, -AH - fb.y], -1)]; P.feet = [fa.p, fb.p]; P.legOrder = [1, 0];   // his near (right) leg in front
     } else if (st.pose === 'offer') {
       P.lean = 0.2; P.headTilt = 0.02;   // a slight bow toward her as he holds the teddy out
       P.legs = [leg(-3.9, [-3.2, -0.2], -1), leg(4.1, [8.2, -0.2], -1)];
@@ -674,9 +719,10 @@ export class Boy {
     P.holdPt = P.tp(7.6, -66.4);   // Snowki sits on the cradling forearm
     if (st.pose === 'light') { P.arms = [ik(sL, P.tp(-6, -56), 14.2, 12.4, -1), st.reach ? ik(sR, st.reach, 14.2, 12.4, 1) : ik(sR, [20, -20], 14.2, 12.4, 1)]; }
     else if (st.pose === 'walk') { const s = Math.sin(this.walkPh), h = P.hip[0]; P.arms = [[sL, [-12.4 + h, -67.2 - s * 0.8], [-12.1 + h, -55.4 - s * 2.2]], [sR, [12.6 + h, -67.2 + s * 0.8], [12.3 + h, -55.4 + s * 2.2]]]; }
-    else if (st.pose === 'walkHold' && st.armsFree) { // the same 3/4 walk with his arms swinging gently (each opposite its leg)
-      const u = this.walkPh / (Math.PI * 2), sw = Math.sin(u * Math.PI * 2) * (st.speed ? 2.6 : 0);
-      P.arms = [[sL, P.tp(-12.4 + sw * 0.5, -66.8), P.tp(-11.6 + sw, -54.8)], [sR, P.tp(12.8 - sw * 0.5, -66.6), P.tp(12.2 - sw, -54.6)]]; }
+    else if (st.pose === 'walkHold' && st.armsFree) { // the same 3/4 walk with his arms swinging from the shoulder, each opposite its leg, the elbow bending as the arm comes forward
+      const u = P.walkU ?? 0, amp = st.speed ? clamp(st.speed * 0.011, 0.1, 0.4) : 0.04, arm = (sh, ph, out) => { const A = armSwing(ph, amp, 0.2), a1 = A.sh + out, a2 = A.sh + out + A.el;
+        const e = [sh[0] + Math.sin(a1) * 14.2, sh[1] + Math.cos(a1) * 14.2]; return [sh, e, [e[0] + Math.sin(a2) * 12.4, e[1] + Math.cos(a2) * 12.4]]; };
+      P.arms = [arm(sL, u + 0.5, -0.05), arm(sR, u, 0.05)]; }
     else if (st.pose === 'walkHold') { // both hands round the teddy in front of his chest
       P.arms = [ik(sL, P.tp(4.4, -59.6), 14.2, 12.4, 1), ik(sR, P.tp(11.4, -60.4), 14.2, 12.4, 1)]; P.holdPt = P.tp(7.9, -59.2); P.twoHand = true; }
     else if (st.pose === 'offer') { // arms out in front, offering the teddy on both hands
@@ -728,58 +774,47 @@ export class Boy {
     cel(ctx, cuff, C.cuffC, e[0] - 2.4, e[0] + 2.4, { lc: C.out, lw: 0.14, shade: C.shirtS });
   }
   legs(ctx) {
-    const C = BC, L = this.P.legs;
-    for (const [hip, kn, an, lift] of (this.P.legOrder ? this.P.legOrder.map(i => L[i]) : L)) {
-      limb(ctx, hip, kn, an, [7.0, 6.4, 5.4, 5.0, 4.5], C.pant, 'rgba(10,10,20,.8)', { shade: '#000000', light: '#8A90A8', lw: 0.22 });
+    const C = BC, P = this.P, L = P.legs, order = P.legOrder ? P.legOrder.map(i => [L[i], i]) : L.map((l, i) => [l, i]), h = P.hip;
+    for (const [[hip, kn, an, lift], li] of order) {
+      limb(ctx, hip, kn, an, [7.3, 6.5, 5.5, 4.9, 4.5], C.pant, 'rgba(10,10,20,.8)', { shade: '#000000', light: '#8A90A8', lw: 0.22 });
       line(ctx, P2(`M${lerp(hip[0], kn[0], 0.3)} ${lerp(hip[1], kn[1], 0.3)} L${lerp(kn[0], an[0], 0.8)} ${lerp(kn[1], an[1], 0.8)}`), 'rgba(255,255,255,.07)', 0.5);
-      if (lift > 0.05 && this.P.back) { const so = P2(`M${an[0] - 2.6} ${an[1] - 0.6} C${an[0] - 2.8} ${an[1] + 1.6} ${an[0] + 2.8} ${an[1] + 1.6} ${an[0] + 2.6} ${an[1] - 0.6} C${an[0] + 1.6} ${an[1] - 1.8} ${an[0] - 1.6} ${an[1] - 1.8} ${an[0] - 2.6} ${an[1] - 0.6} Z`);
+      { const d = [an[0] - kn[0], an[1] - kn[1]], l = Math.hypot(d[0], d[1]) || 1, c = [an[0] - d[0] / l * 3.2, an[1] - d[1] / l * 3.2], n = [-d[1] / l * 2.5, d[0] / l * 2.5]; line(ctx, P2(`M${c[0] - n[0]} ${c[1] - n[1]} L${c[0] + n[0]} ${c[1] + n[1]}`), 'rgba(0,0,0,.35)', 0.35); }   // the hem
+      if (lift > 0.05 && P.back) { const so = P2(`M${an[0] - 2.6} ${an[1] - 0.6} C${an[0] - 2.8} ${an[1] + 1.6} ${an[0] + 2.8} ${an[1] + 1.6} ${an[0] + 2.6} ${an[1] - 0.6} C${an[0] + 1.6} ${an[1] - 1.8} ${an[0] - 1.6} ${an[1] - 1.8} ${an[0] - 2.6} ${an[1] - 0.6} Z`);
         cel(ctx, so, '#3A3236', an[0] - 2.6, an[0] + 2.6, { lc: 'rgba(0,0,0,.6)' }); fill(ctx, P2(`M${an[0] - 1.9} ${an[1] + 0.2} C${an[0] - 1.6} ${an[1] + 1.2} ${an[0] + 1.6} ${an[1] + 1.2} ${an[0] + 1.9} ${an[1] + 0.2} Z`), 'rgba(200,190,180,.55)'); continue; }
-      const sh = P2(`M${an[0] - 2.4} ${an[1] - 1.2} C${an[0] - 2.8} ${an[1] + 1.8} ${an[0] + 5.0} ${an[1] + 2.4} ${an[0] + 4.8} ${an[1] + 0.4} C${an[0] + 3.4} ${an[1] - 1.6} ${an[0] + 1} ${an[1] - 2} ${an[0] - 2.4} ${an[1] - 1.2} Z`);
-      cel(ctx, sh, C.shoe, an[0] - 2.6, an[0] + 5, { lc: 'rgba(0,0,0,.6)', shade: '#000000' });
+      // the shoe pivots at the ankle (toes up at heel strike, heel up at toe-off); the sole stays a line
+      const pit = P.feet && P.feet[li] != null ? P.feet[li] : 0;
+      ctx.save(); ctx.translate(an[0], an[1] + 0.7); ctx.rotate(-pit);
+      cel(ctx, P2('M-2.8 -2.3 C-3.4 0.2 -2.8 1.5 -1.0 1.9 L5.0 1.9 C6.2 1.8 6.5 0.5 5.5 -0.2 C4.3 -0.8 2.6 -1.1 1.6 -2.1 C0.4 -2.6 -1.7 -2.8 -2.8 -2.3 Z'), C.shoe, -3, 6.4, { lc: 'rgba(0,0,0,.6)', shade: '#000000' });
+      fill(ctx, P2('M-3.0 1.3 L6.2 1.3 L6.3 2.0 C6.0 2.4 5.2 2.4 4.8 2.4 L-1.0 2.4 C-2.4 2.3 -3.0 1.9 -3.0 1.3 Z'), '#CFC8C0');
+      line(ctx, P2('M0.8 -1.9 C1.8 -1.6 2.8 -1.1 3.8 -0.4'), 'rgba(200,190,180,.35)', 0.22);
+      ctx.restore();
     }
   }
-  shirt(ctx, t, back) {
-    const C = BC, H = this.hem, hp = []; for (let i = 0; i < H.n; i++) hp.push([H.x[i], H.y[i]]);
-    const pts = [[-3.4, -84.6], [-7.2, -83.4], [-10.4, -81.0], [-10.9, -77.2], [-10.2, -72], [-9.2, -64], [-8.8, -58]].concat(hp, [[8.9, -58], [9.3, -64], [10.4, -72], [11.1, -77.2], [10.6, -81.0], [7.6, -83.4], [3.8, -84.6], back ? [0.3, -83.8] : [0.5, -82.6]]);
-    const sh = smooth(pts, true);
-    if (!back) cel(ctx, P2('M7.6 -85.2 C11.6 -86.0 13.4 -83.0 13.0 -78.6 L10.6 -78.2 C10.8 -81.6 10.0 -83.4 7.4 -83.6 Z'), C.bag, 7.4, 13.4, { lc: 'rgba(10,20,60,.7)', lw: 0.14, shade: '#0E2A66', light: C.bagL });   // the pack, behind his left shoulder
-    cel(ctx, sh, C.shirt, -10.3, 10.5, { lc: C.out, shade: C.shirtS, light: C.shirtL });
-    ctx.save(); ctx.clip(sh);
-    const g = ctx.createLinearGradient(0, -80, 0, -45); g.addColorStop(0, 'rgba(40,30,70,0)'); g.addColorStop(1, 'rgba(40,30,70,.28)'); ctx.fillStyle = g; ctx.fillRect(-12, -85, 24, 42);
-    for (const [x0, x1] of [[-7.6, -8.2], [7.8, 8.4]]) line(ctx, P2(`M${x0} -73 C${x0 + 0.4} -64 ${x1} -56 ${x1 - 0.2} -47`), rgba(C.shirtS, 0.45), 0.25);   // soft folds
-    if (!back) { // the black tee in the open front, the shirt's two front edges, buttons on his right side, a pocket on his left chest
-      const hm = hp[Math.floor(hp.length / 2)][1];
-      const tee = P2(`M-3.4 -83.6 C-1.6 -81.6 2.4 -81.6 4.0 -83.6 L4.8 -72 C5.2 -64 5.0 -56 4.6 ${hm + 0.6} L-3.8 ${hm + 0.6} C-4.2 -56 -4.4 -64 -4.0 -72 Z`);
-      cel(ctx, tee, C.tee, -4.2, 5, { lc: 'rgba(0,0,0,.5)', lw: 0.14, shade: '#000000', light: C.teeL });
-      line(ctx, P2('M-3.0 -83.0 C-1.4 -81.4 2.2 -81.4 3.6 -83.0'), 'rgba(90,88,104,.9)', 0.35);                 // the tee's round neck
-      line(ctx, P2('M-1.6 -70 C-1.2 -64 -1.4 -58 -1.8 -52'), 'rgba(80,80,96,.35)', 0.3);
-      for (const [sx, d] of [[-4.0, -1], [4.8, 1]]) { const ed = P2(`M${sx} -82.8 C${sx + d * 0.6} -72 ${sx + d * 0.9} -62 ${sx + d * 0.5} ${hm + 0.4}`); line(ctx, ed, rgba(C.shirtS, 0.9), 0.32); line(ctx, P2(`M${sx + d * 0.9} -80 C${sx + d * 1.4} -70 ${sx + d * 1.6} -62 ${sx + d * 1.2} ${hm}`), rgba(C.shirtL, 0.7), 0.22); }
-      for (let i = 0; i < 4; i++) { const by = -76 + i * 6.6; fill(ctx, ell(-5.1, by, 0.42, 0.42), '#8E82B4'); fill(ctx, ell(-5.2, by - 0.1, 0.16, 0.16), 'rgba(255,255,255,.6)'); }
-      const pk = P2('M6.4 -74.6 L9.4 -74.8 L9.5 -71.2 C8.6 -70.6 7.2 -70.6 6.4 -71.0 Z'); line(ctx, pk, rgba(C.shirtS, 0.8), 0.24); line(ctx, P2('M6.3 -73.8 L9.5 -74.0'), rgba(C.shirtS, 0.6), 0.2);
+  shirt(ctx, t, back) {   // a fitted, buttoned shirt, tucked in at a belt: no flapping hem, no pack
+    const C = BC;
+    const body = smooth([[-3.6, -84.5], [-7.4, -83.7], [-10.2, -81.5], [-10.7, -77], [-9.9, -71.5], [-9.0, -65], [-8.3, -58.5], [-7.8, -52.5], [-8.3, -47.4], [8.5, -47.4], [8.1, -52.5], [8.6, -58.5], [9.5, -65], [10.4, -71.5], [11.1, -77], [10.7, -81.5], [7.9, -83.7], [3.9, -84.5], [0.3, -83.7]], true);
+    cel(ctx, body, C.shirt, -10.4, 11.2, { lc: C.out, shade: C.shirtS, light: C.shirtL });
+    ctx.save(); ctx.clip(body);
+    { const g = ctx.createLinearGradient(0, -80, 0, -46); g.addColorStop(0, 'rgba(40,30,70,0)'); g.addColorStop(1, 'rgba(40,30,70,.2)'); ctx.fillStyle = g; ctx.fillRect(-12, -85, 25, 40); }
+    { const g = ctx.createLinearGradient(-10.8, 0, 11.2, 0); g.addColorStop(0, 'rgba(60,45,110,.24)'); g.addColorStop(0.2, 'rgba(60,45,110,0)'); g.addColorStop(0.8, 'rgba(60,45,110,0)'); g.addColorStop(1, 'rgba(60,45,110,.3)'); ctx.fillStyle = g; ctx.fillRect(-12, -85, 25, 40); }
+    for (const [x0, y0, x1, y1] of [[-7.9, -53, -3.8, -49.2], [8.3, -53, 4.4, -49.4], [-8.6, -60, -6.6, -55], [9.0, -61, 7.0, -55.5]]) line(ctx, P2(`M${x0} ${y0} Q${(x0 + x1) / 2 + (x1 > x0 ? 0.2 : -0.2)} ${(y0 + y1) / 2 - 0.5} ${x1} ${y1}`), rgba(C.shirtS, 0.4), 0.26);   // the pull of the tuck, the fabric over the ribs
+    for (const [x0, x1, d] of [[-10.3, -9.0, 1], [10.9, 9.7, -1]]) line(ctx, P2(`M${x0} -81 C${x0 + d * 0.9} -77 ${x1 + d * 0.2} -74 ${x1} -69`), rgba(C.shirtS, 0.55), 0.3);   // the armhole seams
+    if (!back) {
+      // the black tee in the open collar, the placket with its buttons, a pocket on his left chest, the two collar flaps
+      fill(ctx, P2('M-4.3 -84.2 C-2.0 -83.0 3.0 -83.0 5.2 -84.2 L0.9 -75.2 Z'), C.tee); line(ctx, P2('M-4.0 -83.7 C-2.0 -82.7 2.8 -82.7 4.9 -83.7'), 'rgba(110,108,124,.8)', 0.3);
+      line(ctx, P2('M0.9 -76.4 C1.0 -66 1.0 -56 0.9 -47.6'), rgba(C.shirtS, 0.7), 0.34); line(ctx, P2('M1.5 -76.4 C1.6 -66 1.6 -56 1.5 -47.6'), rgba(C.shirtL, 0.5), 0.2);
+      for (let i = 0; i < 4; i++) { const by = -71 + i * 6.4; fill(ctx, ell(0.9, by, 0.5, 0.5), '#8E82B4'); fill(ctx, ell(0.8, by - 0.12, 0.17, 0.17), 'rgba(255,255,255,.6)'); }
+      const pk = P2('M5.8 -74.4 L9.2 -74.6 L9.3 -70.6 C8.4 -70.0 6.8 -70.0 5.8 -70.5 Z'); line(ctx, pk, rgba(C.shirtS, 0.8), 0.26); line(ctx, P2('M5.7 -73.6 L9.3 -73.8'), rgba(C.shirtS, 0.6), 0.22);
+    } else { // the back: a yoke seam across the shoulders and a centre fold
+      line(ctx, P2('M-9.6 -77.4 C-3 -75.4 3 -75.4 10.2 -77.4'), rgba(C.shirtS, 0.6), 0.28); line(ctx, P2('M0.4 -75.6 C0.5 -66 0.5 -56 0.3 -47.8'), rgba(C.shirtS, 0.45), 0.3);
     }
-    line(ctx, P2('M-8.6 -50.5 C-3 -49.6 3 -49.6 8.8 -50.5'), rgba(C.shirtS, 0.4), 0.3);
     ctx.restore();
-    if (back) { // the backpack on his back: blue with a pale wave pattern, black straps and a top handle
-      line(ctx, P2('M-9.4 -76.4 C-3 -74.8 3 -74.8 9.8 -76.4'), rgba(C.shirtS, 0.6), 0.22); line(ctx, P2('M-3.4 -83.8 C-1 -85.0 1.4 -85.0 3.8 -83.8'), rgba(C.shirtL, 0.8), 0.55);
-      for (const x of [-6.6, 7.0]) cel(ctx, P2(`M${x - 1.3} -83.6 L${x + 1.3} -83.6 L${x + 1.1} -60 L${x - 1.1} -60 Z`), C.strap, x - 1.3, x + 1.3, { line: false, shade: '#000000' });
-      const bag = P2('M-7.4 -80.6 C-7.6 -82.6 -5.4 -83.4 0.2 -83.4 C5.8 -83.4 8.0 -82.6 7.8 -80.6 L8.2 -62.6 C8.2 -60.6 6.4 -59.8 0.2 -59.8 C-6.0 -59.8 -7.8 -60.6 -7.8 -62.6 Z');
-      cel(ctx, bag, C.bag, -7.8, 8.2, { lc: 'rgba(10,20,60,.8)', lw: 0.2, shade: '#0E2A66', light: C.bagL });
-      ctx.save(); ctx.clip(bag);
-      for (let i = 0; i < 6; i++) { const y0 = -80 + i * 3.6; line(ctx, P2(`M-8 ${y0} C-4 ${y0 - 2.2} -1 ${y0 + 2.2} 2.5 ${y0} C5 ${y0 - 1.6} 7 ${y0 + 1.2} 9 ${y0 - 0.4}`), rgba(C.bagL, 0.45), 0.5); }
-      fill(ctx, ell(-2.2, -70.6, 2.6, 2.4), rgba('#0E2A66', 0.5)); line(ctx, P2('M-4.4 -71.2 C-3.4 -73 -1 -73 0 -71.2'), rgba(C.bagL, 0.6), 0.25);   // a round print
-      ctx.restore();
-      const pk = P2('M-5.2 -67.4 L5.6 -67.4 L5.8 -61.0 C3 -60.4 -2.6 -60.4 -5.4 -61.0 Z'); cel(ctx, pk, C.bagD, -5.4, 5.8, { lc: 'rgba(10,20,60,.7)', lw: 0.16, shade: '#0A1E4E' });
-      line(ctx, P2('M-5.0 -66.6 L5.4 -66.6'), '#C9CCD8', 0.28);                                                          // the zip
-      line(ctx, P2('M-2.2 -83.4 C-2.0 -85.6 2.4 -85.6 2.6 -83.4'), C.strap, 0.7);                                         // the top handle
-      return;
-    }
-    // backpack: the straps over his shoulders and down his chest, the pack's edge showing behind his left shoulder
-    for (const [x0, x1, d] of [[-6.8, -7.4, -1], [7.2, 7.8, 1]]) {
-      const st = P2(`M${x0 - 1.15} -84.0 C${x0 - 1.2} -78 ${x1 - 1.1} -70 ${x1 - 0.9} -62.4 L${x1 + 1.1} -62.4 C${x1 + 1.0} -70 ${x0 + 1.25} -78 ${x0 + 1.15} -84.0 Z`);
-      cel(ctx, st, C.strap, Math.min(x0, x1) - 1.2, Math.max(x0, x1) + 1.2, { lc: 'rgba(0,0,0,.6)', lw: 0.12, shade: '#000000', light: '#4A4A56' });
-      const by = -66.2; line(ctx, P2(`M${x1 - 1.2} ${by} L${x1 + 1.2} ${by}`), '#5A5A66', 0.45); line(ctx, P2(`M${x1 - 1.0} ${by + 1.0} L${x1 + 1.0} ${by + 1.0}`), '#3A3A44', 0.3);   // the buckle
-      line(ctx, P2(`M${x1 + d * 0.1} -62.4 L${x1 + d * 0.4} -59.6`), C.strap, 0.5);   // strap end
-    }
+    if (!back) for (const [pts, mx] of [[[[-4.6, -85.0], [-1.4, -82.4], [-3.4, -78.6], [-7.0, -81.8]], -1], [[[5.6, -85.0], [2.4, -82.2], [4.2, -78.4], [7.8, -81.9]], 1]]) {
+      const f = P2(`M${pts[0][0]} ${pts[0][1]} L${pts[1][0]} ${pts[1][1]} L${pts[2][0]} ${pts[2][1]} L${pts[3][0]} ${pts[3][1]} Z`); cel(ctx, f, C.shirt, mx < 0 ? -7 : 2.4, mx < 0 ? -1.4 : 7.8, { lc: C.out, lw: 0.2, shade: C.shirtS, light: C.shirtL }); }
+    else { cel(ctx, P2('M-3.6 -84.8 C-1.2 -86.0 1.6 -86.0 4.0 -84.8 L3.9 -82.8 C1.4 -83.8 -1.2 -83.8 -3.5 -82.8 Z'), C.shirt, -3.6, 4, { lc: C.out, lw: 0.2, shade: C.shirtS, light: C.shirtL }); }
+    // the belt, with its buckle
+    cel(ctx, P2('M-8.4 -49.2 Q0.4 -48.7 8.7 -49.2 L8.7 -46.5 Q0.4 -46.0 -8.4 -46.5 Z'), '#2A1F1B', -8.4, 8.7, { lc: 'rgba(0,0,0,.7)', lw: 0.16, shade: '#000000', light: '#5A4A42' });
+    if (!back) { cel(ctx, P2('M-0.2 -49.4 L2.2 -49.4 L2.2 -46.2 L-0.2 -46.2 Z'), '#C9A66B', -0.2, 2.2, { lc: 'rgba(80,50,20,.8)', lw: 0.14 }); fill(ctx, P2('M0.3 -48.7 L1.7 -48.7 L1.7 -46.9 L0.3 -46.9 Z'), '#2A1F1B'); }
   }
   curls(ctx, t, cx, cy, back) {
     const C = BC, jig = clamp(this.curl.x, -0.16, 0.16) + Math.sin(t * 1.8) * 0.04, base = [];   // (a breeze stirs the curls; it never sweeps them into a crest)
