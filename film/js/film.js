@@ -4,7 +4,7 @@ import CFG from '../config.js';
 import { clamp, lerp, ease, smoothstep, noise2, rand, mix3 } from './core.js';
 import { View, PLACE, HZ, capY, baseY, unitScale, fOf, fromXZ, toXZ, CU } from './space.js';
 import { bakeWorld, makeAtlas, wireBulbs, worldFx } from './world.js';
-import { Crowd } from './crowd.js';
+import { Crowd, reunionTrack } from './crowd.js';
 import { Wind } from './physics.js';
 import { Helen, Boy, ImageActor } from './rigs.js';
 import { Snowki } from './snowki.js';
@@ -104,7 +104,7 @@ const S = {
 };
 function freshActors() {
   S.helen = { expr: 'calm', turn: -0.35, gaze: -0.6, lookUp: 0, handChest: 0, turnDir: 1 };
-  S.boy = { expr: 'watching', kneel: false, hold: false, reach: false, signal: 0, lookDown: 0, gift: true, lighting: false, flame: false, gazeUp: 0, watch: false, look: 0.2 };
+  S.boy = { expr: 'watching', kneel: false, hold: false, reach: false, signal: 0, lookDown: 0, gift: true, lighting: false, flame: false, gazeUp: 0, watch: false, look: 0.2, wave: false };
   S.jessi = { lookUp: false, happy: false, alert: false };
 }
 freshActors();
@@ -130,6 +130,7 @@ const sc0 = n => TL.scenes[n - 1].start;                         // story time w
 const MEET = PLACE.meet, LIGHT = PLACE.boyLight, TU = unitScale(PLACE.tree.y);
 const HIDE = { x: PLACE.boy.x + 9 * TU, y: PLACE.boy.y };        // fully hidden: right behind the middle of the trunk
 const PEEK = PLACE.boy;                                          // at the trunk's left edge (the hide / peek poses lean out past it)
+const STAY = PLACE.stay;                                         // where he stands for the ending, in the open
 const FUSE_SCENE = 6;                                            // the fuse cord lies on the promenade from scene 6 on
 const SNF = [400, 666, 666], SNM = [MEET.x - 47, MEET.y + 2, MEET.y + 2];   // Snowki: at the foot of the wall below her -> in front-left of the man
 const snPath = u => [lerp(SNF[0], SNM[0], u), lerp(SNF[1], SNM[1], u), lerp(SNF[2], SNM[2], u)];
@@ -156,28 +157,24 @@ function boyAt(T = S.T) {
   w = walkSeg(T, s(7) + 0.2, HIDE, LIGHT); if (w) return { ...w, rot: 0 };
   if (T < s(7) + 5.4) return base(LIGHT, 'stand');
   w = walkSeg(T, s(7) + 5.4, LIGHT, HIDE); if (w) return { ...w, rot: 0 };
-  if (T >= s(9) + 11.6 && T < s(9) + 13.4) {
-    const u = smoothstep(0, 0.8, T - s(9) - 11.6);
-    return { ...base({ x: lerp(HIDE.x, PEEK.x, u), y: lerp(HIDE.y, PEEK.y, u) }, u > 0.75 ? 'peek' : 'hide'), grip: true };
-  }
+  if (T >= s(9) + 12.6) { const w = walkSeg(T, s(9) + 12.6, HIDE, STAY); return w ? { ...w, rot: 0 } : base(STAY, 'stand'); }   // they have gone: he steps out into the open, smiling
   return { ...base(HIDE, 'hide'), grip: true };
 }
 const boyPlace = () => boyAt(S.T);
 function local2world(p, lx, ly) { const s = us(p.gy ?? p.y), fl = p.flip ? -1 : 1, r = p.rot || 0; return [p.x + s * fl * (lx * Math.cos(r) - ly * Math.sin(r)), p.y + s * (lx * Math.sin(r) + ly * Math.cos(r))]; }
 const HS = { x: PLACE.helen.x, y: PLACE.helen.seat, gy: PLACE.helen.gy };
 function helenPlace(T = S.T) {
-  const local = T - sc0(9), [startX, startZ] = toXZ(HS.x, HS.gy);
-  let X = startX, Z = startZ;
-  const walkIn = clamp((local - 6.2) / 2.2, 0, 1), walkOut = clamp((local - 8.4) / 5.2, 0, 1);
-  if (local >= 6.2) { X = lerp(startX, -4.7, ease.inOutSine(walkIn)); Z = lerp(startZ, 12.6, ease.inOutSine(walkIn)); }
-  if (local >= 8.4) { X = lerp(-4.7, -5.0, ease.inOutSine(walkOut)); Z = lerp(12.6, 18.5, ease.inOutSine(walkOut)); }
-  const [x, gy] = local >= 5 ? fromXZ(X, Z) : [HS.x, HS.gy];
-  const stand = local >= 5;
-  const walked = Math.hypot(-4.7 - startX, 12.6 - startZ) * ease.inOutSine(walkIn)
-    + Math.hypot(-5.0 + 4.7, 18.5 - 12.6) * ease.inOutSine(walkOut);
-  const walkPhase = Math.PI * 2 * walked / CU / 50;
-  return { x, y: stand ? gy - Helen.STAND_GROUND * us(gy) : HS.y, gy, stand,
-    walking: local >= 6.2 && local < 13.6, walkPhase };
+  const local = T - sc0(9), [startX, startZ] = toXZ(HS.x, HS.gy), stand = local >= 5;
+  let X = startX, Z = startZ, walked = 0, alpha = 1;
+  if (local >= 6.2) {   // she gets up, runs a few steps to the six, and walks off at the left end of the group (her stride stays matched to the ground)
+    const tr = reunionTrack(local - 0.8), tx = tr.X - 1.9, tz = tr.Z - 0.15, join = ease.inOutSine(clamp((local - 6.2) / 2.8, 0, 1));
+    X = lerp(startX, tx, join); Z = lerp(startZ, tz, join);
+    const t9 = reunionTrack(9.0 - 0.8), w9 = Math.hypot(t9.X - 1.9 - startX, t9.Z - 0.15 - startZ);
+    walked = local < 9 ? Math.hypot(X - startX, Z - startZ) : w9 + (tr.dist - t9.dist);
+    alpha = 1 - smoothstep(30, 45, Z);
+  }
+  const [x, gy] = stand ? fromXZ(X, Z) : [HS.x, HS.gy];
+  return { x, y: stand ? gy - Helen.STAND_GROUND * us(gy) : HS.y, gy, stand, X, Z, alpha, walking: local >= 6.2 && alpha > 0.02, walkPhase: Math.PI * 2 * walked / CU / 58 };
 }
 const helenW = (lx, ly) => { const p = helenPlace(); return [p.x + lx * us(p.gy), p.y + ly * us(p.gy)]; };
 const boyHead = (bp, dy = 0) => { const h = boy.P && boy.P.head ? boy.P.head : [0.3, -86]; return local2world(bp, h[0], h[1] + dy); };
@@ -252,7 +249,9 @@ function fire(ev, instant) {
     case 'boyPutDown': S.boy.hold = false; S.boy.gift = false; S.snGift = true; break;
     case 'boyStand': S.boy.kneel = false; break;
     case 'boySmileBack': S.boy.expr = 'smile'; S.boy.lookDown = 0; S.boy.gazeUp = 0; break;
-    case 'boyHeartbreak': S.boy.expr = 'watching'; S.boy.look = -0.5; S.boy.lookDown = 0.9; S.boy.gazeUp = 0; break;
+    case 'boyHappy': S.boy.expr = 'smile'; S.boy.look = -0.7; S.boy.lookDown = 0; S.boy.gazeUp = 0; break;   // the surprise worked: he is happy
+    case 'boyWave': S.boy.wave = true; S.boy.expr = 'farewell'; break;
+    case 'snWave': snAct('wave', { expr: 'happy' }, 7); break;   // Snowki waves goodbye from her arms, over her shoulder
     case 'boyToLight': S.boy.expr = 'contentment'; S.boy.lookDown = 0.3; break;
     // she slowly notices him: the head first, then the shoulders; a small gentle smile
     case 'hNotice': S.helen.turnDir = 1; ramp('hTurn', 1, 1.5, instant); S.helen.turn = 0.5; S.helen.gaze = 0.85; break;   // (turn/gaze: her front view looks toward him too)
@@ -351,7 +350,7 @@ function snowKeys() {
     [s(6) + 0.4, 'held', 'fly'], [s(6) + 1.0, P(1), 'walk'], [s(6) + 2.2, P(0.975), 'glide'], [s(6) + 6.6, P(0.025), 'walk'], [s(6) + 7.2, P(0), 'fly'], [s(6) + 8.0, 'side', 'side'],   // back to her
     [s(7) + 4.4, 'side', 'fly'], [s(7) + 5.2, 'lap', 'lap'], [1e9, 'lap', 'lap']];                                                                          // into her arms (the camera is on the launcher)
 }
-const lapAt = () => { const h = helenPlace(), p = helenW(12.8, -6.0); return [p[0], p[1], h.gy + 0.5]; };   // the back-view cradle seat (Helen.drawBack)
+const lapAt = () => { const h = helenPlace(), p = helenW(12.8, -1.6); return [p[0], p[1], h.gy + 0.5]; };   // the back-view cradle seat (Helen.drawBack)
 function heldAt() { const bp = boyPlace(), hp = boy.P && boy.P.holdPt ? boy.P.holdPt : [7, -57.4], w = local2world(bp, hp[0], hp[1]); return [w[0], w[1], bp.y + 1]; }
 function snowAt(T) {
   const K = SNK || (SNK = snowKeys()); let i = 0; while (i < K.length - 2 && T >= K[i + 1][0]) i++;
@@ -412,6 +411,14 @@ function jessiAt(T) {
   if (T < s(6) + 1.6) return at(JSIT, -1, 'stand');
   if (T < s(6) + 6.9) return gait(jessiTrail(T, -0.5, JSIT.x - SNM[0]), jessiTrail(T + 0.05, -0.5, JSIT.x - SNM[0]), -1, 'stand');   // back to her, just ahead of Snowki
   if (T < s(6) + 7.5) return { ...hop(J1, JS, (T - s(6) - 6.9) / 0.6), fl: -1, act: 'run' };
+  const L9 = T - s(9);
+  if (L9 >= 7.0) {   // the end: she hops off the wall, bounds after Helen and the six, trots beside them and fades into the night with them
+    if (L9 < 7.6) return { ...hop(JS, J1, (L9 - 7.0) / 0.6), fl: 1, act: 'run', alpha: 1 };
+    const j0 = toXZ(J1.x, J1.gy), at9 = k => { const h = helenPlace(T + k); return [h.X + 1.35, h.Z - 1.5]; }, u = ease.inOutSine(clamp((L9 - 7.6) / 2.6, 0, 1));
+    const pos = k => { const g = at9(k), uu = ease.inOutSine(clamp((L9 + k - 7.6) / 2.6, 0, 1)); return [lerp(j0[0], g[0], uu), lerp(j0[1], g[1], uu)]; };
+    const a = pos(0), b = pos(0.05), [x, gy] = fromXZ(a[0], a[1]), sp = Math.hypot(b[0] - a[0], b[1] - a[1]) / 0.05;
+    return { x, y: gy, gy, fl: 1, act: u < 0.98 ? 'run' : sp > 0.4 ? 'walk' : 'stand', vx: sp / CU / 0.56, alpha: 1 - smoothstep(30, 45, a[1]) };
+  }
   return at(JS, -1, S.jessi.lookUp ? 'lookUp' : S.jessi.happy ? 'happy' : 'sit', { look: S.jessi.lookUp ? [0, -0.6] : [-0.4, 0] });
 }
 
@@ -671,7 +678,7 @@ function step(dtReal, warm) {
   stepSnow(dt, warm);
   { const jp = jessiAt(S.T), jq = jessiAt(S.T + 0.05), k = us(jp.gy) * 0.56;   // her paws are planted at her real ground speed
     S.jfl = warm || S.jfl == null ? jp.fl : S.jfl + clamp(jp.fl - S.jfl, -dtReal * 7, dtReal * 7);   // she turns round (a quick squash through side-on)
-    S.jP = jp; jessi.update({ t: S.simT, dt, act: jp.act, sit: jp.sit, look: jp.look, vx: Math.abs(jq.x - jp.x) / 0.05 / k }); }
+    S.jP = jp; jessi.update({ t: S.simT, dt, act: jp.act, sit: jp.sit, look: jp.look, vx: jp.vx ?? Math.abs(jq.x - jp.x) / 0.05 / k }); }
   // particles
   fw.update(dt, S.simT, wind.at(800).s);
   amb.update(dt, S.simT, wind);
@@ -714,7 +721,7 @@ function boyReach(bp) {
 const heldDraw = (ctx, p) => { ctx.save(); ctx.translate(p[0], p[1]); ctx.scale(SN, SN); ctx.filter = 'brightness(1.28) saturate(1.05)'; snow.draw(ctx, { aura: false, sparkle: false }); ctx.restore(); };
 function boySt(bp, dt, wind) {
   const B = S.boy, sp = S.snP || snowAt(S.T);
-  return { t: S.simT, dt, wind, pose: bp.pose, speed: bp.speed || 0, armsFree: !!bp.free, reach: boyReach(bp), expr: B.expr, kneel: B.kneel, hold: B.hold, signal: B.signal, lookDown: B.lookDown, gift: B.gift, flame: B.flame,
+  return { t: S.simT, dt, wind, pose: bp.pose, speed: bp.speed || 0, armsFree: !!bp.free, reach: boyReach(bp), expr: B.expr, kneel: B.kneel, hold: B.hold, signal: B.signal, wave: B.wave, lookDown: B.lookDown, gift: B.gift, flame: B.flame,
     talk: !!(S.say && S.say.who === 'man' && S.T < S.say.until), held: sp.mode === 'held' ? heldDraw : null, look: B.look, gazeY: B.lookDown * 0.8 - B.gazeUp * 0.9 };
 }
 
@@ -762,10 +769,10 @@ function frame() {
     // Helen (Snowki in her arms is drawn by her rig through st.cradle), Jessi, Snowki on his own, the man
     const hp = helenPlace(), hst = { ...helenSt(0, wind.at(hp.x).s * 90), eyeLights: eyeLights() };
     const hi = views.helen.render(F, { x: hp.x, y: hp.y, gy: hp.gy }, hst, { groundY: (hp.stand ? hp.gy : baseY(hp.x)) + 2, shadowA: shA * 0.8, shadowDir: [shadowDir[0] * 0.5, 0.9], shadowLen: 0.5 });
-    if (hi) { hi.light = charLight(hi.anc); hi.blur = blurOf(hp.gy); push(hi, hp.gy); }
+    if (hi) { hi.light = charLight(hi.anc); hi.blur = blurOf(hp.gy); hi.alpha = hp.alpha ?? 1; push(hi, hp.gy); }
     { const jp = S.jP || jessiAt(S.T), fl = Math.sign(S.jfl ?? jp.fl) * Math.max(Math.abs(S.jfl ?? jp.fl), 0.12);
       const ji = views.jessi.render(F, { x: jp.x, y: jp.y, gy: jp.gy, fl }, null, { shadowA: shA, shadowDir, shadowLen: 0.3 });
-      if (ji) { ji.light = charLight(ji.anc); ji.blur = blurOf(jp.gy); push(ji, jp.gy); } }
+      if (ji) { ji.light = charLight(ji.anc); ji.blur = blurOf(jp.gy); ji.alpha = jp.alpha ?? 1; push(ji, jp.gy); } }
     // Snowki when he is not in her arms and not in the man's: beside her, hopping, walking, gliding, standing on the promenade
     if (sp.mode !== 'lap' && sp.mode !== 'held') {
       const si = views.snow.render(F, { x: sp.x, y: sp.y, gy: sp.gy }, {}, { scale: SN, groundY: sp.ground, shadowA: sp.mode === 'fly' || sp.mode === 'side' ? 0 : shA * 1.4 * (1 - 0.6 * (sp.hover || 0)), shadowDir, shadowLen: 0.3 });

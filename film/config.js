@@ -28,7 +28,7 @@ export default {
     skyMessage: ['HAPPY BIRTHDAY', '{NAME}'],
     skyHeart: true,                // ❤️ after the name
     finalLines: [
-      'She follows her friends into the night.\nHe stays behind the tree, hiding what it costs him.'
+      'Some surprises don\'t need you in the room.\nThe love behind them arrives all the same.'
     ],
     watchAgain: 'Watch again',
     continue: 'Continue',
@@ -36,10 +36,10 @@ export default {
     mute: 'Sound off', unmute: 'Sound on'
   },
 
-  // seconds per scene (scene 0 waits for the wish). Total ≈ 114 s.
+  // seconds per scene (scene 0 waits for the wish). Total ≈ 117 s.
   // 1 opening · 2 Jessi and Snowki notice him · 3 he steps out, Snowki goes to him · 4 the memory · 5 the conversation
-  // 6 Snowki returns while he hides · 7 he lights the fuse · 8 she searches the shore · 9 friends arrive; he watches unseen
-  timings: { 1: 12, 2: 10, 3: 13, 4: 10, 5: 16, 6: 12, 7: 14, 8: 9, 9: 18 },
+  // 6 Snowki returns while he hides · 7 he lights the fuse · 8 she searches the shore · 9 friends arrive, she leaves with them (Jessi and Snowki too); he steps out, happy
+  timings: { 1: 12, 2: 10, 3: 13, 4: 10, 5: 16, 6: 12, 7: 14, 8: 9, 9: 21 },
 
   // drop an mp3 here to replace the generated score (waves, wind and firework sounds stay)
   music: '/assets/music.mp3',

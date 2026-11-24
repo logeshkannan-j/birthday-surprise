@@ -57,6 +57,11 @@ if (mode === 'zoom') {
   helen(750, 660, kz, { stand: true, walking: false, pose: 'standHug', expr: 'smile' }, 0, 'front standing');
   helen(1250, 660, kz, { back: true }, 0, 'seated');
 }
+if (mode === 'hand') {
+  const kz = +(q.get('kz') || 12);
+  boyWalk(250, 1050, kz, 0.17, 24, true, 'walking', 'walkHold'); boyWalk(750, 1050, kz, 0, 0, false, 'stand', 'stand');
+  helen(1250, 1050, kz * 0.9, { stand: true, walking: false, pose: 'standReceive', expr: 'smile', held: () => {} }, 0, 'receive');
+}
 window.__done = true;
 </script>
 </body>

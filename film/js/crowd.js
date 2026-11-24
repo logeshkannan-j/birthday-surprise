@@ -452,25 +452,12 @@ export class Crowd {
   }
   reunionAt(T) {
     if (this.reunionStart == null) return null;
-    const t = T - this.reunionStart; if (t < 0 || t > 15) return null;
-    const smooth = u => { u = clamp(u, 0, 1); return u * u * (3 - 2 * u); };
-    let X, Z, view;
-    if (t < 4.2) {
-      const u = smooth(t / 4.2); X = lerp(1.6, -2.8, u); Z = lerp(20, 12.8, u); view = 'front';
-    } else if (t < 5.2) {
-      X = -2.8; Z = 12.8; view = 'front';
-    } else {
-      const u = smooth((t - 5.2) / 8.8); X = lerp(-2.8, -3.8, u); Z = lerp(12.8, 22, u); view = 'back';
-    }
-    const [x, gy] = fromXZ(X, Z), alpha = smooth(t / 0.6) * (1 - smooth((t - 14.3) / 0.7));
-    const arriveDistance = Math.hypot(-2.8 - 1.6, 12.8 - 20);
-    const leaveDistance = Math.hypot(-3.8 + 2.8, 22 - 12.8);
-    const walked = t < 4.2 ? arriveDistance * smooth(t / 4.2)
-      : arriveDistance + (t < 5.2 ? 0 : leaveDistance * smooth((t - 5.2) / 8.8));
-    const ph = TAU * walked * CHAR / 46, mode = t < 4.2 || (t >= 5.2 && t < 14) ? 'walk' : 'idle';
-    this.reunionRig.pose = { view, ph, stride: 1, mode, t: T };
-    this.reunionRig.bounds = groupBounds(GROUPS.friendsSix, view);
-    return { slot: 'reunion', who: 'friendsSix', x, y: gy, gy, flip: false, alpha, rig: this.reunionRig, lights: [] };
+    const t = T - this.reunionStart; if (t < 0) return null;
+    const r = reunionTrack(t); if (r.alpha < 0.01 && t > 8) return null;
+    const [x, gy] = fromXZ(r.X, r.Z), ph = TAU * r.dist * CHAR / 46, mode = r.walking ? 'walk' : 'idle';
+    this.reunionRig.pose = { view: r.view, ph, stride: 1, mode, t: T };
+    this.reunionRig.bounds = groupBounds(GROUPS.friendsSix, r.view);
+    return { slot: 'reunion', who: 'friendsSix', x, y: gy, gy, flip: false, alpha: r.alpha, rig: this.reunionRig, lights: [] };
   }
   // glowing bits as additive sprites: LED balloons, a phone screen. [x, y, gy, size, r, g, b, alpha] in world units
   lightsOf(w, x, gy, view, flip, ph) {
@@ -482,6 +469,18 @@ export class Crowd {
   }
 }
 export const CROWD_PATHS = PATHS;
+const smoothU = u => { u = clamp(u, 0, 1); return u * u * (3 - 2 * u); };
+const LEAVE = { t0: 6.0, v: 2.3, from: [-2.8, 12.8], to: [0.6, 52], fadeZ: [30, 45] };   // they set off at t0, walk at v floor units / s (about a stroll), gone by Z 45
+export function reunionTrack(t) {
+  const arrive = Math.hypot(-2.8 - 1.6, 12.8 - 20), len = Math.hypot(LEAVE.to[0] - LEAVE.from[0], LEAVE.to[1] - LEAVE.from[1]);
+  let X, Z, view = 'front', dist;
+  if (t < 4.2) { const u = smoothU(t / 4.2); X = lerp(1.6, -2.8, u); Z = lerp(20, 12.8, u); dist = arrive * u; }
+  else if (t < LEAVE.t0) { X = -2.8; Z = 12.8; dist = arrive; }
+  else { const tau = t - LEAVE.t0, d = tau < 1.2 ? LEAVE.v * tau * tau / 2.4 : LEAVE.v * (tau - 0.6), f = clamp(d / len, 0, 1);
+    X = lerp(LEAVE.from[0], LEAVE.to[0], f); Z = lerp(LEAVE.from[1], LEAVE.to[1], f); view = 'back'; dist = arrive + d; }
+  const alpha = smoothU(t / 0.6) * (1 - smoothU((Z - LEAVE.fadeZ[0]) / (LEAVE.fadeZ[1] - LEAVE.fadeZ[0])));
+  return { X, Z, view, dist, alpha, walking: t < 4.2 || t >= LEAVE.t0 };
+}
 
 // for test pages: draw one group (GROUPS key) in a view ('side' | 'back' | 'front') at gait phase ph, character units
 export function crowdSample(ctx, grp, view, ph, mode) {
