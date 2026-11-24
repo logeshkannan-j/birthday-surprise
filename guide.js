@@ -61,13 +61,15 @@ function say(text, ms = 3600) {
   if (!text) { bub.classList.remove('on'); G.sayUntil = 0; return; }
   bub.textContent = text; bub.classList.add('on'); G.sayUntil = performance.now() + ms; placeBubble();
 }
-function placeBubble(el = bub) {
-  const b = box(), w = el.offsetWidth, h = el.offsetHeight, mx = (b[0] + b[2]) / 2;
+function placeBubble(el = bub, b0 = null, bias = 0) {
+  const b = b0 || box(), w = el.offsetWidth, h = el.offsetHeight, mx = (b[0] + b[2]) / 2;
   // above his head unless that covers the words on screen; then beside him, then below
   if (!G.bubObs || performance.now() - G.bubObsT > 500) { G.bubObs = obstacles($('.s.on')); G.bubObsT = performance.now(); if (J.dream > 0.1 && J.L) { const c = J.L.cloud; G.bubObs.push({ left: c[0], top: c[1], right: c[2], bottom: c[3] }); } }
-  const opts = [[mx - w / 2, b[1] - h - 4, 'up'], [b[2] + 4, b[1] + 6 * sc, 'side'], [b[0] - w - 4, b[1] + 6 * sc, 'side'], [mx - w / 2, b[3] + 6, 'below']];
+  const rc = a => ({ left: a[0], top: a[1], right: a[2], bottom: a[3] }), pb = typeof pupBox === 'function' && J.L && J.state !== 'off' && J.state !== 'leave' ? pupBox() : null;
+  const others = el === bubJ ? [rc(box())] : (el === bub || el === askEl) && pb ? [rc(pb)] : [];
+  const opts = [[mx - w / 2 + bias * w * 0.2, b[1] - h - 4, 'up'], [b[2] + 4, b[1] + 6 * sc, 'side'], [b[0] - w - 4, b[1] + 6 * sc, 'side'], [mx - w / 2, b[3] + 6, 'below']];
   let best = null;
-  for (const [x0, y0, k] of opts) { const x = clamp(x0, 8, W - w - 8), y = clamp(y0, 8, H - h - 8), bb = [x, y, x + w, y + h]; let c = 0; for (const o of G.bubObs) c += overlap(bb, o); c += Math.abs(x - x0) * 30 + Math.abs(y - y0) * 30;
+  for (const [x0, y0, k] of opts) { const x = clamp(x0, 8, W - w - 8), y = clamp(y0, 8, H - h - 8), bb = [x, y, x + w, y + h]; let c = 0; for (const o of G.bubObs) c += overlap(bb, o); for (const o of others) c += overlap(bb, o) * 2;   // never cover the other one's face c += Math.abs(x - x0) * 30 + Math.abs(y - y0) * 30;
     if (!best || c < best.c - 1) best = { c, x, y, k }; }
   el.style.transform = `translate(${best.x}px,${best.y}px)`; el.classList.toggle('below', best.k === 'below'); el.classList.toggle('side', best.k === 'side');
   el.style.setProperty('--tx', clamp(mx - best.x, 14, w - 14) + 'px');
@@ -135,21 +137,24 @@ function hide() { G.hidden = true; say(''); if (G.vis > 0.05 && !RM) { G.fl = { 
 function show() { G.hidden = false; G.visTo = 1; }
 
 function step(n) {
-  G.after.forEach(clearTimeout); G.after = []; say('');
+  G.after.forEach(clearTimeout); G.after = []; say(''); banterStop();
   G.step = n; G.stepT = 0; G.react = 0; G.script = false; G.visK = 2.5; bear.express(null); if (n !== 'c') { pupLeave(); hideAsk(); }
   if (n === 6 || window.__albumOpen) { hide(); return; }
   const wasHidden = G.vis < 0.05; show(); if (wasHidden) G.vis = 0.001;
   // wait a frame so the new screen has its layout
   requestAnimationFrame(() => requestAnimationFrame(() => { if (G.step === n && STEPS[n]) STEPS[n](); }));
+  scheduleBanter(n);
 }
 
 // ---------------------------------------------------------------- touch: tap him, or pick him up and drop him
-const TAPS = [['giggle', 'Hehe! ♡'], ['spin', 'Wheee!'], ['cheer', ''], ['hug', '♡'], ['dance', ''], ['wave', 'Hi! ♡'], ['shy', '']];
+const TAPS = [['giggle', 'Hehe! Okay okay, that tickles ♡'], ['spin', 'Wheee! Again? So needy!'], ['cheer', 'I’m the best. I know.'], ['hug', 'Fine, ONE hug. Don’t tell Jessi.'], ['dance', 'Ta-da! The tip jar is empty, Helen.'], ['wave', 'Hi! Yes, still me. Still here.'], ['shy', 'Stop staring, you’ll make me blush!']];
 let tapI = 0;
 function react() {
   const now = performance.now(); if (now - G.lastTap < 450) return; G.lastTap = now;
   if (G.step === 'c' && J.asked && !J.called && askEl.hidden && !G.script) { askJessi(); return; }
   if (play.on) { bear.act('giggle', { restart: true }); bear.burstHearts(4); say(['Hehe! ♡', 'That tickles!', 'Wheee! ✦'][tapI++ % 3], 1400); poofAt(0.4); return; }
+  G.pokes = now - (G.pokeT || 0) < 3500 ? (G.pokes || 0) + 1 : 1; G.pokeT = now;
+  if (G.pokes >= 5 && !play.on) { const n = G.pokes; bear.act(n % 2 ? 'push' : 'shy', { restart: true, dir: [1, 0] }); say(POKES[Math.min(POKES.length - 1, n - 5)], 2400); poofAt(0.3); G.react = 1.6; if (n >= 8) G.pokes = 0; return; }
   const [a, line] = TAPS[tapI++ % TAPS.length]; bear.act(a, { restart: true }); if (a === 'hug' || a === 'shy') bear.burstHearts(4);
   if (G.step === 'c' && tapI % 4 === 1) say(days() > 1 ? `${days()} more sleeps ✦` : 'Almost ✦', 2400); else if (line) say(line, 1600);
   poofAt(0.4); G.react = a === 'spin' ? 0.95 : 1.6; G.idle = 8;
@@ -209,13 +214,14 @@ const TRICKS = { bark: ['bark', 1.3, 'cheer'], flip: ['flip', 1.15, 'clap'], spi
 const SHOW = ['bark', 'flip', 'spin', 'roll', 'bow', 'paw', 'lie', 'yawn', 'sleep'];
 function queue(names) { J.q = names.filter(n => !(RM && ['flip', 'spin', 'roll'].includes(n))).map(n => TRICKS[n]); J.qt = 0; J.state = 'show'; nextTrick(); }
 function nextTrick() {
-  const t = J.q.shift(); if (!t) { if (J.state === 'show' && J.wantPlay) startPlay(); return; } const [a, d, b, line] = t;
+  const t = J.q.shift(); if (!t) { if (J.state === 'show' && J.wantPlay) { if (!V.cdDone && !V.busy) { V.cdDone = true; banterC(() => { if (J.state === 'show' && J.wantPlay) startPlay(); }); } else if (!V.busy) startPlay(); } return; } const [a, d, b, line] = t;
   pup.act(a, { restart: true }); J.qt = d || 1e9; if (a === 'bark') woof(2);
   if (b) { bear.act(b, { restart: true }); G.react = 0; G.idle = 99; } if (line) say(line, 3400);
   if (a === 'sleep') { J.state = 'sleep'; G.idle = 6; G.homeAct = ['kick', {}]; }
 }
 function startPlay() { J.state = 'play'; J.wantPlay = false; G.fidget = []; G.homeAct = ['idle', {}]; G.react = 0; G.idle = 99; play.start(); }
 function tapPup() {
+  if (J.state === 'vsit') { jessiPoked(); return; }
   if (J.state === 'play') { play.skip(); return; }
   if (!['show', 'sleep'].includes(J.state)) return;
   const pool = RM ? ['paw', 'bow'] : ['flip', 'spin', 'roll', 'bow', 'paw'], pick = pool[(Math.random() * pool.length) | 0];
@@ -239,7 +245,8 @@ function woof(n) {
 }
 function stepPup(dt) {
   if (J.state === 'off') return; const L = J.L || stage();
-  if (J.state === 'enter') { J.x += PUP_RUN * L.ps * dt; if (J.x >= L.pupX) { J.x = L.pupX; pup.bump(40); if (RM) queue(J.short ? ['bark', 'lie', 'yawn', 'sleep'] : SHOW); else { J.wantPlay = true; queue(J.short ? ['hi'] : ['hi', 'flip', 'paw']); } } }
+  if (J.state[0] === 'v') stepVisit(dt, L);
+  else if (J.state === 'enter') { J.x += PUP_RUN * L.ps * dt; if (J.x >= L.pupX) { J.x = L.pupX; pup.bump(40); if (RM) queue(J.short ? ['bark', 'lie', 'yawn', 'sleep'] : SHOW); else { J.wantPlay = true; queue(J.short ? ['hi'] : ['hi', 'flip', 'paw']); } } }
   else if (J.state === 'leave') { J.x += PUP_RUN * L.ps * dt; if (J.x > W + 160) { J.state = 'off'; } }
   else if (J.state === 'play') J.x = L.pupX + (J.ox || 0);
   else { J.x = lerp(J.x, L.pupX, Math.min(1, dt * 4)); if (J.state === 'show' && (J.qt -= dt) <= 0) nextTrick(); }
@@ -338,7 +345,7 @@ function drawCloud(t) {
 }
 function drawPup(t) {
   if (J.state === 'off') return; const L = J.L, oy = J.state === 'play' ? (J.oy || 0) : 0, fx = J.fx || J.face, sh = 1 - Math.min(0.6, oy / (90 * L.ps));
-  cx.save(); cx.fillStyle = 'rgba(0,0,0,.22)'; cx.beginPath(); cx.ellipse(J.x + 2 * L.ps * fx, L.gy + 1, 24 * L.ps * Math.max(0.45, Math.abs(fx)) * sh, 3 * L.ps * sh, 0, 0, 6.283); cx.fill(); cx.restore();
+  if (J.state[0] !== 'v') { cx.save(); cx.fillStyle = 'rgba(0,0,0,.22)'; cx.beginPath(); cx.ellipse(J.x + 2 * L.ps * fx, L.gy + 1, 24 * L.ps * Math.max(0.45, Math.abs(fx)) * sh, 3 * L.ps * sh, 0, 0, 6.283); cx.fill(); cx.restore(); }
   cx.save(); cx.translate(J.x, L.gy - oy); cx.scale(fx * L.ps, L.ps); pup.draw(cx); cx.restore();
   for (const w of J.woofs) { const x = J.x + (30 + w.t * 10) * L.ps * J.face, y = L.gy - oy - (44 + w.t * 26) * L.ps;
     cx.save(); cx.globalAlpha = 1 - w.t; cx.translate(x, y); cx.rotate(-0.15 + w.k * 0.3); cx.font = `600 ${Math.round(17 * sc + 4)}px Caveat, cursive`; cx.textAlign = 'center';
@@ -396,6 +403,130 @@ function drawTrio(dt) {
   trioPup.update(dt); x.save(); x.translate(w * 0.5, h - 3); x.scale(-1.72, 1.72); trioPup.draw(x); x.restore();
 }
 
+// ---------------------------------------------------------------- the banter: from the countdown on, and after every screen, Jessi trots in and she and Snowki tease Helen
+// (kindly), squabble with each other and pick fights with her. Beats are [who ('s' Snowki | 'j' Jessi), words, action]. Bubbles never overlap: one of them talks at a time.
+const bubJ = $('#gdSayJ'), V = { side: -1, token: 0, timers: [], seen: {}, visits: 0, busy: false, last: 0 };
+function sayJ(text, ms = 3600) {
+  if (!text) { bubJ.classList.remove('on'); J.sayUntil = 0; return; }
+  bubJ.textContent = text; bubJ.classList.add('on'); J.sayUntil = performance.now() + ms; placeBubble(bubJ, pupBox() || box(), V.side);
+}
+const BANTER = {
+  c: [
+    [['s', 'Helen, refreshing won’t make December come faster 😌', 'think'], ['j', 'Woof! “She’s checking AGAIN.”', 'bark'], ['s', 'Jessi! Don’t expose her!', 'shy'], ['j', 'Woof. “Eight refreshes. I counted.”', 'bark']],
+    [['s', 'Psst, Helen… Jessi says you snore.', 'giggle'], ['j', 'WOOF! “I never said that!”', 'bark'], ['s', 'Her ears said it. Very loudly.', 'nod'], ['j', '…woof. “Okay, maybe a tiny bit.”', 'bow']],
+    [['s', 'Helen, tell Jessi I’m the real guide.', 'point'], ['j', 'Woof! “I was here first!”', 'bark'], ['s', 'You were asleep in the corner!', 'push'], ['j', '“Resting my eyes.” Woof.', 'yawn']],
+    [['j', 'Woof! “Helen, you owe me a biscuit.”', 'paw'], ['s', 'Don’t pay her, Helen. She runs a biscuit mafia.', 'talk'], ['j', 'WOOF! “Say that to my face!”', 'bark'], ['s', '…I’m saying it to your tail. Safer.', 'shy']]
+  ],
+  0: [
+    [['s', 'Hold the heart, Helen. It’s a seal, not a hot idli!', 'point'], ['j', 'Woof! “She’s scared of a heart. Aww.”', 'bark'], ['s', 'Shh. Let her fingers warm up.', 'shh']],
+    [['j', 'Woof! “She’s pressing it like a doorbell.”', 'bark'], ['s', 'HOLD, Helen. Hold! Not poke!', 'push'], ['j', '“Poking is faster.” Woof.', 'bow']]
+  ],
+  1: [
+    [['j', 'Woof! “She reads with her lips. Look!”', 'bark'], ['s', 'Jessi, stop watching her read, she’ll get shy!', 'shy'], ['j', '“Too late, she’s blushing.” Woof.', 'bark']],
+    [['s', 'Take your time, Helen. It’s a letter, not an exam.', 'nod'], ['j', 'Woof! “She’ll still be reading next birthday.”', 'yawn'], ['s', 'JESSI!!', 'push']]
+  ],
+  p: [
+    [['s', 'Forgot the password already? I’m not telling.', 'think'], ['j', 'Woof! “I know it. I’m not telling either.”', 'paw'], ['s', 'Think, Helen. Think like a… well, like a Helen.', 'talk']],
+    [['j', 'Woof! “Try ‘password’. Everyone does.”', 'bark'], ['s', 'Jessi, that is NOT a hint!', 'push'], ['j', '“It’s a lifestyle.” Woof.', 'yawn']]
+  ],
+  2: [
+    [['j', 'Woof! “So many photos! Where’s the one where Snowki cries?”', 'bark'], ['s', 'I NEVER cried! I had… teddy dust in my eyes.', 'shy'], ['j', '“For three days.” Woof.', 'bark']],
+    [['s', 'Look at them all, Helen. So serious in every one.', 'talk'], ['j', 'Woof! “Except when food arrived.”', 'bark'], ['s', 'Fair. That was the best smile.', 'giggle']]
+  ],
+  3: [
+    [['s', 'Tick tock, Helen. Staring at the clock won’t speed it up.', 'think'], ['j', 'Woof! “Same as staring at biryani.”', 'bark'], ['s', 'Jessi, everything is about food with you!', 'push']],
+    [['j', 'Woof! “Is it done yet? Is it done yet?”', 'bark'], ['s', 'Helen, please. She asks me this every ten seconds.', 'shy']]
+  ],
+  4: [
+    [['s', 'Helen, you’re smiling. Don’t deny it, I can see it!', 'point'], ['j', 'Woof! “She hid it behind her hand!”', 'bark'], ['s', 'Caught you. Both of you!', 'giggle']],
+    [['j', 'Woof! “Plot twist: she’s actually enjoying this.”', 'bark'], ['s', 'Don’t jinx it!', 'push']]
+  ],
+  5: [
+    [['s', 'Make a wish, Helen. A good one. Not “free biryani” again.', 'talk'], ['j', 'Woof! “That is a valid wish!”', 'bark'], ['s', 'Fine. Wish biryani for Jessi too. She’ll stop barking.', 'nod']],
+    [['j', 'Woof! “Wish for a bigger bone. For me.”', 'paw'], ['s', 'Wish for peace and quiet. For ME.', 'shh']]
+  ],
+  7: [
+    [['s', 'Happy birthday, Helen! ♡ Jessi, say it too!', 'cheer'], ['j', 'Woof! “Happy birthday! Where’s my cake?”', 'bark'], ['s', 'Jessi, no cake for you yet!', 'push'], ['j', 'WOOF! “Rude!”', 'bow']],
+    [['j', 'Woof! “Birthday girl! Birthday girl!”', 'spin'], ['s', 'Calm down, you’ll break the page!', 'shy'], ['j', '“Make me.” Woof.', 'flip']]
+  ]
+};
+const ALONE = [   // the countdown when she hasn’t called Jessi
+  [['s', 'Helen, a countdown is not a TV episode. No skipping.', 'think'], ['s', '…Okay, I’ll sing to pass the time. La la— no? Fine.', 'shy']],
+  [['s', 'Psst, Helen. Still here? You’re very dedicated.', 'giggle'], ['s', 'Jessi would say something rude now. Lucky you.', 'nod']]
+];
+const SIDE = {
+  s: [['s', 'HA! Told you, Jessi! Point to Snowki!', 'cheer'], ['j', 'WOOF?! “After all my belly rubs?!”', 'bark'], ['s', 'Don’t cry, Jessi. You’re still second best.', 'nod'], ['j', '“I’ll remember this at snack time.” Woof.', 'bow']],
+  j: [['j', 'Woof! “Obviously. Next question.”', 'bow'], ['s', 'WHAT?! I carried your snacks!', 'push'], ['j', '“And I ate them. Thank you.” Woof.', 'bark'], ['s', '…I’m sitting in the corner now.', 'shy']],
+  n: [['s', 'She’s pretending she didn’t hear us.', 'think'], ['j', 'Woof! “Classic Helen.”', 'bark'], ['s', 'We’ll ask again later. No escape!', 'point']]
+};
+const JPOKE = ['Woof! “Hands off the fur, Helen!”', 'Woof! “I’m working. Come back later.”', 'Woof! “That’s a paid belly rub!”'];
+const POKES = ['Poke number five! I’m counting, Helen.', 'Six! Do I look like a doorbell?', 'Seven! I’m telling Jessi to sit on you.', 'Okay, okay! Truce? ♡'];
+const vt = (f, ms) => V.timers.push(setTimeout(f, ms));
+function banterStop() { V.token++; V.timers.forEach(clearTimeout); V.timers = []; V.busy = false; sayJ(''); }
+function pick(list, key) { V.seen[key] = V.seen[key] == null ? (Math.random() * list.length) | 0 : V.seen[key] + 1; return list[V.seen[key] % list.length]; }
+function poofAtXY(x, y) { for (let i = 0; i < 20; i++) { const a = Math.random() * 6.283, v = 40 + Math.random() * 130; G.trail.push({ x, y: y - 24 * sc, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 30, life: 0.6 + Math.random() * 0.5, s: 2 + Math.random() * 3.2 }); } }
+function runBeats(beats, tok, done) {
+  let i = 0;
+  const next = () => {
+    if (tok !== V.token) return;
+    const b = beats[i++]; if (!b) { done(); return; }
+    const [who, text, act] = b, ms = clamp(text.length * 55 + 1300, 2400, 5400), dirP = J.x < G.x ? -1 : 1;
+    if (who === 's') { sayJ(''); say(text, ms); bear.act(act || 'talk', { restart: true, dir: [dirP, 0] }); G.react = ms / 1000 + 0.3; G.idle = 99; }
+    else if (!['off', 'leave', 'vout', 'enter', 'play'].includes(J.state)) {
+      say(''); const asleep = J.state === 'sleep'; sayJ(asleep ? 'Zzz… ' + text : text, ms);
+      if (!asleep) { pup.act(act || 'bark', { restart: true, sit: true }); if (/woof/i.test(text)) woof(1); if (J.state === 'vsit') vt(() => { if (J.state === 'vsit') pup.act('sit', { restart: true }); }, 1700); }
+    }
+    vt(next, ms + 300);
+  };
+  next();
+}
+function banterC(after) {   // on the countdown: right where they are (the first time, right after Jessi arrives, before the games start)
+  if (V.busy) return; V.busy = true; const tok = ++V.token, beats = J.state === 'off' ? pick(ALONE, 'alone') : pick(BANTER.c, 'c');
+  runBeats(beats, tok, () => { V.busy = false; V.last = performance.now(); G.react = 1.2; G.idle = 6; after && after(); });
+}
+const visitSpot = () => { const ps = clamp(sc * 1.8, 1.4, 2.3), side = G.x > W * 0.42 ? -1 : 1; return { ps, side, x: clamp(G.x + side * (88 * sc + 32 * ps), 40 * ps, W - 40 * ps), gy: G.y + 2 }; };
+function visit(key) {   // Jessi runs in from the nearest edge, sits beside him, they talk, then she runs off again
+  if (V.busy || J.state !== 'off') return; V.busy = true; V.visits++; const tok = ++V.token, sp = visitSpot(); V.side = sp.side;
+  J.L = { gy: sp.gy, ps: sp.ps, cloud: [0, 0, 0, 0] }; J.dream = 0; J.dreamTo = 0; J.x = sp.side < 0 ? -70 * sp.ps : W + 70 * sp.ps; J.face = J.fs = sp.side < 0 ? 1 : -1; J.state = 'vin'; J.key = key; J.tok = tok;
+  pup.act('run', { restart: true, vx: PUP_RUN }); bear.act('alert', { restart: true, dir: [sp.side, 0] }); G.react = 2; G.idle = 99;
+}
+function visitArrive() {
+  const tok = J.tok, key = J.key; J.face = V.side < 0 ? 1 : -1; pup.bump(40); pup.act('sit', { restart: true }); poofAtXY(J.x, J.L.gy);
+  vt(() => runBeats(pick(BANTER[key], key), tok, () => { if (V.visits % 3 === 0) sidePrompt(tok); else visitLeave(tok); }), 700);
+}
+function visitLeave(tok) {
+  if (tok !== V.token) return; sayJ(''); say(''); bear.act('wave', { restart: true }); G.react = 1.6; G.idle = 6;
+  V.exit = V.side; J.face = V.exit; J.state = 'vout'; pup.act('run', { restart: true, vx: PUP_RUN });
+}
+function sidePrompt(tok) {   // “who’s better?”: the loser fights back
+  if (tok !== V.token) return; say(''); sayJ('');
+  const choose = list => { if (tok === V.token) runBeats(list, tok, () => visitLeave(tok)); };
+  ask('Be honest, Helen… who’s better? 😏', [[NAME + ' ♡', () => choose(SIDE.s)], ['Jessi 🐾', () => choose(SIDE.j)]]);
+  vt(() => { if (!askEl.hidden && tok === V.token) { hideAsk(); choose(SIDE.n); } }, 9000);
+}
+function stepVisit(dt, L) {
+  const sp = visitSpot(); L.gy = lerp(L.gy, sp.gy, Math.min(1, dt * 8)); L.ps = sp.ps;
+  if (J.state === 'vin') { J.target = sp.x; const d = J.target - J.x, st = PUP_RUN * L.ps * dt; if (Math.abs(d) <= st * 1.2) { J.x = J.target; J.state = 'vsit'; visitArrive(); } else J.x += Math.sign(d) * st; }
+  else if (J.state === 'vsit') J.x = lerp(J.x, sp.x, Math.min(1, dt * 5));
+  else if (J.state === 'vout') { J.x += V.exit * PUP_RUN * L.ps * dt; if (J.x < -90 * L.ps || J.x > W + 90 * L.ps) { J.state = 'off'; V.busy = false; } }
+}
+function jessiPoked() {
+  sayJ(JPOKE[(V.pj = (V.pj || 0) + 1) % JPOKE.length], 2600); pup.act('bark', { restart: true, sit: true }); woof(1);
+  vt(() => { if (J.state === 'vsit') { sayJ(''); say('Don’t poke her, Helen. She bites. Words. She bites words.', 2800); bear.act('shy', { restart: true }); } }, 2000);
+}
+function scheduleBanter(n) {
+  if (!BANTER[n]) return; const delay = { c: 22000, 0: 6500, 1: 9500, p: 6500, 2: 8500, 3: 7500, 4: 9000, 5: 9500, 7: 9500 }[n];
+  const go = () => {
+    if (G.step !== n) return;
+    const typing = document.activeElement && /^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName);
+    const busy = G.script || G.fl || G.drag || play.on || !askEl.hidden || G.sayUntil > performance.now() || window.__albumOpen || G.hidden || V.busy || typing;
+    if (n === 'c') { if (!busy && ['show', 'sleep', 'off'].includes(J.state) && performance.now() - V.last > 20000) banterC(); vt(go, 4000); return; }
+    if (busy || J.state !== 'off') { vt(go, 2500); return; }
+    visit(n);
+  };
+  vt(go, delay);
+}
+
 // ---------------------------------------------------------------- loop
 function frame(now) {
   requestAnimationFrame(frame);
@@ -449,6 +580,7 @@ function frame(now) {
   hit.style.pointerEvents = G.vis > 0.5 && !G.hidden ? 'auto' : 'none';
   if (G.sayUntil) { if (now > G.sayUntil || G.vis < 0.3) say(''); else placeBubble(); }
   if (!askEl.hidden) placeBubble(askEl);
+  if (J.sayUntil) { if (now > J.sayUntil) sayJ(''); else placeBubble(bubJ, pupBox() || box(), V.side); }
   const pb = J.state !== 'off' && J.state !== 'leave' ? pupBox() : null;
   pupHit.style.pointerEvents = pb ? 'auto' : 'none'; if (pb) { pupHit.style.transform = `translate(${pb[0]}px,${pb[1]}px)`; pupHit.style.width = (pb[2] - pb[0]) + 'px'; pupHit.style.height = (pb[3] - pb[1]) + 'px'; }
   const dc = J.dream > 0.5 && J.L ? J.L.cloud : null;
@@ -456,7 +588,7 @@ function frame(now) {
 }
 requestAnimationFrame(frame);
 
-window.Guide = { step, on(e, a) { EVENTS[e] && EVENTS[e](a); }, bear, pup, J, G, play, startPlay: () => { if (J.state !== 'off' && J.state !== 'leave') startPlay(); } };
+window.Guide = { step, on(e, a) { EVENTS[e] && EVENTS[e](a); }, bear, pup, J, G, play, V, startPlay: () => { if (J.state !== 'off' && J.state !== 'leave') startPlay(); } };
 document.documentElement.classList.add('guide');
 hit.setAttribute('aria-label', `${NAME}, the teddy. Tap to play`);
 if (window.__scr) { const c = window.__scr().cur; if (c != null) step(c); }

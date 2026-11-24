@@ -237,6 +237,9 @@ html.dawn #mus{color:#7a5a80;border-color:rgba(90,40,90,.3);background:rgba(255,
 #gdSay{position:fixed;left:0;top:0;z-index:6;max-width:min(260px,76vw);padding:7px 14px 8px;border-radius:16px;background:rgba(255,250,252,.95);color:#4a2550;font:600 1.18rem/1.2 Caveat,cursive;box-shadow:0 8px 24px -8px rgba(0,0,0,.5);pointer-events:none;opacity:0;transition:opacity .35s;--tx:50%}
 #gdSay.on{opacity:1}#gdSay::after{content:"";position:absolute;left:var(--tx);bottom:-7px;margin-left:-7px;border:7px solid transparent;border-bottom:0;border-top-color:rgba(255,250,252,.95)}
 #gdSay.side::after{display:none}
+#gdSayJ{position:fixed;left:0;top:0;z-index:6;max-width:min(260px,76vw);padding:7px 14px 8px;border-radius:16px;background:rgba(255,243,200,.96);color:#4a2f12;font:600 1.18rem/1.2 Caveat,cursive;box-shadow:0 8px 24px -8px rgba(0,0,0,.5);pointer-events:none;opacity:0;transition:opacity .35s;--tx:50%}
+#gdSayJ.on{opacity:1}#gdSayJ::after{content:"";position:absolute;left:var(--tx);bottom:-7px;margin-left:-7px;border:7px solid transparent;border-bottom:0;border-top-color:rgba(255,243,200,.96)}
+#gdSayJ.side::after{display:none}#gdSayJ.below::after{bottom:auto;top:-7px;border:7px solid transparent;border-top:0;border-bottom-color:rgba(255,243,200,.96)}
 #gdPup,#gdDream{position:fixed;left:0;top:0;z-index:6;border:0;padding:0;margin:0;background:none;cursor:pointer;pointer-events:none;-webkit-tap-highlight-color:transparent;border-radius:40%}
 #gdPup:focus-visible,#gdDream:focus-visible{outline:2px dashed var(--gold);outline-offset:2px}
 #gdAsk{position:fixed;left:0;top:0;z-index:7;max-width:min(270px,80vw);padding:9px 14px 11px;border-radius:16px;background:rgba(255,250,252,.97);color:#4a2550;font:600 1.3rem/1.2 Caveat,cursive;box-shadow:0 10px 28px -8px rgba(0,0,0,.55);opacity:0;transition:opacity .35s;text-align:center;--tx:50%}
@@ -381,7 +384,7 @@ html.guide .s[data-n="1"] .bear,html.guide .s[data-n="4"] .bear,html.guide .s[da
 <span id="tB" class="tag" hidden></span>
 <div class="ch" id="chG" hidden><svg viewBox="0 0 60 100" aria-hidden="true"><use href="#girl"/></svg><span class="tag" id="bW" hidden>Wow!</span></div>
 <div class="ch" id="chD" hidden><span class="tag"></span><svg viewBox="0 0 100 64" aria-hidden="true"><use href="#dog"/></svg></div>
-<canvas id="gd" aria-hidden="true"></canvas><button id="gdHit" type="button"></button><button id="gdPup" type="button"></button><button id="gdDream" type="button"></button><div id="gdSay" role="status" aria-live="polite"></div><div id="gdAsk" role="dialog" aria-live="polite" hidden></div>
+<canvas id="gd" aria-hidden="true"></canvas><button id="gdHit" type="button"></button><button id="gdPup" type="button"></button><button id="gdDream" type="button"></button><div id="gdSay" role="status" aria-live="polite"></div><div id="gdSayJ" role="status" aria-live="polite"></div><div id="gdAsk" role="dialog" aria-live="polite" hidden></div>
 <div class="dots" hidden><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
 
 <script>window.MEMORIES=[];window.ALBUM=null;</script>
