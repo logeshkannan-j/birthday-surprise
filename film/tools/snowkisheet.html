@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Snowki's poses</title>
+<style>body{margin:0;background:#2a1d3a} canvas{display:block;width:100%;height:auto}</style></head>
+<body>
+<!-- dev tool: Snowki's page poses large (hang from a line, stand on it, dangle when held), with a line drawn where the text would be -->
+<canvas id="c" width="1500" height="700"></canvas>
+<script type="module">
+import { Snowki } from '../js/snowki.js';
+const cv = document.getElementById('c'), x = cv.getContext('2d'); x.fillStyle = '#2a1d3a'; x.fillRect(0, 0, 1500, 700);
+const POSES = [['hang', 'hang', { }, 92], ['stand', 'stand', { stand: true }, 0], ['dangle (held)', 'dangle', {}, null], ['shy (landed)', 'shy', {}, null]];
+POSES.forEach(([name, act, o, line], i) => {
+  const b = new Snowki(); b.act(act, o); if (act === 'hang') b.express('surprised');
+  for (let f = 0; f < 120; f++) b.update(1 / 60, { vel: [0, 0], magic: 0 });
+  const px = 200 + i * 360, py = 560, k = 3;
+  if (line != null) { x.fillStyle = 'rgba(255,240,250,.85)'; x.font = '600 34px Georgia'; x.textAlign = 'center'; x.fillText('A FEW WISHES', px, py - line * k + 12); }
+  x.save(); x.translate(px, py); x.scale(k, k); b.draw(x, { aura: false }); x.restore();
+  x.fillStyle = '#e8dcf0'; x.font = '600 22px system-ui'; x.textAlign = 'center'; x.fillText(name, px, 40);
+});
+window.__done = true;
+</script>
+</body></html>

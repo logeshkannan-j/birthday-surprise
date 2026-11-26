@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Her poses</title>
+<style>body{margin:0;background:#EDE6DA} canvas{display:block;width:100%;height:auto}</style></head>
+<body>
+<!-- dev tool: Helen's film poses drawn large (as in the flashback / the reverse-angle close-up), for checking arms and hands.
+     ?k=9 scale, ?only=0,2 those poses -->
+<canvas id="c" width="2000" height="900"></canvas>
+<script type="module">
+import { Helen } from '../js/rigs.js';
+import { Snowki } from '../js/snowki.js';
+const sn = new Snowki(); sn.act && sn.act('sit', { expr: 'happy' }); for (let f = 0; f < 90; f++) sn.update(1 / 60, { magic: 0 });
+const cv = document.getElementById('c'), x = cv.getContext('2d'); x.fillStyle = '#EDE6DA'; x.fillRect(0, 0, 2000, 900);
+const teddy = (ctx, p, o = {}) => { ctx.save(); ctx.translate(p[0], p[1]); const k = 0.2 * (o.s || 0.72); ctx.scale(k, k); sn.draw(ctx, { aura: false, sparkle: false }); ctx.restore(); };
+const POSES = [
+  ['receive', { stand: true, pose: 'standReceive', held: teddy, expr: 'smile', turn: 0.35, gaze: 0.75 }],
+  ['hug', { stand: true, pose: 'standHug', held: teddy, expr: 'joyful', turn: 0.35, gaze: 0.25 }],
+  ['waiting', { stand: true, pose: null, expr: 'calm', turn: 0.35, gaze: 0.75, armT: [[0.6, -9.6], [2.6, -9.9]] }],
+  ['seated front, lap', { cradle: teddy, expr: 'surprised', lookUp: 1 }],
+  ['hand on chest', { cradle: teddy, expr: 'smile', handChest: 1, lookUp: 0.7 }],
+  ['hands up', { cradle: teddy, expr: 'joyful', handsUp: 1, lookUp: 1 }],
+  ['back, seated', { back: true }],
+  ['back, cradle', { back: true, cradle: teddy }]];
+const Q = new URLSearchParams(location.search), only = Q.get('only'), K = +(Q.get('k') || 6.5);
+(only ? only.split(',').map(i => POSES[+i]) : POSES).forEach(([name, st], i) => {
+  const h = new Helen(), s = { wind: 6, ...st };
+  for (let f = 0; f < 150; f++) h.update({ ...s, t: f / 60, dt: 1 / 60 });
+  const px = 140 + i * 245, py = st.stand ? 560 : 560;
+  x.save(); x.translate(px, py); x.scale(K, K); h.draw(x, { ...s, t: 2.5, dt: 1 / 60 }); x.restore();
+  x.fillStyle = '#4A3A4A'; x.font = '600 20px system-ui'; x.textAlign = 'center'; x.fillText(name, px, 30);
+});
+window.__done = true;
+</script>
+</body></html>

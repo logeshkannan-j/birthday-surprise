@@ -68,7 +68,7 @@ html.dawn .paper p.key{color:#b83a6f;border-color:#e58aa8;text-shadow:none}
 /* polaroid + countdown */
 .pol{margin:0;background:#fff;padding:8px 8px 4px;border-radius:3px;box-shadow:0 14px 30px -10px rgba(60,20,50,.5);rotate:-3deg;width:150px;color:#6d4b58}
 .pol .ph{aspect-ratio:1;background:linear-gradient(#ffe3ee,#e8ddff);display:grid;place-items:center;font-size:26px;overflow:hidden;color:#d49ab4}
-.pol img{width:100%;height:100%;object-fit:cover}.pol figcaption{font:italic 13px "Instrument Serif",Georgia,serif;padding:6px 0 2px}
+.pol img{width:100%;height:100%;object-fit:cover}.pol.pic{width:196px}.pol.pic .ph{aspect-ratio:4/5}.pol.pic img{object-position:50% 30%}.rvform{margin:10px auto 0;max-width:330px;text-align:center}.rvform .rvt{font:italic 15px "Instrument Serif",Georgia,serif;color:var(--soft);margin:0 0 8px}.rvform .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}.rvform input{font:inherit;font-size:15px;padding:9px 12px;border-radius:999px;border:1px solid rgba(120,70,100,.35);background:rgba(255,255,255,.75);min-width:0;width:170px}.rvform .rvmsg{min-height:1.2em;font-size:13px;color:var(--soft);margin:6px 0 0}.pol figcaption{font:italic 13px "Instrument Serif",Georgia,serif;padding:6px 0 2px}
 .s[data-n="c"]{justify-content:flex-start;padding-top:max(64px,12vh)}   /* the words up top, a stage below for Snowki and Jessi */
 .cd{display:flex;gap:22px}.cd b{display:block;font:400 2.6rem/1 "Instrument Serif",Georgia,serif;color:var(--gold)}.cd small{font-size:12px;color:var(--soft)}
 .bear{overflow:visible;--smile:1;--sadm:0;--hat:0;filter:drop-shadow(0 10px 16px rgba(0,0,0,.35));animation:bob 3.4s ease-in-out infinite alternate}
@@ -201,7 +201,7 @@ body.has3d #s6 #micmsg{font-size:12px!important;max-width:30em;opacity:.8}
 .bear.joy{animation:hop .45s ease-in-out infinite alternate}@keyframes hop{to{transform:translateY(-12px) rotate(-3deg)}}
 .trio{display:flex;align-items:flex-end;justify-content:center;margin:16px 0 4px;position:relative}
 .trio figure{margin:0;display:flex;flex-direction:column;align-items:center;gap:6px}.trio figure+figure{margin-left:-8px}.trio svg{display:block;overflow:visible}
-.tg svg{width:86px;height:143px;--sd:1;--lk:0;--op:0;--ch:0}.tb svg{width:112px;height:121px}.td svg{width:128px;height:82px;--lk:-24;--wg:.35;--op:0}.td canvas{width:140px;height:104px;display:block}
+.tg svg{width:86px;height:143px;--sd:0;--lk:0;--op:0;--ch:0}.tb svg{width:112px;height:121px}.td svg{width:128px;height:82px;--lk:-24;--wg:.35;--op:0}.td canvas{width:140px;height:104px;display:block}
 .nm{font:italic 15px "Instrument Serif",Georgia,serif;color:var(--soft)}
 .sl{font:italic 1.4rem/1.35 "Instrument Serif",Georgia,serif;max-width:20em;margin:0;color:#7a3b66}
 .hrts span{position:absolute;top:10%;font-size:20px;color:#e0457e;opacity:0;animation:fh 5s ease-in infinite}
@@ -249,7 +249,7 @@ html.dawn #mus{color:#7a5a80;border-color:rgba(90,40,90,.3);background:rgba(255,
 #gdAsk button:focus-visible{outline:2px solid #c2467a;outline-offset:2px}
 #gdAsk::after{content:"";position:absolute;left:var(--tx);bottom:-7px;margin-left:-7px;border:7px solid transparent;border-bottom:0;border-top-color:rgba(255,250,252,.97)}
 #gdAsk.side::after{display:none}#gdAsk.below::after{bottom:auto;top:-7px;border:7px solid transparent;border-top:0;border-bottom-color:rgba(255,250,252,.97)}#gdSay.below::after{bottom:auto;top:-7px;border:7px solid transparent;border-top:0;border-bottom-color:rgba(255,250,252,.95)}
-html.guide .s[data-n="1"] .bear,html.guide .s[data-n="4"] .bear,html.guide .s[data-n="5"] .bear,html.guide .trio .tb svg{visibility:hidden}
+html.guide .s[data-n="1"] .bear,html.guide .s[data-n="4"] .bear,html.guide .s[data-n="5"] .bear,html.guide .trio .tb svg{visibility:hidden}html.guide .trio .tb svg{width:84px;height:92px}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}.paper p{opacity:1;transform:none;filter:none}}
 </style>
 </head>
@@ -359,12 +359,13 @@ html.guide .s[data-n="1"] .bear,html.guide .s[data-n="4"] .bear,html.guide .s[da
   <div class="paper cl" id="bday"></div>
   <div class="trio" role="img" aria-label="Helensnowfia, Snowki and Jessi sitting close together">
     <figure class="tg"><svg viewBox="0 0 60 100"><use href="#girl"/></svg><span class="nm to"></span></figure>
-    <figure class="tb"><svg class="bear sad" viewBox="0 0 120 130"><use href="#bear"/></svg><span class="nm bn"></span></figure>
+    <figure class="tb"><svg class="bear" viewBox="0 0 120 130"><use href="#bear"/></svg><span class="nm bn"></span></figure>
     <figure class="td"><svg viewBox="0 0 100 64"><use href="#dog"/></svg><span class="nm dn"></span></figure>
     <div class="hrts" aria-hidden="true"><span style="left:44%">♡</span><span style="left:54%;animation-delay:1.7s">♡</span><span style="left:36%;animation-delay:3.3s">♡</span></div></div>
   <p class="sl">If your heart feels a little heavy today, let <span class="bn"></span> hold you and <span class="dn"></span> stay close. I’ll be wishing you well from far away.</p>
-  <figure class="pol"><div class="ph" id="phbox">✦ ✦</div><figcaption>A moment worth remembering.</figcaption></figure>
-  <label class="link">Add a photo (optional)<input id="photo" type="file" accept="image/*" hidden></label>
+  <figure class="pol" id="pol"><div class="ph" id="phbox">✦ ✦</div><figcaption id="polcap">A moment worth remembering.</figcaption></figure>
+  <form id="rvform" class="rvform" hidden autocomplete="off"><p class="rvt">Our photo is in the album. Open it to see us here.</p><div class="row"><input id="rvpw" type="password" placeholder="Album password" aria-label="Album password" autocomplete="off" enterkeyhint="go"><button class="btn q" id="rvgo" type="submit">Show our photo</button></div><p class="rvmsg" id="rvmsg" aria-live="polite"></p></form>
+  <label class="link">Choose another photo (optional)<input id="photo" type="file" accept="image/*" hidden></label>
   <button class="btn q" id="replay" style="margin-bottom:4px">Replay</button></section>
 
 <div id="film" hidden><iframe id="filmfr" title="A short birthday film" allow="autoplay; microphone; fullscreen" src="about:blank"></iframe></div>
@@ -491,7 +492,7 @@ function go(n){
   Wall.show(n===2);if(n==="p")resetPast();
   if(n===3)clockScene();if(n===5)wishes();
   window.Guide&&Guide.step(n);
-  if(n===7){$$("#bday p").forEach(p=>p.classList.remove("v"));later(()=>$$("#bday p").forEach(p=>p.classList.add("v")),400);if(on)startMusic("birthday")}
+  if(n===7){ourPhoto();$$("#bday p").forEach(p=>p.classList.remove("v"));later(()=>$$("#bday p").forEach(p=>p.classList.add("v")),400);if(on)startMusic("birthday")}
 }
 // ---- 7 the film: "Light is the only words he has" (film/), full screen; its Continue button brings her to the reveal
 const filmBox=$("#film"),filmFr=$("#filmfr");
@@ -655,7 +656,8 @@ const Album=(()=>{
   addEventListener("keydown",e=>{if(ov.hidden)return;if(e.key==="Escape")close();else if(!q("#alplay").hidden){if(e.key==="ArrowRight")next();else if(e.key==="ArrowLeft"&&pos>0)show(pos-1);else if(e.key===" "){e.preventDefault();q("#alpp").click()}}});
   let sx=null;q("#albook").addEventListener("pointerdown",e=>{sx=e.clientX});q("#albook").addEventListener("pointerup",e=>{if(sx==null)return;const dx=e.clientX-sx;sx=null;if(Math.abs(dx)>50){if(dx<0)next();else if(pos>0)show(pos-1)}});
   addEventListener("resize",()=>{if(!ov.hidden){fxStart();theme(ov.dataset.c)}});
-  return{has:!!A,unlock,open,get unlocked(){return !!man},openAt(k){if(!man)return;const f=flat[k];open();if(f)play(f.s,f)}}})();
+  async function reveal(){if(!man)return null;const f=flat.find(x=>x.it.rv&&x.it.t==="i")||flat.find(x=>x.it.t==="i");if(!f)return null;return{url:await get(f.it.id,"image/jpeg"),q:f.it.q||""}}
+  return{has:!!A,unlock,open,reveal,get unlocked(){return !!man},openAt(k){if(!man)return;const f=flat[k];open();if(f)play(f.s,f)}}})();
 
 // "would you like to see the past?" (only when there is an album)
 (function(){const A=window.ALBUM&&window.ALBUM.v===2?window.ALBUM:null;
@@ -695,7 +697,17 @@ function wishes(){const w=$("#wish");$("#to6").hidden=true;w.textContent="";
   later(()=>{$("#to6").hidden=false;window.Guide&&Guide.on("to6")},CONFIG.wishes.length*3800+300)}
 
 // ---- 7 reveal extras
-$("#photo").addEventListener("change",e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{$("#phbox").innerHTML='<img alt="A photo we chose" src="'+r.result+'">'};r.readAsDataURL(f)});
+$("#photo").addEventListener("change",e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{ourPick=true;$("#pol").classList.add("pic");$("#rvform").hidden=true;$("#phbox").innerHTML='<img alt="A photo we chose" src="'+r.result+'">'};r.readAsDataURL(f)});
+// "A moment worth remembering": our photo from the album (the one marked "reveal = …" in memories/space.txt). It is decrypted here,
+// in her browser, only once the album is unlocked – the file itself stays encrypted like the rest of the album.
+let ourPick=false,ourShown=false;
+async function ourPhoto(){if(ourPick||ourShown)return;if(!Album.has){return}
+  if(!Album.unlocked){$("#rvform").hidden=false;return}
+  try{const p=await Album.reveal();if(!p||ourPick)return;const im=new Image();im.alt="Us, together";im.src=p.url;await im.decode().catch(()=>{});
+    $("#phbox").replaceChildren(im);$("#pol").classList.add("pic");$("#rvform").hidden=true;ourShown=true}catch(e){}}
+$("#rvform").addEventListener("submit",async e=>{e.preventDefault();const pw=$("#rvpw").value;if(!pw)return;const b=$("#rvgo");b.disabled=true;$("#rvmsg").textContent="Opening…";
+  try{if(await Album.unlock(pw)){$("#rvmsg").textContent="";$("#rvpw").value="";await ourPhoto()}else{$("#rvmsg").textContent="That isn't it. Take your time and try again.";window.Guide&&Guide.on("wrong");$("#rvpw").select()}}
+  catch(err){$("#rvmsg").textContent="The album could not be opened on this browser."}b.disabled=false});
 $("#replay").addEventListener("click",()=>{$("#env").classList.remove("open");seal.style.setProperty("--p","0deg");$("#hint").textContent="Press and hold the seal";go(0)});
 
 // ---- admin test area (password above; not real security)

@@ -11,13 +11,11 @@ bougainvillea tree); Snowki turns too – the man who gave him to Helen years ag
 Snowki recognises him (the main emotional beat: wide eyes, a hug of remembering, motes of light). The man steps out;
 Snowki hops down and toddles, glides by magic and toddles again all the way to him, Jessi trotting behind. A real
 animated flashback at golden hour shows the day he gave little Snowki to her: he walks in holding him, offers him with
-both hands, she takes him with both hands, smiles and hugs him. He kneels, cradles Snowki, and they talk in cinematic
+both hands, she takes him with both hands, smiles and hugs him. He kneels and sits Snowki on his knee, an arm round him,, and they talk in cinematic
 subtitles. He gives Snowki a gift and sets him down; Snowki and Jessi go back to her as he slips behind the tree.
 From in front of him, we see him light the fuse. The shell climbs over the sea and spells her birthday in firework
-stars, reflected in the moving water. Helen is surprised, then scans the shore for whoever sent it. Six of her
-female friends arrive; she stands and walks away with them (Jessi hops off the wall and trots after, Snowki waves from her arms) and the
-four of them fade into the night. The camera goes to him at the tree: he steps out, happy – the surprise worked – and waves. The film ends on
-"Some surprises don't need you in the room. The love behind them arrives all the same."
+stars, reflected in the moving water. Helen is surprised, then scans the shore for whoever sent it – he presses flat behind the trunk so she never sees him. When she turns back to the sea he leans out again and watches her, smiling, from behind the tree (he never steps into the open). The film ends on
+"Not every surprise requires presence. Once again – happy birthday, my past."
 
 On the birthday page, Snowki guides her through every step; on the countdown he says hi, asks "Can I call Jessi?",
 and Jessi runs in, does tricks, falls asleep and dreams of Helen in a little cloud.

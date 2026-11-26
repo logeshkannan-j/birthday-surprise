@@ -91,14 +91,99 @@ function hand2(ctx, wrist, dir, skin, s, out, side = 1, curl = 0.3) {
   const F = [[-1.55, 3.9, 1.05], [-0.5, 4.35, 1.1], [0.55, 3.95, 1.0], [1.55, 3.1, 0.9]], k = curl * 1.6;   // knuckle y, length, width
   const fp = (fy, fl) => { const p = new Path2D(); p.moveTo(4.55, fy); p.bezierCurveTo(4.55 + fl * 0.45, fy - k * 0.12, 4.55 + fl * 0.8, fy - k * 0.5, 4.55 + fl * (1 - curl * 0.2), fy - k * 1.1); return p; };
   const th = new Path2D(); th.moveTo(1.2, -1.3); th.bezierCurveTo(2.1, -2.5, 3.2, -3.1, 4.3, -3.0 + curl * 1.2);
-  const palm = new Path2D('M0 -1.45 C1.4 -1.95 3.2 -2.05 4.75 -1.95 L4.85 2.05 C3.4 2.15 1.5 1.8 0 1.45 Z');
-  ctx.strokeStyle = out; ctx.lineWidth = 0.5 * 2 + 1.1; ctx.stroke(th); for (const [fy, fl, w] of F) { ctx.lineWidth = w + 0.62; ctx.stroke(fp(fy, fl)); } ctx.lineWidth = 0.62; ctx.stroke(palm);   // outlines first (so no lines run between the fingers and the palm)
+  // the palm starts under the end of the forearm and is outlined only along its sides: no line across the wrist
+  const palm = new Path2D('M-0.9 -1.58 L0 -1.55 C1.4 -1.95 3.2 -2.05 4.75 -1.95 L4.85 2.05 C3.4 2.15 1.5 1.85 0 1.55 L-0.9 1.58 Z'), palmL = new Path2D('M-0.9 -1.58 L0 -1.55 C1.4 -1.95 3.2 -2.05 4.75 -1.95 M4.85 2.05 C3.4 2.15 1.5 1.85 0 1.55 L-0.9 1.58');
+  const ow = 0.19 / u;   // the outline as fine as the forearm's (it used to be three times heavier, so the hands read as dark blobs)
+  ctx.strokeStyle = out; ctx.lineWidth = 1.15 + ow; ctx.stroke(th); for (const [fy, fl, w] of F) { ctx.lineWidth = w + ow; ctx.stroke(fp(fy, fl)); } ctx.lineWidth = ow; ctx.stroke(palmL);   // outlines first (so no lines run between the fingers and the palm)
   ctx.strokeStyle = skin; ctx.lineWidth = 1.15; ctx.stroke(th); for (const [fy, fl, w] of F) { ctx.lineWidth = w; ctx.stroke(fp(fy, fl)); }
   const g = ctx.createLinearGradient(0, -2, 0, 2); g.addColorStop(0, mixc(skin, '#FFE8CF', 0.2)); g.addColorStop(0.55, skin); g.addColorStop(1, mixc(skin, '#6E4E8C', 0.2)); ctx.fillStyle = g; ctx.fill(palm);
   ctx.strokeStyle = rgba(mixc(skin, '#5A2632', 0.6), 0.55); ctx.lineWidth = 0.16;                                   // the gaps between the fingers, the crease of the thumb
   for (const y of [-1.02, 0.03, 1.07]) { ctx.beginPath(); ctx.moveTo(4.6, y); ctx.lineTo(4.6 + 2.2, y - k * 0.28); ctx.stroke(); }
   ctx.beginPath(); ctx.moveTo(1.5, -1.0); ctx.quadraticCurveTo(2.6, -0.8, 3.6, -1.35); ctx.stroke();
   ctx.restore();
+}
+
+// A relaxed hand seen from the thumb side – how hands hang at the sides of a figure seen from the front (palms toward the thighs):
+// the back of the hand is the outer edge, the fingers curl gently toward the palm (the inner edge), the thumb lies in front along
+// the index finger, its nail toward us. x runs from the wrist along dir; +y is the palm side (side = -1 / +1 for the arm on the
+// body's -x / +x side keeps the palm toward the body). About 9 units from the wrist to the fingertips at s = 1.18 (mid-thigh).
+// The hand starts under the end of the forearm and its outline is open there, so there is no seam at the wrist.
+// o.gift: a small gift box held in the curled fingers – the index finger wraps its back edge, the thumb presses its front.
+const RH = {
+  // the hand's outline: back of the hand, the index finger curving down, its tip, the middle and ring fingertips curled a little
+  // more toward the palm (each finger curls more than the one before it), the edge of the palm back to the wrist
+  mass: 'M-1.0 -1.55 C1.2 -1.56 3.2 -1.6 4.9 -1.55 C6.3 -1.55 7.5 -1.3 8.45 -0.72 C9.25 -0.2 9.8 0.5 9.75 1.25 C9.72 1.75 9.4 2.0 9.0 1.92 C8.95 2.25 8.6 2.48 8.15 2.42 C7.85 2.4 7.65 2.3 7.5 2.15 C7.35 2.4 7.0 2.52 6.6 2.45 C5.6 2.4 4.9 2.3 4.2 2.12 C2.9 1.95 1.6 1.62 0.4 1.55 L-1.0 1.55',
+  index: 'M5.0 -1.55 C6.3 -1.55 7.5 -1.3 8.45 -0.72 C9.25 -0.2 9.8 0.5 9.75 1.25 C9.72 1.75 9.4 2.0 9.0 1.92 C8.5 1.35 7.75 0.9 6.85 0.64 C6.2 0.45 5.6 0.2 5.0 -0.05',
+  indexEdge: 'M5.0 -1.55 C6.3 -1.55 7.5 -1.3 8.45 -0.72 C9.25 -0.2 9.8 0.5 9.75 1.25 C9.72 1.75 9.4 2.0 9.0 1.92',
+  indexIn: 'M9.0 1.92 C8.5 1.35 7.75 0.9 6.85 0.64 C6.3 0.48 5.8 0.3 5.35 0.12',
+  // the thumb: its root is the ball of the thumb (no outline there), its free part lies along the index finger, nail toward us
+  thumb: 'M0.9 0.6 C2.4 0.48 4.0 0.62 5.3 0.92 C6.15 1.12 6.55 1.55 6.35 1.95 C6.12 2.32 5.5 2.36 4.9 2.22 C3.8 2.0 2.4 1.78 1.2 1.45 Z',
+  thumbEdge: 'M2.7 0.53 C3.6 0.6 4.5 0.74 5.3 0.92 C6.15 1.12 6.55 1.55 6.35 1.95 C6.12 2.32 5.5 2.36 4.9 2.22 C4.4 2.12 3.9 2.04 3.4 1.95'
+};
+function relaxHand(ctx, wrist, dir, skin, s, out, side = 1, o = {}) {
+  const ang = Math.atan2(dir[1], dir[0]), S = s / 1.27, lw = (o.lw || 0.18) / S;   // (about 9 units from the wrist to the fingertip at s = 1.18)
+  ctx.save(); ctx.translate(wrist[0], wrist[1]); ctx.rotate(ang); ctx.scale(S, S * side); ctx.lineCap = ctx.lineJoin = 'round';
+  const litIn = -side * Math.sin(ang) < 0, g = ctx.createLinearGradient(0, litIn ? 2.4 : -1.6, 0, litIn ? -1.6 : 2.4);   // light from the upper left, like the forearm
+  g.addColorStop(0, mixc(skin, '#FFE8CF', 0.22)); g.addColorStop(0.5, skin); g.addColorStop(1, mixc(skin, '#6E4E8C', 0.3));
+  const crease = rgba(mixc(skin, '#5A2632', 0.6), 0.6);
+  ctx.fillStyle = g; ctx.fill(P2(RH.mass + ' Z')); ctx.lineWidth = lw; ctx.strokeStyle = out; ctx.stroke(P2(RH.mass));
+  line(ctx, P2('M7.5 2.15 C7.1 1.9 6.6 1.74 6.1 1.64'), crease, 0.1 / S);                                          // middle finger / ring finger
+  if (o.gift) { // the box sits in the curl of the fingers (they wrap round behind it), its top against the heel of the hand
+    const gb = ctx.createLinearGradient(5.2, -0.3, 9.8, 4.1); gb.addColorStop(0, '#FF9DC0'); gb.addColorStop(1, '#D9437A');
+    fill(ctx, ell(4.75, 1.25, 0.48, 0.78, 0.55), '#FFE4A0'); fill(ctx, ell(4.75, 2.55, 0.48, 0.78, -0.55), '#FFE4A0');   // the bow's loops on top
+    const box = P2('M5.2 -0.3 L9.8 -0.3 L9.8 4.1 L5.2 4.1 Z'); ctx.fillStyle = gb; ctx.fill(box);
+    fill(ctx, P2('M5.2 1.45 L9.8 1.45 L9.8 2.35 L5.2 2.35 Z M7.05 -0.3 L7.95 -0.3 L7.95 4.1 L7.05 4.1 Z'), '#FFE4A0');
+    fill(ctx, ell(5.25, 1.9, 0.36, 0.42), '#F2C46E');
+    ctx.lineWidth = 0.12 / S; ctx.strokeStyle = 'rgba(150,40,80,.7)'; ctx.stroke(box);
+  }
+  // the index finger (in front of the others; over the box when he holds it)
+  ctx.fillStyle = g; ctx.fill(P2(RH.index + ' Z')); ctx.lineWidth = lw; ctx.strokeStyle = out; ctx.stroke(P2(RH.indexEdge));
+  line(ctx, P2(RH.indexIn), o.gift ? out : crease, o.gift ? lw : 0.12 / S);
+  line(ctx, P2('M8.02 -0.6 Q8.24 -0.4 8.14 -0.16'), crease, 0.09 / S);                                              // its middle knuckle
+  line(ctx, P2('M2.6 -1.08 C3.6 -1.18 4.5 -1.22 5.3 -1.16'), rgba(mixc(skin, '#FFE8CF', 0.5), 0.35), 0.28 / S);   // light along the back of the hand
+  // the thumb, nearest to us
+  const tg = ctx.createLinearGradient(0, litIn ? 2.4 : 0.4, 0, litIn ? 0.4 : 2.4); tg.addColorStop(0, mixc(skin, '#FFE8CF', 0.24)); tg.addColorStop(1, mixc(skin, '#6E4E8C', 0.12));
+  ctx.fillStyle = tg; ctx.fill(P2(RH.thumb)); ctx.lineWidth = lw; ctx.strokeStyle = out; ctx.stroke(P2(RH.thumbEdge));
+  const nail = ell(5.86, 1.42, 0.46, 0.26, 0.42); fill(ctx, nail, mixc(skin, '#FFE2D2', 0.45)); line(ctx, nail, rgba(mixc(skin, '#5A2632', 0.5), 0.5), 0.07 / S);
+  line(ctx, P2('M4.3 0.8 Q4.47 1.02 4.4 1.24'), crease, 0.08 / S);                                                   // the thumb's knuckle
+  ctx.restore();
+}
+
+// A palm-up hand seen from the thumb side, supporting something from below (his offering hands): the back of the hand along
+// the bottom, the palm a shallow cup, the fingers reaching forward with their tips curling up, the thumb rising in front.
+// dir = where the fingers point (keep it near level: the wrist bends); screen-up is always the palm side. ~9 units at s = 1.22.
+function palmUpHand(ctx, wrist, dir, skin, s, out) {
+  const ang = Math.atan2(dir[1], dir[0]), fy = Math.cos(ang) < 0 ? -1 : 1, S = s / 1.31, lw = 0.18 / S;
+  ctx.save(); ctx.translate(wrist[0], wrist[1]); ctx.rotate(ang); ctx.scale(S, S * fy); ctx.lineCap = ctx.lineJoin = 'round';
+  const g = ctx.createLinearGradient(0, -1.4, 0, 1.5); g.addColorStop(0, mixc(skin, '#FFE8CF', 0.22)); g.addColorStop(0.5, skin); g.addColorStop(1, mixc(skin, '#6E4E8C', 0.3));
+  const crease = rgba(mixc(skin, '#5A2632', 0.6), 0.6);
+  const M = 'M-1.0 1.55 C1.5 1.6 4.0 1.5 5.6 1.35 C7.0 1.2 8.4 0.95 9.3 0.5 C9.9 0.15 10.0 -0.6 9.6 -0.95 C9.3 -1.2 8.9 -1.05 8.75 -0.75 C8.55 -1.0 8.15 -1.05 7.9 -0.8 C7.4 -0.35 6.6 -0.2 5.9 -0.18 C4.5 -0.25 3.2 -0.6 2.2 -1.0 C1.2 -1.45 0.2 -1.55 -1.0 -1.55';
+  ctx.fillStyle = g; ctx.fill(P2(M + ' Z')); ctx.lineWidth = lw; ctx.strokeStyle = out; ctx.stroke(P2(M));
+  line(ctx, P2('M5.8 0.42 C7.0 0.35 8.2 0.15 9.15 -0.3'), crease, 0.1 / S);                                        // index finger / middle finger
+  line(ctx, P2('M8.72 -0.72 C8.6 -0.5 8.45 -0.36 8.2 -0.3'), crease, 0.09 / S);                                     // a fingertip behind the index
+  line(ctx, P2('M1.0 1.0 C2.6 1.14 4.0 1.16 5.2 1.06'), rgba(mixc(skin, '#6E4E8C', 0.5), 0.25), 0.3 / S);         // shade under the back of the hand
+  const T = 'M1.0 -1.25 C2.3 -1.6 3.6 -2.0 4.8 -2.15 C5.4 -2.22 5.75 -1.92 5.55 -1.6 C5.25 -1.25 4.5 -1.18 3.8 -1.05 C3.0 -0.92 2.2 -0.86 1.4 -0.84 Z';
+  const tg = ctx.createLinearGradient(0, -2.2, 0, -0.8); tg.addColorStop(0, mixc(skin, '#FFE8CF', 0.26)); tg.addColorStop(1, skin);
+  ctx.fillStyle = tg; ctx.fill(P2(T)); ctx.lineWidth = lw; ctx.strokeStyle = out; ctx.stroke(P2('M2.4 -1.55 C3.3 -1.86 4.1 -2.08 4.8 -2.15 C5.4 -2.22 5.75 -1.92 5.55 -1.6 C5.25 -1.25 4.5 -1.18 3.8 -1.05 C3.4 -0.98 3.0 -0.93 2.6 -0.9'));
+  const nail = ell(5.02, -1.9, 0.4, 0.21, -0.14); fill(ctx, nail, mixc(skin, '#FFE2D2', 0.45)); line(ctx, nail, rgba(mixc(skin, '#5A2632', 0.5), 0.5), 0.07 / S);
+  ctx.restore();
+}
+
+// Fingers curled round the edge of a tree trunk, seen from the front: the hand is behind the trunk's side, so only the backs of
+// the four fingers show, lying on the bark from the edge inward (toward -x in the rig's space, the trunk's side), each a little
+// shorter than the middle one, nails at the tips, the knuckles bulging round the edge. w = the wrist, at the edge.
+function gripFingers(ctx, w, skin, out) {
+  const g = ctx.createLinearGradient(w[0] - 3.5, w[1] - 2.4, w[0] + 1.2, w[1] + 2.4); g.addColorStop(0, mixc(skin, '#FFE8CF', 0.2)); g.addColorStop(0.6, skin); g.addColorStop(1, mixc(skin, '#6E4E8C', 0.28));
+  const crease = rgba(mixc(skin, '#5A2632', 0.6), 0.6), F = [[-1.62, 2.55, 0.98], [-0.56, 2.95, 1.04], [0.5, 2.8, 1.0], [1.52, 2.25, 0.9]];
+  // the knuckles round the edge
+  const kn = P2(`M${w[0] + 0.9} ${w[1] - 2.3} C${w[0] - 0.2} ${w[1] - 2.5} ${w[0] - 0.9} ${w[1] - 1.6} ${w[0] - 0.9} ${w[1]} C${w[0] - 0.9} ${w[1] + 1.6} ${w[0] - 0.2} ${w[1] + 2.4} ${w[0] + 0.9} ${w[1] + 2.2} Z`);
+  ctx.fillStyle = g; ctx.fill(kn); ctx.lineWidth = 0.18; ctx.strokeStyle = out; ctx.stroke(kn);
+  for (const [dy, L, wd] of F) {
+    const y = w[1] + dy, x0 = w[0] - 0.5, x1 = x0 - L, f = P2(`M${x0} ${y - wd / 2} L${x1 + wd / 2} ${y - wd / 2 + 0.05} C${x1 - 0.05} ${y - wd / 2 + 0.05} ${x1 - 0.05} ${y + wd / 2 - 0.05} ${x1 + wd / 2} ${y + wd / 2} L${x0} ${y + wd / 2} Z`);
+    ctx.fillStyle = g; ctx.fill(f); ctx.lineWidth = 0.16; ctx.strokeStyle = out; ctx.stroke(f);
+    const nail = ell(x1 + 0.62, y, 0.42, wd * 0.3); fill(ctx, nail, mixc(skin, '#FFE2D2', 0.4)); line(ctx, nail, rgba(mixc(skin, '#5A2632', 0.5), 0.45), 0.06);
+    line(ctx, P2(`M${x0 - L * 0.48} ${y - wd * 0.32} L${x0 - L * 0.48} ${y + wd * 0.32}`), crease, 0.08);   // the middle knuckle
+  }
 }
 
 // a palm-up hand seen from the side, cupped to carry something: fingers out along dir, tips curling up, thumb on top.
@@ -208,10 +293,13 @@ function jhumka(ctx, x, y, k, t) {
 // the flashback poses (front view, standing): [elbow, wrist] per arm (near = her right arm, screen left), the teddy's
 // seat p, finger curl, palm-up cupped hands, head tilt toward the teddy
 const STAND_POSES = {
-  standReceive: { near: [[-3.6, -16.6], [6.4, -15.2]], far: [[5.0, -17.4], [11.2, -15.8]], p: [10.6, -16.5], curl: [0.4, 0.4], cup: true, tilt: 0.04 },
+  // receiving: elbows bent and low by her sides, forearms forward, both palms up side by side under the teddy (the elbows are
+  // given, not solved: a solved arm folded up with its elbow sticking out sideways)
+  standReceive: { near: [[-5.4, -12.6], [5.6, -14.0]], far: [[8.8, -12.4], [19.4, -14.8]], p: [14.4, -15.4], curl: [0.4, 0.4], cup: true, tilt: 0.04, fixed: true },
   standHug: { near: [[-8.6, -14.6], [2.6, -12.8]], far: [[9.6, -16.4], [0.2, -17.6]], p: [2.6, -13.2], curl: [0.85, 0.85], cup: false, tilt: 0.12, farOver: true }
 };
 export class Helen {
+  static RECEIVE_P = STAND_POSES.standReceive.p;   // where the teddy sits in her receiving hands (the film hands it over to here)
   static STAND_GROUND = 43;   // standing (st.stand): the soles of her sneakers, in her units (seated: the seat is y = 0)
   constructor() {
     this.hair = []; for (let i = 0; i < 9; i++) this.hair.push(new Chain(8, 2.75 + (i % 3) * 0.2, { drag: 1.5, grav: 300, bend: 0.8, iter: 4, lift: 0.03 }));
@@ -293,7 +381,7 @@ export class Helen {
     // ---- legs in wide-leg jeans: knees to the side over the edge of the wall, the hems swinging idly over the sneakers
     for (const [kx, ky, ph, len] of [[-11.8, 4.2, 0, 15.6], [-3.6, 6.4, 1.7, 15.2]]) {
       const ax = kx + 0.5 + Math.sin(t * 1.25 + ph) * 0.9, ay = ky + len - Math.abs(Math.sin(t * 1.25 + ph)) * 0.6;
-      limb(ctx, [kx, ky - 1.2], [lerp(kx, ax, 0.38), lerp(ky, ay, 0.38)], [ax, ay - 0.9], [3.6, 3.45, 3.3, 3.35, 3.5], C.jean, C.out, { lw: 0.16 });
+      limb(ctx, [kx, ky - 1.2], [lerp(kx, ax, 0.38), lerp(ky, ay, 0.38)], [ax, ay - 0.9], [4.7, 4.4, 4.3, 4.7, 5.3], C.jean, C.out, { lw: 0.16 });   // (wide-leg jeans: as wide as the knee, flaring to the hem)
       line(ctx, P2(`M${kx + 1.2} ${ky} L${ax + 1.4} ${ay - 1.2}`), rgba(C.jeanL, 0.55), 0.35);                    // the crease catching the light
       sneaker(ctx, ax, ay + 0.3, C);
     }
@@ -351,22 +439,23 @@ export class Helen {
   frontArm(ctx, j, side, curl = 0.45, cup = false) {   // a long cream sleeve to the wrist (a soft cuff), the hand; her watch on the left wrist
     const C = HC, [a, b, c] = j;
     const d = [c[0] - b[0], c[1] - b[1]], l = Math.hypot(d[0], d[1]) || 1, w = [c[0] - d[0] / l * 0.25, c[1] - d[1] / l * 0.25];
-    if (cup) cupHand(ctx, w, d, C.skin, 0.92, C.out); else hand2(ctx, w, d, C.skin, 0.92, C.out, side < 0 ? -1 : 1, curl);
+    if (cup) palmUpHand(ctx, w, [d[0] >= 0 ? 1 : -1, -0.12], C.skin, 0.95, C.out); else hand2(ctx, w, d, C.skin, 0.92, C.out, side < 0 ? -1 : 1, curl);
     const cuff = [c[0] - d[0] / l * 1.0, c[1] - d[1] / l * 1.0];
-    limb(ctx, a, b, cuff, [2.75, 2.6, 2.3, 2.25, 2.05], C.top, C.out, { lw: 0.16 });
+    limb(ctx, a, b, cuff, [3.7, 3.45, 3.0, 2.85, 2.45], C.top, C.out, { lw: 0.16 });
     const ang = Math.atan2(d[1], d[0]) + Math.PI / 2, ca = Math.cos(ang), sa = Math.sin(ang);
-    line(ctx, P2(`M${cuff[0] - ca * 1.9} ${cuff[1] - sa * 1.9} L${cuff[0] + ca * 1.9} ${cuff[1] + sa * 1.9}`), C.topD, 0.55);
+    line(ctx, P2(`M${cuff[0] - ca * 1.3} ${cuff[1] - sa * 1.3} L${cuff[0] + ca * 1.3} ${cuff[1] + sa * 1.3}`), C.topD, 0.5);
     if (side > 0) { const wp = [c[0] - d[0] / l * 0.45, c[1] - d[1] / l * 0.45];
-      line(ctx, P2(`M${wp[0] - ca * 1.5} ${wp[1] - sa * 1.5} L${wp[0] + ca * 1.5} ${wp[1] + sa * 1.5}`), C.strap, 0.55); fill(ctx, ell(wp[0] + ca * 0.2, wp[1] + sa * 0.2, 0.55, 0.55), '#2A2A30'); }
+      const dn = [d[0] / l, d[1] / l]; line(ctx, P2(`M${wp[0] - ca * 1.1} ${wp[1] - sa * 1.1} Q${wp[0] + dn[0] * 0.4} ${wp[1] + dn[1] * 0.4} ${wp[0] + ca * 1.1} ${wp[1] + sa * 1.1}`), C.strap, 0.5);   // the strap round her wrist
+      fill(ctx, ell(wp[0] + ca * 0.15 + dn[0] * 0.25, wp[1] + sa * 0.15 + dn[1] * 0.25, 0.55, 0.55), '#2A2A30'); }
     const m = [a[0] + (b[0] - a[0]) * 0.4, a[1] + (b[1] - a[1]) * 0.4];
-    ctx.save(); ctx.clip(limbPath(a, b, cuff, [2.75, 2.6, 2.3, 2.25, 2.05])); floralPrint(ctx, m[0] - 3, m[1] - 4, m[0] + 3, m[1] + 6, 3, side + 7, 0.45); ctx.restore();
+    ctx.save(); ctx.clip(limbPath(a, b, cuff, [3.7, 3.45, 3.0, 2.85, 2.45])); floralPrint(ctx, m[0] - 3, m[1] - 4, m[0] + 3, m[1] + 6, 3, side + 7, 0.45); ctx.restore();
   }
   // The flashback, standing and facing screen right (3/4): st.pose 'standReceive' – both hands forward together at chest
   // height, palms up, carrying the teddy; 'standHug' – hugging it to her chest (use expr 'joyful' or 'smile').
   // st.held(ctx, p, o) draws the teddy with its seat at p (Helen units), o = { s: 0.72 } (scale relative to the film's
   // Snowki). Draw order: far arm, teddy, near arm – so her fingers really wrap / support him.
   standArms(ctx, st, sL, sR) {
-    const P = STAND_POSES[st.pose], held = st.held, far = ik(sR, P.far[1], HUA, HFA, P.farOver ? -1 : -1), near = ik(sL, P.near[1], HUA, HFA, 1);
+    const P = STAND_POSES[st.pose], held = st.held, far = P.fixed ? [sR, P.far[0], P.far[1]] : ik(sR, P.far[1], HUA, HFA, -1), near = P.fixed ? [sL, P.near[0], P.near[1]] : ik(sL, P.near[1], HUA, HFA, 1);
     if (!P.farOver) this.frontArm(ctx, far, 1, P.curl[1], P.cup);
     if (held) held(ctx, P.p, { s: 0.72, back: false });
     if (P.farOver) this.frontArm(ctx, far, 1, P.curl[1], P.cup);   // hugging: both arms wrap over him
@@ -393,8 +482,8 @@ export class Helen {
         return [[sh[0] + s * 2.1, sh[1] + y1 - 0.21 * z1], [sh[0] + s * 2.9, sh[1] + y2 - 0.21 * z2]]; };
       [eL, wL] = swing(sL, -1, u + 0.5); [eR, wR] = swing(sR, 1, u);
     } else {   // sitting: both hands rest on the coping beside her hips (the near / left side of the slanted seat is lower), fingers toward the edge
-      wL = [-10.6 + sx * 0.15, -1.6]; eL = mid(sL, wL, -1); hsL = 0.66;
-      if (cr) { eR = [9.0 + sx * 0.2, -14.4]; wR = [15.0, -6.6]; } else { wR = [10.6 + sx * 0.2 - bs * 0.3, -5.4]; eR = mid(sR, wR, 1); hsR = 0.66; }
+      wL = [-10.6 + sx * 0.15, -1.6]; eL = mid(sL, wL, -1); hsL = 0.78;
+      if (cr) { eR = [9.0 + sx * 0.2, -14.4]; wR = [15.0, -6.6]; } else { wR = [10.6 + sx * 0.2 - bs * 0.3, -5.4]; eR = mid(sR, wR, 1); hsR = 0.78; }
     }
     // Snowki on her lap (over her right thigh): farther from us than her back, so her skirt, body and arm come over him –
     // his head and ears peek out beside her arm, her forearm lies across his tummy / back below his head
@@ -441,11 +530,11 @@ export class Helen {
     for (const [s, e, w, side, hs] of [[sL, eL, wL, -1, hsL], [sR, eR, wR, 1, hsR]]) {
       const d = [w[0] - e[0], w[1] - e[1]], l = Math.hypot(d[0], d[1]) || 1;   // palm down: the thumb lies on the inner side
       hand2(ctx, [w[0] - d[0] / l * 0.3, w[1] - d[1] / l * 0.3], d, C.skin, hs, C.out, -side, cr && side > 0 ? 0.9 : 0.35);
-      const cuff = [w[0] - d[0] / l * 1.1, w[1] - d[1] / l * 1.1], prof = [2.7, 2.5, 2.2, 2.15, 2.0];
+      const cuff = [w[0] - d[0] / l * 1.1, w[1] - d[1] / l * 1.1], prof = [3.6, 3.35, 2.95, 2.8, 2.4];
       limb(ctx, s, e, cuff, prof, C.top, C.out, { lw: 0.16 });
       const an = Math.atan2(d[1], d[0]) + Math.PI / 2, ca = Math.cos(an), sa = Math.sin(an);
-      line(ctx, P2(`M${cuff[0] - ca * 1.8} ${cuff[1] - sa * 1.8} L${cuff[0] + ca * 1.8} ${cuff[1] + sa * 1.8}`), C.topD, 0.5);
-      if (side < 0) { const wp = [w[0] - d[0] / l * 0.5, w[1] - d[1] / l * 0.5]; line(ctx, P2(`M${wp[0] - ca * 1.4} ${wp[1] - sa * 1.4} L${wp[0] + ca * 1.4} ${wp[1] + sa * 1.4}`), C.strap, 0.55); }
+      line(ctx, P2(`M${cuff[0] - ca * 1.3} ${cuff[1] - sa * 1.3} L${cuff[0] + ca * 1.3} ${cuff[1] + sa * 1.3}`), C.topD, 0.5);
+      if (side < 0) { const wp = [w[0] - d[0] / l * 0.5, w[1] - d[1] / l * 0.5]; line(ctx, P2(`M${wp[0] - ca * 1.05} ${wp[1] - sa * 1.05} Q${wp[0] + d[0] / l * 0.4} ${wp[1] + d[1] / l * 0.4} ${wp[0] + ca * 1.05} ${wp[1] + sa * 1.05}`), C.strap, 0.5); }
       ctx.save(); ctx.clip(limbPath(s, e, cuff, prof)); floralPrint(ctx, Math.min(s[0], cuff[0]) - 2, Math.min(s[1], cuff[1]) - 1, Math.max(s[0], cuff[0]) + 2, Math.max(s[1], cuff[1]) + 1, 4, side + 20, 0.45); ctx.restore();
       line(ctx, P2(`M${s[0] - 1.6} ${s[1] - 0.6} Q${s[0]} ${s[1] - 1.6} ${s[0] + 1.6} ${s[1] - 0.6}`), rgba(C.topD, 0.8), 0.3);   // the shoulder seam
     }
@@ -662,6 +751,7 @@ export class Helen {
 }
 
 // =====================================================================================  THE BOY (standing / hiding / lighting / walking)
+const OFFER = [15.6, -62.2, 24.8, -63.6, 21.6, -64.4], CARRY = [12.6, -62.8, 21.0, -64.2, 17.4, -65.4];   // offering hands (near x,y, far x,y) and where the teddy sits on them (torso space)
 const UA = 15.4, FA = 13.4, LEG1 = 25.2, LEG2 = 24.55, HIPY = -52, SHW = 10.7, SHY = -80.2;   // upper arm, forearm, thigh, shin, hip-joint height, shoulder half-width / height
 const STEP_D = 34;   // one full stride (two steps) of the man's walk, in character units: the cadence follows his speed, so a planted foot never slides
 // He after the user's photo (2026-11-23): warm brown skin, thick swept-up wavy near-black hair, dark eyes under strong brows,
@@ -718,9 +808,10 @@ export class Boy {
       const pk = st.pose === 'peek';
       // (trunk edge expected at local x ≈ +10: his body stays behind it; the face – centre x ≈ 11 hiding, ≈ 16 peeking – and
       // the +x shoulder lean out past it; the film should not add its own rot for these poses)
-      P.lean = pk ? 0.36 : 0.24; P.headTilt = pk ? 0.14 : 0.1;
-      P.legs = [leg(-3.9, [-5.2, -0.2], -1), leg(4.1, [pk ? 10.6 : 4.6, -0.2], -1)];
-    } else { const k = clamp(this.kn, 0, 1), e = k * k * (3 - 2 * k); P.hip = [e * 2, HIPY + e * 25]; P.lean = e * 0.1;
+      // st.duck: pressed flat behind the trunk (she is looking his way) – upright, head in, no hand on the bark
+      P.lean = st.duck ? -0.03 : pk ? 0.24 : 0.2; P.headTilt = st.duck ? -0.02 : pk ? 0.24 : 0.12;
+      P.legs = [leg(-3.9, [-4.6, -0.2], -1), leg(4.1, [st.duck ? 3.8 : pk ? 7.6 : 5.0, -0.2], -1)];
+    } else { const k = clamp(this.kn, 0, 1), e = k * k * (3 - 2 * k); P.hip = [e * 2, HIPY + e * 25]; P.lean = e * (st.hold || st.reach || st.armT || st.wave || st.signal ? 0.1 : 0.2);   // (hands free: he leans over his knee)
       const hipB = [P.hip[0] - 3.9, P.hip[1]], hipF = [P.hip[0] + 4.1, P.hip[1]], standB = ik(hipB, [-4.4, -0.2], LEG1, LEG2, -1), standF = ik(hipF, [4.8, -0.2], LEG1, LEG2, -1);
       if (e < 0.02) P.legs = [standB, standF];
       else { // the back knee on the ground with the shin flat behind; the front foot planted, knee up
@@ -733,29 +824,53 @@ export class Boy {
     P.tp = (x, y) => { const dx = x - 0, dy = y - HIPY; return [P.hip[0] + dx * P.c - dy * P.s, P.hip[1] + dx * P.s + dy * P.c]; };     // torso space -> body
     const sL = P.tp(-SHW, SHY), sR = P.tp(SHW + 0.2, SHY);
     P.holdPt = P.tp(7.6, -66.4);   // Snowki sits on the cradling forearm
+    // kneeling: Snowki sits on his raised knee (on top of the thigh, just behind the knee) – where he lifts him to and talks with him
+    if (this.kn > 0.5 && P.legs && P.legs[1]) { const [h, k] = P.legs[1]; P.holdPt = [lerp(h[0], k[0], 0.64), lerp(h[1], k[1], 0.64) - 3.4]; }
     // a hanging arm: the elbow a little out, the wrist a little further, the hand at mid-thigh
     const hang = s => { const sh = s < 0 ? sL : sR, ey = SHY + UA * 0.985; return [sh, P.tp(s * (SHW + 1.9), ey), P.tp(s * (SHW + 2.5), ey + FA * 0.99)]; };
     if (st.pose === 'light') { P.arms = [ik(sL, P.tp(-6, -58), UA, FA, -1), st.reach ? ik(sR, st.reach, UA, FA, 1) : ik(sR, [20, -20], UA, FA, 1)]; }
     else if (st.pose === 'walk') { P.arms = [hang(-1), hang(1)]; }
     else if (st.pose === 'walkHold' && st.armsFree) { // the same 3/4 walk with his arms swinging from the shoulder, each opposite its leg, the elbow bending as the arm comes forward
-      const u = P.walkU ?? 0, amp = st.speed ? clamp(st.speed * 0.011, 0.1, 0.4) : 0.04, arm = (sh, ph, out) => { const A = armSwing(ph, amp, 0.2), a1 = A.sh + out, a2 = A.sh + out + A.el;
+      // (seen 3/4, a swing forward is partly toward us: the near arm's hand moves forward beside the thigh, never across the body)
+      const u = P.walkU ?? 0, amp = st.speed ? clamp(st.speed * 0.011, 0.1, 0.4) : 0.04, arm = (sh, ph, out, k = 1) => { const A = armSwing(ph, amp * k, 0.2), a1 = A.sh + out, a2 = A.sh + out + A.el * (0.55 + 0.45 * k);
         const e = [sh[0] + Math.sin(a1) * UA, sh[1] + Math.cos(a1) * UA]; return [sh, e, [e[0] + Math.sin(a2) * FA, e[1] + Math.cos(a2) * FA]]; };
-      P.arms = [arm(sL, u + 0.5, -0.05), arm(sR, u, 0.05)]; }
-    else if (st.pose === 'walkHold') { // both hands round the teddy in front of his chest
-      P.arms = [ik(sL, P.tp(4.4, -66), UA, FA, 1), ik(sR, P.tp(11.4, -66.8), UA, FA, 1)]; P.holdPt = P.tp(7.9, -65.6); P.twoHand = true; }
+      P.arms = [arm(sL, u + 0.5, -0.12, 0.55), arm(sR, u, 0.06, 0.9)]; }
+    else if (st.pose === 'walkHold') { // carrying the teddy on both palms in front of him (elbows low by his sides, the near shoulder brought round)
+      const low = (a, g) => { const A = ik(a, g, UA, FA, 1), Bq = ik(a, g, UA, FA, -1); return A[1][1] >= Bq[1][1] ? A : Bq; }, sLf = P.tp(-SHW * 0.55, SHY + 0.8);
+      P.arms = [low(sLf, P.tp(CARRY[0], CARRY[1])), low(sR, P.tp(CARRY[2], CARRY[3]))]; P.holdPt = P.tp(CARRY[4], CARRY[5]); P.twoHand = true; }
     else if (st.pose === 'offer') { // arms out in front, offering the teddy on both hands
-      P.arms = [ik(sL, P.tp(12.8, -67), UA, FA, 1), ik(sR, P.tp(20.0, -68), UA, FA, 1)]; P.holdPt = P.tp(16.4, -67.6); P.twoHand = true; }
+      // (elbows bent and low by his sides, forearms forward, palms up under the teddy – a straight arm across the chest read as a band)
+      const low = (a, g) => { const A = ik(a, g, UA, FA, 1), Bq = ik(a, g, UA, FA, -1); return A[1][1] >= Bq[1][1] ? A : Bq; };
+      // reaching forward, the near shoulder comes round toward her (protraction), so both hands reach out to the same place
+      const sLf = P.tp(-SHW * 0.52, SHY + 0.8);
+      // st.offerAt (body space): the teddy is moving into her hands – his hands stay under it (the same grip, carried along)
+      const hp = st.offerAt || P.tp(OFFER[4], OFFER[5]), dN = [OFFER[0] - OFFER[4], OFFER[1] - OFFER[5]], dF = [OFFER[2] - OFFER[4], OFFER[3] - OFFER[5]];
+      P.arms = [low(sLf, [hp[0] + dN[0], hp[1] + dN[1]]), low(sR, [hp[0] + dF[0], hp[1] + dF[1]])]; P.holdPt = hp; P.twoHand = true; }
     else if (st.armT) P.arms = [ik(sL, st.armT[0], UA, FA, -1), ik(sR, st.armT[1], UA, FA, 1)];
+    else if (st.hold && this.kn > 0.5 && P.legs[0]) { // Snowki on his knee: the far arm round behind him, the hand on his far shoulder; the near hand rests on the other thigh
+      const hp = P.holdPt, th = P.legs[0][1], restB = [lerp(P.hip[0], th[0], 0.5) + 1, lerp(P.hip[1], th[1], 0.5) - 3.0];
+      const low = (a, g) => { const A = ik(a, g, UA, FA, 1), Bq = ik(a, g, UA, FA, -1); return A[1][1] >= Bq[1][1] ? A : Bq; };
+      P.arms = [ik(sL, restB, UA, FA, 1), low(sR, [hp[0] + 7.4, hp[1] - 7.6])]; P.cradle = 'knee'; }   // (the hand at Snowki's side, below his big head)
     else if (st.hold) { P.arms = [hang(-1), [sR, P.tp(13.8, -65.6), P.tp(2.4, -64.8)]]; P.cradle = true; }
     else if (st.wave) P.arms = [hang(-1), ik(sR, P.tp(17.5 + Math.sin(st.t * 8) * 3.4, -90 + Math.sin(st.t * 4) * 1.4), UA, FA, 1)];   // a happy wave beside his head
     else if (st.signal) P.arms = [hang(-1), ik(sR, P.tp(17, -92 - st.signal * 6), UA, FA, 1)];
     else if (st.pose === 'hide' || st.pose === 'peek' || st.pose === 'watch') { // the near arm hangs out of sight; the other hand holds the trunk
       // default grip: the trunk's edge (local x ≈ 10) at chest height; the film can pass st.reach = the real edge point
-      const pk = st.pose === 'peek', tr = st.reach || (st.pose === 'watch' ? null : [pk ? 11.4 : 10.4, pk ? -70 : -75]);
+      const pk = st.pose === 'peek', tr = st.duck ? null : st.reach || (st.pose === 'watch' ? null : [pk ? 11.4 : 10.4, pk ? -70 : -75]);
       const lowElbow = (a, g) => { const A = ik(a, g, UA, FA, 1), Bq = ik(a, g, UA, FA, -1); return A[1][1] >= Bq[1][1] ? A : Bq; };
       P.arms = [hang(-1), tr ? (st.pose === 'watch' ? ik(sR, tr, UA, FA, 1) : lowElbow(sR, tr)) : hang(1)];
       P.grip = !!tr && st.pose !== 'watch';
-    } else P.arms = [hang(-1), st.reach ? ik(sR, st.reach, UA, FA, 1) : hang(1)];
+    } else if (!st.reach && this.kn > 0.35 && P.legs[1]) { // kneeling: the near forearm rests on the raised knee, the hand hanging relaxed over it;
+      // the far hand rests lightly on the thigh of the kneeling leg (never through the legs)
+      const k = clamp((this.kn - 0.35) / 0.5, 0, 1), kn = P.legs[1][1], th = P.legs[0][1];
+      const rest = [lerp(P.hip[0], kn[0], 0.66), lerp(P.hip[1], kn[1], 0.66) - 3.6], restB = [lerp(P.hip[0], th[0], 0.5) + 1, lerp(P.hip[1], th[1], 0.5) - 3.0];
+      const hb = hang(-1), hf = hang(1), mixA = (A, Bq) => A.map((p, i) => [lerp(p[0], Bq[i][0], k), lerp(p[1], Bq[i][1], k)]);
+      P.arms = [mixA(hb, ik(sL, restB, UA, FA, 1)), mixA(hf, ik(sR, rest, UA, FA, 1))];
+    } else { // (kneeling while the other hand reaches – for Snowki, or the fuse – the near hand rests on his thigh instead of hanging through it)
+      const th = this.kn > 0.5 && P.legs[0] ? P.legs[0][1] : null, near = th ? ik(sL, [lerp(P.hip[0], th[0], 0.5) + 1, lerp(P.hip[1], th[1], 0.5) - 3.0], UA, FA, 1) : hang(-1);
+      P.arms = [near, st.reach ? ik(sR, st.reach, UA, FA, 1) : hang(1)]; }
+    // which hands simply hang, swing or rest (drawn relaxed, from the thumb side) and which grip, hold, wave or reach
+    P.relax = [!(P.twoHand || st.armT), !(P.twoHand || P.cradle || P.grip || st.armT || st.wave || st.signal || st.reach || st.pose === 'light')];
     P.head = P.tp(0.3, -86);
     return P;
   }
@@ -763,16 +878,16 @@ export class Boy {
   // actor view at the tree's depth, same place / flip / rot), so his fingers curl round the front of the trunk. Draws nothing otherwise.
   drawGrip(ctx) {
     const P = this.P; if (!P || !P.grip) return;
-    const [, b, c] = P.arms[1], d = [c[0] - b[0], c[1] - b[1]], l = Math.hypot(d[0], d[1]) || 1;
-    ctx.save(); ctx.lineJoin = ctx.lineCap = 'round';
-    hand2(ctx, [c[0] - d[0] / l * 0.3, c[1] - d[1] / l * 0.3], d, BC.skin, 1.18, BC.out, 1, 0.95);
-    ctx.restore();
+    ctx.save(); ctx.lineJoin = ctx.lineCap = 'round'; gripFingers(ctx, P.arms[1][2], BC.skin, BC.out); ctx.restore();
   }
-  arm(ctx, j, side, curl = 0.4) {
+  arm(ctx, j, side, curl = 0.4, relax = false, gift = false, cup = false, noHand = false) {   // relax: a hanging / swinging / resting hand, drawn from the thumb side
     const C = BC, [a, b, c] = j;
-    ctx.save(); ctx.translate(-(side || 1) * 0.9, 0.7); ctx.fillStyle = 'rgba(60,40,90,.2)'; ctx.fill(limbPath(a, b, c, [4.4, 4.4, 4, 3.6, 2.8])); ctx.restore();   // the arm's shadow on the shirt
-    limb(ctx, a, b, c, [4.0, 3.7, 3.2, 3.1, 2.6], C.skin, C.out, { lw: 0.18 });
-    { const d = [c[0] - b[0], c[1] - b[1]], l = Math.hypot(d[0], d[1]) || 1; hand2(ctx, [c[0] - d[0] / l * 0.3, c[1] - d[1] / l * 0.3], d, C.skin, 1.18, C.out, side || 1, curl); }
+    ctx.save(); ctx.translate(-(side || 1) * 0.9, 0.7); ctx.fillStyle = 'rgba(60,40,90,.2)'; ctx.fill(limbPath(a, b, c, [4.4, 4.4, 4.7, 4.4, 3.0])); ctx.restore();   // the arm's shadow on the shirt
+    limb(ctx, a, b, c, [4.0, 3.8, 4.3, 4.0, 2.75], C.skin, C.out, { lw: 0.18 });   // forearm: full below the elbow, slim at the wrist
+    if (!noHand) { const d = [c[0] - b[0], c[1] - b[1]], l = Math.hypot(d[0], d[1]) || 1, w = [c[0] - d[0] / l * 0.3, c[1] - d[1] / l * 0.3];
+      if (relax) relaxHand(ctx, w, d, C.skin, 1.18, C.out, side || 1, { gift });
+      else if (cup) palmUpHand(ctx, w, [d[0] >= 0 ? 1 : -1, -0.12], C.skin, 1.22, C.out);
+      else hand2(ctx, w, d, C.skin, 1.18, C.out, side || 1, curl); }
     const e = [a[0] + (b[0] - a[0]) * 1.06, a[1] + (b[1] - a[1]) * 1.06], mid = [(a[0] + e[0]) / 2, (a[1] + e[1]) / 2];
     limb(ctx, a, mid, e, [5.6, 5.4, 5.0, 4.9, 5.0], C.shirt, C.out, { shade: C.shirtS, light: C.shirtL, lw: 0.18 });
     const cd = [b[0] - a[0], b[1] - a[1]], cl = Math.hypot(cd[0], cd[1]) || 1, cn = [-cd[1] / cl * 2.4, cd[0] / cl * 2.4], cu = [cd[0] / cl * 0.9, cd[1] / cl * 0.9];
@@ -786,7 +901,7 @@ export class Boy {
   }
   armLower(ctx, j, side) {   // forearm, a hand curled around what it holds, and the rolled cuff over the elbow
     const C = BC, [a, b, c] = j, m = [(b[0] + c[0]) / 2, (b[1] + c[1]) / 2];
-    limb(ctx, b, m, c, [3.2, 3.15, 3.0, 2.7, 2.3], C.skin, C.out, { lw: 0.18 });
+    limb(ctx, b, m, c, [4.3, 4.2, 4.0, 3.5, 2.75], C.skin, C.out, { lw: 0.18 });
     { const d = [c[0] - b[0], c[1] - b[1]], l = Math.hypot(d[0], d[1]) || 1; hand2(ctx, [c[0] - d[0] / l * 0.3, c[1] - d[1] / l * 0.3], [0.62, -1], C.skin, 1.18, C.out, side || 1, 1.0); }
     const e = [a[0] + (b[0] - a[0]) * 1.06, a[1] + (b[1] - a[1]) * 1.06], cd = [b[0] - a[0], b[1] - a[1]], cl = Math.hypot(cd[0], cd[1]) || 1, cn = [-cd[1] / cl * 2.4, cd[0] / cl * 2.4], cu = [cd[0] / cl * 0.9, cd[1] / cl * 0.9];
     const cuff = P2(`M${e[0] + cn[0] - cu[0]} ${e[1] + cn[1] - cu[1]} L${e[0] + cn[0] + cu[0]} ${e[1] + cn[1] + cu[1]} L${e[0] - cn[0] + cu[0]} ${e[1] - cn[1] + cu[1]} L${e[0] - cn[0] - cu[0]} ${e[1] - cn[1] - cu[1]} Z`);
@@ -911,15 +1026,18 @@ export class Boy {
     this.face(ctx, st); this.curls(ctx, t, 0.3, -98.8, false);
     ctx.restore();
     if (P.twoHand) { // offer / walkHold: far arm, the teddy between his hands, near arm – the fingers wrap round it
-      this.arm(ctx, P.arms[1], 1, 0.85); if (st.held) st.held(ctx, P.holdPt, { s: 0.72, back: false }); this.arm(ctx, P.arms[0], -1, 0.85);
+      // (palms up under the teddy, the wrists bent so the hands lie level – not hanging on along the forearms)
+      this.arm(ctx, P.arms[1], 1, 0.85, false, false, true); if (st.held) st.held(ctx, P.holdPt, { s: 0.72, back: false }); this.arm(ctx, P.arms[0], -1, 0.85, false, false, true);
       return;
     }
-    const cradle = P.cradle && st.held;
-    if (cradle) { this.armUpper(ctx, P.arms[1]); st.held(ctx, P.holdPt); this.armLower(ctx, P.arms[1], 1); }
+    const knee = P.cradle === 'knee' && st.held, cradle = !knee && P.cradle && st.held;
+    if (knee) { // his arm behind Snowki (on his knee), then Snowki, then only the hand, its fingers over Snowki's shoulder
+      this.arm(ctx, P.arms[1], 1, 0.5, false, false, false, true); st.held(ctx, P.holdPt);
+      const c = P.arms[1][2]; hand2(ctx, [c[0] + 0.2, c[1] - 0.2], [-1, 0.26], BC.skin, 1.04, BC.out, -1, 0.72); }
+    else if (cradle) { this.armUpper(ctx, P.arms[1]); st.held(ctx, P.holdPt); this.armLower(ctx, P.arms[1], 1); }
     else if (st.held) st.held(ctx, P.holdPt);
-    this.arm(ctx, P.arms[0], -1);
-    if (st.gift) { const h = P.arms[0][2]; ctx.save(); ctx.translate(h[0] + 0.6, h[1] + 1.2); const g = ctx.createLinearGradient(-2.4, -2.4, 2.4, 2.4); g.addColorStop(0, '#FF9DC0'); g.addColorStop(1, '#D9437A'); ctx.fillStyle = g; ctx.fillRect(-2.4, -1.8, 4.8, 4); fill(ctx, P2('M-0.5 -1.8 h1 v4 h-1 Z M-2.4 -0.2 h4.8 v0.9 h-4.8 Z'), '#FFE4A0'); fill(ctx, ell(-0.9, -2.4, 1.0, 0.6, -0.5), '#FFE4A0'); fill(ctx, ell(0.9, -2.4, 1.0, 0.6, 0.5), '#FFE4A0'); ctx.restore(); }
-    if (!cradle) this.arm(ctx, P.arms[1], 1, P.grip ? 0.95 : 0.4);   // hiding: fingers curled round the trunk
+    this.arm(ctx, P.arms[0], -1, 0.4, P.relax[0], !!st.gift && P.relax[0]);   // (the little gift is held in this hand)
+    if (!cradle && !knee) this.arm(ctx, P.arms[1], 1, P.grip ? 0.95 : 0.4, P.relax[1], false, false, !!P.grip);   // (holding the tree: the fingers are drawn in front of it by drawGrip)   // hiding: fingers curled round the trunk
     if (st.flame && !P.back) { // a tiny lighter flame in his hand
       const c = P.arms[1][2], f = 1 + 0.15 * Math.sin(t * 31) + 0.1 * Math.sin(t * 17);
       const g = ctx.createRadialGradient(c[0] + 1.5, c[1] - 1.5, 0, c[0] + 1.5, c[1] - 1.5, 4 * f); g.addColorStop(0, 'rgba(255,250,220,1)'); g.addColorStop(0.3, 'rgba(255,190,90,.9)'); g.addColorStop(1, 'rgba(255,140,40,0)');

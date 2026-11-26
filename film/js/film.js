@@ -104,7 +104,7 @@ const S = {
 };
 function freshActors() {
   S.helen = { expr: 'calm', turn: -0.35, gaze: -0.6, lookUp: 0, handChest: 0, turnDir: 1 };
-  S.boy = { expr: 'watching', kneel: false, hold: false, reach: false, signal: 0, lookDown: 0, gift: true, lighting: false, flame: false, gazeUp: 0, watch: false, look: 0.2, wave: false };
+  S.boy = { expr: 'watching', kneel: false, hold: false, reach: false, signal: 0, lookDown: 0, gift: true, lighting: false, flame: false, gazeUp: 0, watch: false, look: 0.5, wave: false };   // (look > 0: toward where he faces – Helen, Snowki)
   S.jessi = { lookUp: false, happy: false, alert: false };
 }
 freshActors();
@@ -130,7 +130,6 @@ const sc0 = n => TL.scenes[n - 1].start;                         // story time w
 const MEET = PLACE.meet, LIGHT = PLACE.boyLight, TU = unitScale(PLACE.tree.y);
 const HIDE = { x: PLACE.boy.x + 9 * TU, y: PLACE.boy.y };        // fully hidden: right behind the middle of the trunk
 const PEEK = PLACE.boy;                                          // at the trunk's left edge (the hide / peek poses lean out past it)
-const STAY = PLACE.stay;                                         // where he stands for the ending, in the open
 const FUSE_SCENE = 6;                                            // the fuse cord lies on the promenade from scene 6 on
 const SNF = [400, 666, 666], SNM = [MEET.x - 47, MEET.y + 2, MEET.y + 2];   // Snowki: at the foot of the wall below her -> in front-left of the man
 const snPath = u => [lerp(SNF[0], SNM[0], u), lerp(SNF[1], SNM[1], u), lerp(SNF[2], SNM[2], u)];
@@ -150,14 +149,17 @@ function boyAt(T = S.T) {
   if (T < s(2) + 3.6) return base(HIDE, 'hide');
   if (T < s(2) + 4.4) { const u = ease.inOutSine((T - s(2) - 3.6) / 0.8); return { ...base(HIDE, 'hide'), x: lerp(HIDE.x, PEEK.x, u), y: lerp(HIDE.y, PEEK.y, u), grip: u > 0.7 }; }
   if (T < s(3) + 0.9) return { ...base(PEEK, 'peek'), grip: true };
-  let w = walkSeg(T, s(3) + 0.9, PEEK, MEET); if (w) return { ...w, rot: 0, free: false };   // carrying the little gift
+  let w = walkSeg(T, s(3) + 0.9, PEEK, MEET); if (w) return { ...w, rot: 0 };   // arms swinging naturally, the little gift in his near hand
   if (T < s(6) + 1.4) return base(MEET, 'stand');
   w = walkSeg(T, s(6) + 1.4, MEET, HIDE); if (w) return { ...w, rot: 0 };
   if (T < s(7) + 0.2) return { ...base(HIDE, 'hide'), grip: true };
   w = walkSeg(T, s(7) + 0.2, HIDE, LIGHT); if (w) return { ...w, rot: 0 };
   if (T < s(7) + 5.4) return base(LIGHT, 'stand');
   w = walkSeg(T, s(7) + 5.4, LIGHT, HIDE); if (w) return { ...w, rot: 0 };
-  if (T >= s(9) + 12.6) { const w = walkSeg(T, s(9) + 12.6, HIDE, STAY); return w ? { ...w, rot: 0 } : base(STAY, 'stand'); }   // they have gone: he steps out into the open, smiling
+  // she turns to look for whoever sent the fireworks: he presses flat behind the trunk (nothing of him shows) until she looks back at the sea
+  if (T >= s(8) + 3.0 && T < s(9) + 5.0) return { ...base(HIDE, 'hide'), duck: true };
+  // then he leans out again, only his face and a hand on the bark, and watches her happily from behind the tree to the end
+  if (T >= s(9) + 5.0) { const u = ease.inOutSine(clamp((T - s(9) - 5.0) / 1.2, 0, 1)); return { ...base(HIDE, u < 0.5 ? 'hide' : 'peek'), x: lerp(HIDE.x, PEEK.x, u), y: lerp(HIDE.y, PEEK.y, u), grip: u > 0.3 }; }
   return { ...base(HIDE, 'hide'), grip: true };
 }
 const boyPlace = () => boyAt(S.T);
@@ -230,19 +232,19 @@ function fire(ev, instant) {
     case 'snHappy': snAct('idle', { expr: 'happy' }, 6); break;
     case 'snHome': S.snFront = false; break;
     // the man
-    case 'boyLookDown': S.boy.lookDown = 1; break;
+    case 'boyLookDown': S.boy.lookDown = 1; S.boy.look = 0.7; break;   // Snowki has come to his feet
     case 'boySmile': S.boy.expr = 'contentment'; break;
     case 'memOn': ramp('mem', 1, 1.3, instant); audio.setIntensity && audio.setIntensity(0.35, 0.8); break;   // a gentle melody over the memory
     case 'memOff': ramp('mem', 0, 1.3, instant); audio.setIntensity && audio.setIntensity(0.25, 0); break;
     case 'boyKneel': S.boy.kneel = true; break;
     case 'boyReach': S.boy.reach = true; break;
-    case 'boyHold': S.boy.reach = false; S.boy.hold = true; S.boy.lookDown = 0.6; break;
+    case 'boyHold': S.boy.reach = false; S.boy.hold = true; S.boy.lookDown = 0.7; S.boy.look = 0.85; break;   // he looks at Snowki on his knee while they talk
     case 'say': say(arg, S.evAt ?? S.T); break;
-    case 'boyLookHelen': S.boy.lookDown = 0; break;
+    case 'boyLookHelen': S.boy.lookDown = 0; S.boy.look = 0.6; break;
     case 'boyPutDown': S.boy.hold = false; S.boy.gift = false; S.snGift = true; break;
     case 'boyStand': S.boy.kneel = false; break;
     case 'boySmileBack': S.boy.expr = 'smile'; S.boy.lookDown = 0; S.boy.gazeUp = 0; break;
-    case 'boyHappy': S.boy.expr = 'smile'; S.boy.look = -0.7; S.boy.lookDown = 0; S.boy.gazeUp = 0; break;   // the surprise worked: he is happy
+    case 'boyHappy': S.boy.expr = 'smile'; S.boy.look = 0.65; S.boy.lookDown = 0; S.boy.gazeUp = 0; break;   // watching her from behind the tree   // the surprise worked: he is happy
     case 'boyWave': S.boy.wave = true; S.boy.expr = 'farewell'; break;
     case 'snWave': snAct('wave', { expr: 'happy' }, 7); break;   // Snowki waves goodbye from her arms, over her shoulder
     case 'boyToLight': S.boy.expr = 'contentment'; S.boy.lookDown = 0.3; break;
@@ -260,7 +262,7 @@ function fire(ev, instant) {
     case 'launch': { const at = S.evAt ?? S.T, ago = S.T - at, dur = Math.max(1.2, evGap('launch', 'crack', 2.8));   // the shell bursts exactly on 'crack'
       if (ago < dur) fw.launch(launchPt(), mainBurstAt(), dur, mainShell(), ago); S.boy.flame = false; break; }
     case 'boyHide': S.boy.kneel = false; S.boy.lighting = false; S.boy.lookDown = 0; S.boy.gazeUp = 1; break;
-    case 'boyWatch': S.boy.expr = 'smile'; S.boy.look = -0.45; S.boy.lookDown = 0.35; S.boy.gazeUp = 0; break;
+    case 'boyWatch': S.boy.expr = 'smile'; S.boy.look = 0.6; S.boy.lookDown = 0.2; S.boy.gazeUp = 0; break;
     case 'crack': { S.flashT = S.T; S.shake = RM ? 0 : 10; const ago = S.T - (S.evAt ?? S.T);
       if (instant && ago < 2.5 && !fw.recent.length) { const w = mainBurstAt(); fw.burst(w[0], w[1], mainShell()); fw.advance(ago); }   // entered by seeking just after the crack
       { const v = S.msgBox.v, portrait = innerHeight > innerWidth, px = v.scaleAt(SKY_GY);
@@ -492,18 +494,21 @@ function drawMemory(dt) {
   const lc = L(1), ground = at(lc, 0, 0), walking = mt < MEM.walk, bxw = MEM.bx + Math.max(0, MEM.walk - mt) * 26 * MEM.kb;
   const giving = mt >= MEM.give[0] && mt < MEM.give[1], hers = mt >= MEM.give[1], hug = mt >= 6.6;
   const hPose = mt < 3.5 ? null : hug ? 'standHug' : 'standReceive', hExpr = mt < 2.6 ? 'calm' : mt < 3.6 ? 'surprised' : mt < 4.9 ? 'smile' : mt < 7.4 ? 'joyful' : 'smile';
-  const bPose = walking ? 'walkHold' : mt < MEM.give[1] + 0.3 ? 'offer' : 'stand', bExpr = mt < 3.6 ? 'contentment' : 'smile';
+  const bPose = walking ? 'walkHold' : mt < MEM.give[1] + 0.3 ? 'offer' : 'stand', bExpr = walking ? 'watching' : 'smile'   /* eyes open as he walks up to her */;
   let pH = null, pB = null; const rec = w => (ctx, p) => { if (w === 'h') pH = p; else pB = p; };
   const snowDraw = (ctx, p) => { ctx.save(); ctx.translate(p[0], p[1]); ctx.scale(SN * 0.72, SN * 0.72); memSnow.draw(ctx, { aura: false, sparkle: false }); ctx.restore(); };
   const hst = { t: tr, dt, wind: 10, expr: hExpr, stand: true, pose: hPose, held: hers ? snowDraw : giving ? rec('h') : null, turn: 0.35, gaze: mt < 4.6 ? 0.75 : 0.25, armT: hPose ? null : [[0.6, -9.6], [2.6, -9.9]] };
-  const bst = { t: tr, dt, wind: 8, pose: bPose, speed: walking ? 26 : 0, expr: bExpr, held: hers ? null : giving ? rec('b') : snowDraw, lookDown: walking ? 0.25 : 0.45, look: 0.2 };
+  // the hand-over: the teddy travels from his hands (hp0, his body space) into hers; his hands go with it until she has it
+  const hp0 = mt < MEM.give[0] && memBoy.P && memBoy.P.holdPt ? (S.memFrom = memBoy.P.holdPt.slice()) : (S.memFrom || [23.6, -59.9]);
+  const vG = giving ? ease.inOutSine((mt - MEM.give[0]) / (MEM.give[1] - MEM.give[0])) : 0, toB = [(bxw - (MEM.hx + Helen.RECEIVE_P[0])) / MEM.kb, (-Helen.STAND_GROUND + Helen.RECEIVE_P[1]) / MEM.kb];
+  const tedB = [lerp(hp0[0], toB[0], vG), lerp(hp0[1], toB[1], vG) - Math.sin(vG * Math.PI) * 1.5 / MEM.kb];
+  const bst = { t: tr, dt, wind: 8, pose: bPose, speed: walking ? 26 : 0, expr: bExpr, held: hers ? null : giving ? rec('b') : snowDraw, lookDown: walking ? 0.08 : 0.35, look: walking ? 0.55 : 0.35, offerAt: giving && vG < 0.75 ? tedB : null };
   memHelen.update(hst); memBoy.update(bst); memSnow.update(dt, { magic: 0 });
   x.lineJoin = x.lineCap = 'round';
   x.save(); x.translate(at(lc, MEM.hx, 0)[0], ground[1] - Helen.STAND_GROUND * lc.k); x.scale(lc.k, lc.k); memHelen.draw(x, hst); x.restore();
   x.save(); x.translate(at(lc, bxw, 0)[0], ground[1]); x.scale(-lc.k * MEM.kb, lc.k * MEM.kb); memBoy.draw(x, bst); x.restore();
   if (giving) {   // the teddy passing from his hands into hers (his hands lower it into her cupped palms)
-    const hp = memBoy.P && memBoy.P.holdPt ? memBoy.P.holdPt : [16.4, -63.8], from = [bxw - hp[0] * MEM.kb, hp[1] * MEM.kb], to = [MEM.hx + 10.6, -Helen.STAND_GROUND - 16.5];
-    const v = ease.inOutSine((mt - MEM.give[0]) / (MEM.give[1] - MEM.give[0])), p = at(lc, lerp(from[0], to[0], v), lerp(from[1], to[1], v) - Math.sin(v * Math.PI) * 1.5);
+    const p = at(lc, bxw - tedB[0] * MEM.kb, tedB[1] * MEM.kb);
     x.save(); x.translate(p[0], p[1]); x.scale(lc.k, lc.k); snowDraw(x, [0, 0]); x.restore();
   }
   // ---- the backlight: the low sun haloes them; out-of-focus flowers and floating motes in front (p 1.35)
@@ -713,7 +718,7 @@ function boyReach(bp) {
 const heldDraw = (ctx, p) => { ctx.save(); ctx.translate(p[0], p[1]); ctx.scale(SN, SN); ctx.filter = 'brightness(1.28) saturate(1.05)'; snow.draw(ctx, { aura: false, sparkle: false }); ctx.restore(); };
 function boySt(bp, dt, wind) {
   const B = S.boy, sp = S.snP || snowAt(S.T);
-  return { t: S.simT, dt, wind, pose: bp.pose, speed: bp.speed || 0, armsFree: !!bp.free, reach: boyReach(bp), expr: B.expr, kneel: B.kneel, hold: B.hold, signal: B.signal, wave: B.wave, lookDown: B.lookDown, gift: B.gift, flame: B.flame,
+  return { t: S.simT, dt, wind, pose: bp.pose, speed: bp.speed || 0, armsFree: !!bp.free, duck: !!bp.duck, reach: boyReach(bp), expr: B.expr, kneel: B.kneel, hold: B.hold, signal: B.signal, wave: B.wave, lookDown: B.lookDown, gift: B.gift, flame: B.flame,
     talk: !!(S.say && S.say.who === 'man' && S.T < S.say.until), held: sp.mode === 'held' ? heldDraw : null, look: B.look, gazeY: B.lookDown * 0.8 - B.gazeUp * 0.9 };
 }
 

@@ -4,7 +4,7 @@
 //
 //   const s = new Snowki();  s.act('wave');  s.update(dt, { vel: [vx, vy] });  s.draw(ctx, { aura: true });
 //
-// Actions: idle sit stand wave point cheer clap hug cover peek sleep kick push fly dangle spin shy think hold
+// Actions: idle sit stand wave point cheer clap hug cover peek sleep kick push fly dangle hang spin shy think hold
 //          dance yawn bow lookUp giggle blow nod call shh walk alert. Option talk:true moves his mouth. Expressions: smile happy giggle wink surprised sleepy love shy
 //          determined soft sad blow oops.
 
@@ -126,6 +126,11 @@ export class Snowki {
         const vx = this.vel[0]; P.lift = 10; P.armL = [-5, -22]; P.armR = [5, -22]; P.palm = [true, true];
         P.legL = [-9 - clamp(vx * 0.02, -9, 9), 0]; P.legR = [9 - clamp(vx * 0.02, -9, 9), 0]; P.lean = clamp(-vx * 0.001, -0.3, 0.3);
         P.expr = a < 0.7 ? 'surprised' : 'giggle'; break;
+      }
+      case 'hang': {   // hanging from a ledge (a line of words): both paws up, closed round it beside his head, the body hanging below, legs dangling
+        const vx = this.vel[0]; P.lift = 10; P.armL = [-9.5, -46]; P.armR = [9.5, -46];   // paws at (∓27, -92), beside his ears: the arms go up round his head, never across his face
+        P.legL = [-8 - clamp(vx * 0.018, -6, 6), 4 + Math.abs(clamp(vx * 0.01, -2, 2))]; P.legR = [8 - clamp(vx * 0.018, -6, 6), 4 + Math.abs(clamp(vx * 0.01, -2, 2))];
+        P.squash = -0.035; P.nod = 0.15; P.expr = o.expr || 'surprised'; break;
       }
       case 'spin': P.spin = Math.cos(a * 15); P.armL = [-20, -2]; P.armR = [20, -2]; P.expr = 'happy'; P.hop = Math.sin(clamp(a / 0.9, 0, 1) * Math.PI) * 10; break;
       case 'shy': P.armL = [13, 15]; P.armR = [-13, 15]; P.tilt = 0.16; P.turn = -0.3; P.nod = 0.45; P.expr = 'shy'; P.drop = 2; break;
@@ -277,7 +282,7 @@ export class Snowki {
   }
 
   arm(ctx, sh, tg, away, palm) {
-    const C = this.C, [el, end] = ik2(sh, tg, 12.5, 12.5, away);
+    const L = this.name === 'hang' ? 24 : 12.5, C = this.C, [el, end] = ik2(sh, tg, L, L, away);   // (hanging: his plush arms stretch up so his paws hold the ledge above his head)
     this.tube(ctx, sh, end, el, 12.5, 10.5);
     // paw
     const g = furGrad(ctx, end[0], end[1], 7.5, C); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(end[0], end[1], 6.4, 0, TAU); ctx.fill();

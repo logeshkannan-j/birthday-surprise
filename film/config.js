@@ -16,19 +16,20 @@ export default {
     subtitles: {
       1: 'After the cake and the candles… a quiet night by the sea.',
       4: 'A long time ago, he gave her Snowki…',
-      8: 'The sea holds the light. She turns, searching for who sent it.'
+      8: 'Who sent this…? She turns and searches the whole shore.',
+      9: 'Behind the tree, he holds his breath – she must not see him.'
     },
     // what Snowki and he say (cinematic subtitles at the bottom). dur = seconds on screen
     dialogue: {
-      snowki1: { who: 'snowki', text: 'Why are you here? Did you come to see her?', dur: 3.5 },
-      man1: { who: 'man', text: 'I came to wish her a happy birthday, just like every year.', dur: 3.6 },
-      man2: { who: 'man', text: 'Every birthday, I wanted to make her smile with a little surprise. Today, I wanted to do the same.', dur: 4.8 }
+      snowki1: { who: 'snowki', text: 'It’s you! Hiding behind the tree again? Come and say hi to her!', dur: 3.5 },
+      man1: { who: 'man', text: 'Shh… she mustn’t see me. Tonight is only about her smile.', dur: 3.6 },
+      man2: { who: 'man', text: 'Take this back to her. When the sky lights up, I’ll be right here – behind this tree.', dur: 4.8 }
     },
     // the birthday message written into the fireworks. {NAME} becomes the recipient in capitals.
     skyMessage: ['HAPPY BIRTHDAY', '{NAME}'],
     skyHeart: true,                // ❤️ after the name
     finalLines: [
-      'Some surprises don\'t need you in the room.\nThe love behind them arrives all the same.'
+      'Not every surprise requires presence.\nOnce again – happy birthday, my past.'
     ],
     watchAgain: 'Watch again',
     continue: 'Continue',

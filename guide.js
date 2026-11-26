@@ -70,7 +70,10 @@ function placeBubble(el = bub, b0 = null, bias = 0) {
   const others = el === bubJ ? [rc(box())] : (el === bub || el === askEl) && pb ? [rc(pb)] : [];
   const opts = [[mx - w / 2 + bias * w * 0.2, b[1] - h - 4, 'up'], [b[2] + 4, b[1] + 6 * sc, 'side'], [b[0] - w - 4, b[1] + 6 * sc, 'side'], [mx - w / 2, b[3] + 6, 'below']];
   let best = null;
-  for (const [x0, y0, k] of opts) { const x = clamp(x0, 8, W - w - 8), y = clamp(y0, 8, H - h - 8), bb = [x, y, x + w, y + h]; let c = 0; for (const o of G.bubObs) c += overlap(bb, o); for (const o of others) c += overlap(bb, o) * 2;   // never cover the other one's face c += Math.abs(x - x0) * 30 + Math.abs(y - y0) * 30;
+  { const [x0, y0] = opts[0], x = clamp(x0, 8, W - w - 8), y = y0, bb = [x, y, x + w, y + h]; let c = 0; for (const o of others) c += overlap(bb, o);
+    const ob = el === bubJ ? bub : el === bub ? bubJ : null; if (ob && ob.classList.contains('on')) { const q = ob.getBoundingClientRect(); c += overlap(bb, { left: q.left, top: q.top, right: q.right, bottom: q.bottom }); }
+    if (y >= 8 && c < 1) best = { c: 0, x, y, k: 'up' }; }
+  if (!best) for (const [x0, y0, k] of opts) { const x = clamp(x0, 8, W - w - 8), y = clamp(y0, 8, H - h - 8), bb = [x, y, x + w, y + h]; let c = 0; for (const o of G.bubObs) c += overlap(bb, o); for (const o of others) c += overlap(bb, o) * 2;   // never cover the other one's face c += Math.abs(x - x0) * 30 + Math.abs(y - y0) * 30;
     if (!best || c < best.c - 1) best = { c, x, y, k }; }
   el.style.transform = `translate(${best.x}px,${best.y}px)`; el.classList.toggle('below', best.k === 'below'); el.classList.toggle('side', best.k === 'side');
   el.style.setProperty('--tx', clamp(mx - best.x, 14, w - 14) + 'px');
@@ -164,7 +167,7 @@ function react() {
 hit.addEventListener('pointerdown', e => { if (G.fl || G.vis < 0.5) return; if (G.ph) G.ph.paused = true; e.preventDefault(); hit.setPointerCapture && hit.setPointerCapture(e.pointerId); G.drag = { id: e.pointerId, sx: e.clientX, sy: e.clientY, ox: G.x - e.clientX, oy: G.y - e.clientY, moved: false, lx: e.clientX, ly: e.clientY, lt: performance.now(), vx: 0, vy: 0 }; });
 hit.addEventListener('pointermove', e => {
   const d = G.drag; if (!d || e.pointerId !== d.id) return;
-  if (!d.moved && Math.hypot(e.clientX - d.sx, e.clientY - d.sy) > 7) { d.moved = true; G.restUntil = 0; if (G.perch) { G.perch = null; G.rescued = true; } G.ph = null; G.rot = G.rotTo = 0; bear.express(null); bear.act('dangle', { restart: true }); say(''); }
+  if (!d.moved && Math.hypot(e.clientX - d.sx, e.clientY - d.sy) > 7) { d.moved = true; G.restUntil = 0; if (G.perch) { G.perch = null; G.rescued = true; } G.ph = null; G.rot = G.rotTo = 0; bear.express(null); bear.act('dangle', { restart: true }); say(pickLine(PICKUP_S), 2600); const rs = G.rescued; vt(() => { if (G.drag) jReact(rs ? RESCUE_J : PICKUP_J, rs ? 'happy' : 'excited'); }, 800); }
   if (d.moved) { const now = performance.now(), dt = Math.max(1, now - d.lt) / 1000; d.vx = lerp(d.vx, (e.clientX - d.lx) / dt, 0.4); d.vy = lerp(d.vy, (e.clientY - d.ly) / dt, 0.4); d.lx = e.clientX; d.ly = e.clientY; d.lt = now;
     G.x = clamp(e.clientX + d.ox, 30, W - 30); G.y = clamp(e.clientY + d.oy - 30 * sc, 120 * sc, H - 10); bear.vel = [d.vx, d.vy]; }
 });
@@ -174,7 +177,8 @@ function drop(e) {
   const sp = Math.hypot(d.vx || 0, d.vy || 0);
   if (sp < 450) { const t = nearText(G.x, G.y, 60 * sc); if (t) { startPerch(t, G.x); say(pickLine(SCOLD), 5600); return; } }   // let go next to the words: he stands on them (or hangs from them) and scolds
   G.ph = { vx: clamp((d.vx || 0) * 0.95, -2600, 2600), vy: clamp((d.vy || 0) * 0.95, -2600, 2400), om: clamp((d.vx || 0) * 0.004, -14, 14), n: 0, thrown: sp > 500 };   // let go anywhere else: he falls, bounces and tumbles
-  bear.act('dangle', { restart: true }); G.react = 0; G.idle = 99; say(sp > 700 ? 'Wheeeeee—!' : 'Whoa—!', 1500);
+  bear.act('dangle', { restart: true }); bear.express('surprised'); G.react = 0; G.idle = 99; say(sp > 700 ? 'Wheeeeee—!' : 'Whoa—!', 1500);
+  if (sp > 500) vt(() => jReact(THROW_J, 'excited'), 350);
 }
 hit.addEventListener('pointerup', drop); hit.addEventListener('pointercancel', drop);
 hit.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); react(); } });
@@ -358,6 +362,12 @@ function drawPup(t) {
     cx.save(); cx.globalAlpha = 1 - w.t; cx.translate(x, y); cx.rotate(-0.15 + w.k * 0.3); cx.font = `600 ${Math.round(17 * sc + 4)}px Caveat, cursive`; cx.textAlign = 'center';
     cx.lineWidth = 3; cx.strokeStyle = 'rgba(60,30,80,.6)'; cx.strokeText(w.w || 'Woof!', 0, 0); cx.fillStyle = '#FFF3C8'; cx.fillText(w.w || 'Woof!', 0, 0); cx.restore(); }
 }
+// the last page: Jessi is already there, sitting in the trio beside Helensnowfia and Snowki – she never runs in a second time
+const trioJ = () => G.step === 7 && !!trioC && trioC.isConnected && J.state === 'off';
+function trioBox() { const r = trioC.getBoundingClientRect(); return [r.left + r.width * 0.22, r.top + r.height * 0.12, r.right - r.width * 0.18, r.bottom - 4]; }
+const jBox = () => (trioJ() ? trioBox() : pupBox()) || box(), jSide = () => (trioJ() ? 1 : V.side);
+let trioT = 0;
+function trioAct(act) { if (!trioC) return; trioPup.act(['spin', 'flip', 'run', 'roll'].includes(act) ? 'bark' : act || 'bark', { restart: true, sit: true }); clearTimeout(trioT); trioT = setTimeout(() => trioPup.act('happy'), 1700); }
 function pupBox() { const L = J.L; if (!L) return null; const a = J.x - 26 * L.ps, b = J.x + 32 * L.ps, oy = J.state === 'play' ? (J.oy || 0) : 0; return J.face > 0 ? [a, L.gy - 56 * L.ps - oy, b, L.gy + 4 - oy] : [2 * J.x - b, L.gy - 56 * L.ps - oy, 2 * J.x - a, L.gy + 4 - oy]; }
 pupHit.addEventListener('click', tapPup); pupHit.setAttribute('aria-label', 'Jessi the puppy. Tap for a trick');
 dreamHit.addEventListener('click', () => { if (J.dream > 0.5) nextDream(); }); dreamHit.setAttribute('aria-label', 'Jessi’s dream. Tap for the next dream');
@@ -415,7 +425,7 @@ function drawTrio(dt) {
 const bubJ = $('#gdSayJ'), V = { side: -1, token: 0, timers: [], seen: {}, visits: 0, busy: false, last: 0 };
 function sayJ(text, ms = 3600) {
   if (!text) { bubJ.classList.remove('on'); J.sayUntil = 0; return; }
-  bubJ.textContent = text; bubJ.classList.add('on'); J.sayUntil = performance.now() + Math.max(ms, text.length > 14 ? 4800 : 2600); placeBubble(bubJ, pupBox() || box(), V.side);
+  bubJ.textContent = text; bubJ.classList.add('on'); J.sayUntil = performance.now() + Math.max(ms, text.length > 14 ? 4800 : 2600); placeBubble(bubJ, jBox(), jSide());
 }
 const BANTER = {
   c: [
@@ -479,6 +489,7 @@ function runBeats(beats, tok, done) {
     const b = beats[i++]; if (!b) { done(); return; }
     const [who, text, act] = b, ms = clamp(text.length * 70 + 2600, 4800, 8000), dirP = J.x < G.x ? -1 : 1;
     if (who === 's') { sayJ(''); say(text, ms); bear.act(act || 'talk', { restart: true, dir: [dirP, 0] }); G.react = ms / 1000 + 0.3; G.idle = 99; }
+    else if (trioJ()) { say(''); sayJ(text, ms); trioAct(act); woof(/^WOOF[!?]/.test(text) ? 2 : 1, /^WOOF[!?]/.test(text) ? 'angry' : /^…/.test(text) ? 'sheepish' : 'happy'); }
     else if (!['off', 'leave', 'vout', 'enter', 'play'].includes(J.state)) {
       say(''); const asleep = J.state === 'sleep'; sayJ(asleep ? 'Zzz… ' + text : text, ms);
       if (asleep) dogSay('sleepy');
@@ -495,9 +506,15 @@ function banterC(after) {   // on the countdown: right where they are (the first
 }
 const visitSpot = () => { const ps = clamp(sc * 1.8, 1.4, 2.3), side = G.x > W * 0.42 ? -1 : 1; return { ps, side, x: clamp(G.x + side * (88 * sc + 32 * ps), 40 * ps, W - 40 * ps), gy: G.y + 2 }; };
 function visit(key) {   // Jessi runs in from the nearest edge, sits beside him, they talk, then she runs off again
+  if (G.step === 7) { trioBanter(key); return; }
   if (V.busy || J.state !== 'off') return; V.busy = true; V.visits++; const tok = ++V.token, sp = visitSpot(); V.side = sp.side;
   J.L = { gy: sp.gy, ps: sp.ps, cloud: [0, 0, 0, 0] }; J.dream = 0; J.dreamTo = 0; J.x = sp.side < 0 ? -70 * sp.ps : W + 70 * sp.ps; J.face = J.fs = sp.side < 0 ? 1 : -1; J.state = 'vin'; J.key = key; J.tok = tok;
   pup.act('run', { restart: true, vx: PUP_RUN }); dogSay('pant', 4); bear.act('alert', { restart: true, dir: [sp.side, 0] }); G.react = 2; G.idle = 99;
+}
+function trioBanter(key) {
+  if (V.busy || !trioJ()) return; V.busy = true; V.visits++; const tok = ++V.token;
+  const list = BANTER[key] && !(V.first && V.first[key]) ? ((V.first = V.first || {})[key] = true, pick(BANTER[key], key)) : randExch();
+  runBeats(list, tok, () => { if (tok !== V.token) return; sayJ(''); V.busy = false; if (V.again) vt(V.again, 26000 + Math.random() * 18000); });
 }
 function visitArrive() {
   const tok = J.tok, key = J.key; J.face = V.side < 0 ? 1 : -1; pup.bump(40); pup.act('sit', { restart: true }); poofAtXY(J.x, J.L.gy); woof(3, 'excited');
@@ -633,6 +650,18 @@ const THROW = ['OOF! Helen! I’m fluff, not a ball!', 'Wheeeee— THUD. Ow.', '
   'Next time warn the teddy!', 'That’s plushie assault, Helen!', 'I bounced! Did you see me bounce?!', 'Helen, I’m not a stress ball. …Okay, do it again.', 'Gravity: 1. Snowki: 0.', 'I’m dizzy. The page is spinning. Is the page spinning?'];
 const DROPPED = ['Whoa! Careful, Helen!', 'Soft landing. Barely.', 'You dropped me! Again?! …Okay, I’m fine.', 'Gentle, Helen! I’m a delicate teddy!'];
 const RESCUE = ['Finally! Took you long enough.', 'My hero! A slow hero, but still a hero ♡', 'Phew. Thank you, Helen… now don’t do it again.', 'I’m counting that as a hug.', 'You saved me! I was seconds from crying. …Minutes. Hours.'];
+const PICKUP_S = ['Whoa! Where are we going?', 'Hehe! Put me down… no wait, this is fun!', 'Helen! I’m a teddy, not a handbag!', 'Up, up and away!', 'Hey! Warn me first!', 'Careful, I’m very huggable but very fragile!', 'Ooh, I can see everything from up here!'];
+const PICKUP_J = ['Woof! Hey, that’s MY teddy!', 'Woof woof! Gently, Helen!', '“Take me up too!” Woof!', 'Grr… be nice to him!', '“Where are you taking him?” Woof?'];
+const THROW_J = ['WOOF! Fetch?! Is this fetch?!', 'Yip! He’s flying!', '“My turn next!” Woof!', 'Arf! Not the face!', 'WOOF! I’ll catch him! …I won’t.'];
+const LAND_J = ['Woof… is he okay?', '“Ten out of ten landing.” Woof.', 'Hehe. Woof. Do it again!', '“He bounced!” Woof!'];
+const TRAP_J = ['Hahaha! Woof! He’s stuck!', '“Hang in there, buddy.” Woof.', 'Woof! Helen, help him down!', '…I’m not helping. Woof.', '“That’s what you get.” Woof!'];
+const RESCUE_J = ['Woof! Phew!', '“My hero, Helen!” Woof!', 'Woof woof! He’s free!'];
+// Jessi reacts too when she is around (on the countdown, on a visit, or in the trio on the last page) and not busy talking
+function jReact(pool, mood = 'happy', act = 'bark', ms = 4600) {
+  if (V.busy && !trioJ()) return; const here = jessiHere(), tj = trioJ(); if (!here && !tj) return;
+  sayJ(pickLine(pool), ms); if (tj) trioAct(act); else if (J.state !== 'sleep') { pup.act(act, { restart: true, sit: true }); if (J.state === 'vsit') vt(() => { if (J.state === 'vsit') pup.act('sit', { restart: true }); }, 1700); }
+  woof(mood === 'angry' ? 2 : 1, mood);
+}
 const FEDUP = ['Fine! I’ll rescue myself!', 'Okay, I’m leaving! Nobody help me!', 'Too slow, Helen! Magic mode: ON.'];
 const vrec = new Map();
 function pickLine(arr) {   // a random line that hasn’t been used recently
@@ -642,9 +671,10 @@ function pickLine(arr) {   // a random line that hasn’t been used recently
 const randExch = () => { const e = EXCH[(Math.random() * EXCH.length) | 0]; return Math.random() < 0.5 ? e.concat([Math.random() < 0.5 ? ['j', pickLine(TEASE_J), 'bark'] : ['s', pickLine(TEASE_S), 'giggle']]) : e; };
 const jessiHere = () => ['show', 'sleep', 'vsit'].includes(J.state);
 function teaseOnce() {   // one random tease for Helen, from whoever is around
-  const useJ = jessiHere() && Math.random() < 0.45;
+  const useJ = (jessiHere() || trioJ()) && Math.random() < 0.45;
   if (useJ) { const text = pickLine(TEASE_J); sayJ(text, 5800);
-    if (J.state === 'sleep') dogSay('sleepy'); else { pup.act('bark', { restart: true, sit: true }); woof(1, 'happy'); if (J.state === 'vsit') vt(() => { if (J.state === 'vsit') pup.act('sit', { restart: true }); }, 1700); }
+    if (trioJ()) { trioAct('bark'); woof(1, 'happy'); }
+    else if (J.state === 'sleep') dogSay('sleepy'); else { pup.act('bark', { restart: true, sit: true }); woof(1, 'happy'); if (J.state === 'vsit') vt(() => { if (J.state === 'vsit') pup.act('sit', { restart: true }); }, 1700); }
     if (Math.random() < 0.4) vt(() => { if (!G.perch && !G.ph && !G.drag) { say(pickLine(REPLY_S), 5200); bear.act('shy', { restart: true }); } }, 6400); }
   else { const acts = ['talk', 'giggle', 'point', 'think', 'nod', 'shy', 'wave', 'kick'], a = acts[(Math.random() * acts.length) | 0];
     say(pickLine(TEASE_S), 5800); bear.act(a, { restart: true, dir: [W / 2 - G.x, H / 2 - G.y], expr: a === 'talk' ? 'smile' : undefined }); G.react = 5.4; G.idle = 99; }
@@ -685,14 +715,19 @@ function landing(x, y0, y1) { for (const t of perchRects()) { const r = t.r; if 
 function startPerch(t, x) {
   G.ph = null; G.rotTo = 0; G.fl = null; const r = t.r;
   G.perch = { el: t.el, idx: t.idx, mode: t.mode, dx: clamp(x - r.left, 14 * sc, Math.max(14 * sc, r.width - 14 * sc)), t0: performance.now(), next: performance.now() + 700, jess: false };
-  if (t.mode === 'hang') bear.act('dangle', { restart: true }); else bear.act('stand', { restart: true, stand: true });
-  bear.express('oops'); G.react = 0; G.idle = 99; poofAtXY(G.x, G.y); say('');
+  if (t.mode === 'hang') bear.act('hang', { restart: true }); else bear.act('stand', { restart: true, stand: true });
+  bear.express(t.mode === 'hang' ? 'surprised' : 'oops'); G.react = 0; G.idle = 99; poofAtXY(G.x, G.y); say('');
+  vt(() => { if (G.perch) jReact(TRAP_J, Math.random() < 0.5 ? 'happy' : 'excited'); }, 2600);
 }
-function perchPos() { const P = G.perch, r = rectOf(P); if (!r) return null; return [clamp(r.left + P.dx, 24, W - 24), P.mode === 'stand' ? r.top + 1 : r.bottom + 100 * sc]; }
+const bearK = () => sc * (0.6 + 0.4 * G.vis) * (G.sz || 1);
+function perchPos() { const P = G.perch, r = rectOf(P); if (!r) return null; const txt = /^(P|H1)$/.test(P.el.tagName), x = clamp(r.left + P.dx, 24, W - 24);
+  if (P.mode === 'stand') return [x, txt ? r.top + r.height * 0.2 : r.top + 1];
+  return [x, (txt ? r.top + r.height * 0.72 : r.bottom - 2) + HANG_PAW * bearK()]; }
+const HANG_PAW = 92;   // Snowki's 'hang' pose: his paws are 92 rig units above his feet, beside his ears (the plush arms stretch up round his head)
 function scold(tap) {
   const P = G.perch; if (!P) return; const pool = Math.random() < 0.45 ? (P.mode === 'hang' ? SCOLD_HANG : SCOLD_STAND) : SCOLD;
   say(tap ? 'Don’t just poke me! PULL me out!' : pickLine(pool), 5600);
-  if (P.mode === 'hang') bear.act('dangle', { restart: true }); else { const a = ['push', 'point', 'talk', 'kick', 'shy'][(Math.random() * 5) | 0]; bear.act(a, { restart: true, dir: [W / 2 - G.x, H / 2 - G.y], stand: true }); }
+  if (P.mode === 'hang') bear.act('hang', { restart: true }); else { const a = ['push', 'point', 'talk', 'kick', 'shy'][(Math.random() * 5) | 0]; bear.act(a, { restart: true, dir: [W / 2 - G.x, H / 2 - G.y], stand: true }); }
 }
 function stepPerch(dt, now) {
   const P = G.perch; if (!P) return; const p = perchPos(); if (!p) { G.perch = null; bear.express(null); return; }
@@ -718,7 +753,8 @@ function stepPhys(dt) {
 }
 function landed(P) {
   G.restUntil = performance.now() + 6200; G.rotTo = Math.round(G.rot / 6.2832) * 6.2832; bear.express('oops'); bear.act('shy', { restart: true }); G.react = 0; G.idle = 99;
-  say(G.rescued ? pickLine(RESCUE) : P.thrown || P.n > 1 ? pickLine(THROW) : pickLine(DROPPED), 5600); G.rescued = false;
+  say(G.rescued ? pickLine(RESCUE) : P.thrown || P.n > 1 ? pickLine(THROW) : pickLine(DROPPED), 5600);
+  if (P.thrown || P.n > 1) vt(() => jReact(LAND_J, 'happy'), 1900); G.rescued = false;
   later(6200, () => { bear.express(null); if (!G.ph && !G.perch && !G.drag && !G.fl) { poofAtXY(G.x, G.y); flyTo(homePos(), settle); } });
 }
 
@@ -759,9 +795,13 @@ function frame(now) {
   if (onC) drawGround(T);
   drawCloud(T); play.drawBack(cx); drawPup(T);
   if (G.vis > 0.01) {
-    const po = onC ? G.po : { r: 0, s: 1 }, k = sc * (0.6 + 0.4 * G.vis) * (po.s || 1);
+    const inTrio = G.step === 7 && G.home && G.home.el && G.home.el.closest && G.home.el.closest('.trio') && !G.drag && !G.ph && !G.perch && Math.hypot(G.x - G.home.el.getBoundingClientRect().left - G.home.dx, G.y - G.home.el.getBoundingClientRect().top - G.home.dy) < 60;
+    // (about two thirds of Helensnowfia's height, whatever the screen size: her picture has a fixed size, his scale follows the screen)
+    if (inTrio && (!G.tgT || now - G.tgT > 1000)) { const g = $('.trio .tg svg'); G.tgH = g ? g.getBoundingClientRect().height || 143 : 143; G.tgT = now; }
+    G.sz = (G.sz || 1) + ((inTrio ? 0.70 * (G.tgH || 143) / 143 / (sc * (0.6 + 0.4 * G.vis)) : 1) - (G.sz || 1)) * Math.min(1, dt * 3);
+    const po = onC ? G.po : { r: 0, s: 1 }, k = sc * (0.6 + 0.4 * G.vis) * (po.s || 1) * G.sz;
     if (onC && !G.drag) { const hgt = clamp((J.L.gy - G.y) / (150 * sc), 0, 1); cx.save(); cx.globalAlpha = G.vis * 0.2 * (1 - hgt); cx.fillStyle = '#000'; cx.beginPath(); cx.ellipse(G.x, J.L.gy + 1, 30 * k * (1 - hgt * 0.5), 3.4 * k, 0, 0, 6.283); cx.fill(); cx.restore(); }
-    cx.save(); cx.globalAlpha = G.vis; cx.translate(G.x, G.y); { const rr = (po.r || 0) + (G.rot || 0); if (rr) { cx.translate(0, -48 * k); cx.rotate(rr); cx.translate(0, 48 * k); } } cx.scale(k, k); bear.draw(cx, { aura: true }); cx.restore();
+    cx.save(); cx.globalAlpha = G.vis; cx.translate(G.x, G.y); { const hang = G.perch && G.perch.mode === 'hang' && !G.drag, rr = (po.r || 0) + (G.rot || 0) + (hang ? Math.sin(now / 520) * 0.09 : 0), pv = hang ? HANG_PAW : 48; if (rr) { cx.translate(0, -pv * k); cx.rotate(rr); cx.translate(0, pv * k); } } cx.scale(k, k); bear.draw(cx, { aura: true }); cx.restore();
   }
   play.drawFront(cx);
   // sparkle trail
@@ -777,7 +817,7 @@ function frame(now) {
   hit.style.pointerEvents = G.vis > 0.5 && !G.hidden ? 'auto' : 'none';
   if (G.sayUntil) { if (now > G.sayUntil || G.vis < 0.3) say(''); else placeBubble(); }
   if (!askEl.hidden) placeBubble(askEl);
-  if (J.sayUntil) { if (now > J.sayUntil) sayJ(''); else placeBubble(bubJ, pupBox() || box(), V.side); }
+  if (J.sayUntil) { if (now > J.sayUntil) sayJ(''); else placeBubble(bubJ, jBox(), jSide()); }
   const pb = J.state !== 'off' && J.state !== 'leave' ? pupBox() : null;
   pupHit.style.pointerEvents = pb ? 'auto' : 'none'; if (pb) { pupHit.style.transform = `translate(${pb[0]}px,${pb[1]}px)`; pupHit.style.width = (pb[2] - pb[0]) + 'px'; pupHit.style.height = (pb[3] - pb[1]) + 'px'; }
   const dc = J.dream > 0.5 && J.L ? J.L.cloud : null;

@@ -28,7 +28,7 @@ export const PLACE = {
   helen: { x: 330, seat: capY(330) - 9, gy: baseY(330) },             // sitting on top of the sea wall
   jessi: { x: 444, seat: capY(444) - 1, gy: baseY(444) },              // sitting beside her on the wall, within reach of her hand
   tree: { x: TREE.x, y: TREE.gy,                                       // trunk base (ground contact) of the big bougainvillea
-    hand: tw(-TREE.chestW / 2 + 1, -70),                               // a point on the trunk's left edge at his shoulder height (his hand while hiding)
+    hand: tw(-20.3, -75),                                              // on the painted trunk's left edge (TRUNK in world.js) at his shoulder height: his fingers come round it
     trunk: [tw(-TREE.chestW / 2, -70)[0], tw(TREE.chestW / 2, -70)[0]], // trunk edges (world x) at chest height
     canopy: [tw(TREE.canopy[0], 0)[0], tw(0, TREE.canopy[1])[1], tw(TREE.canopy[2], 0)[0], tw(0, TREE.canopy[3])[1]] },  // world box petals fall from
   boy: { x: TREE.x - 8 * tu, y: TREE.gy - 4 },                         // hidden right behind the trunk (deeper than it), leaning out on its left

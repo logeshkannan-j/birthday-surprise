@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>His poses</title>
+<style>body{margin:0;background:#EDE6DA} canvas{display:block;width:100%;height:auto}</style></head>
+<body>
+<!-- dev tool: the man's film poses drawn large and mirrored as in the film (he faces left), for checking arms and hands -->
+<canvas id="c" width="2000" height="900"></canvas>
+<script type="module">
+import { Boy } from '../js/rigs.js';
+import { Snowki } from '../js/snowki.js';
+const sn = new Snowki(); sn.act && sn.act('sit', { expr: 'happy' }); for (let f = 0; f < 90; f++) sn.update(1 / 60, { magic: 0 });
+const cv = document.getElementById('c'), x = cv.getContext('2d');
+x.fillStyle = '#EDE6DA'; x.fillRect(0, 0, 2000, 900);
+const teddy = (ctx, p) => { ctx.save(); ctx.translate(p[0], p[1]); ctx.scale(0.2 * 0.72, 0.2 * 0.72); sn.draw(ctx, { aura: false, sparkle: false }); ctx.restore(); };
+const POSES = [
+  ['offer', { pose: 'offer', held: teddy, expr: 'smile' }],
+  ['walk in + gift', { pose: 'walkHold', armsFree: true, speed: 24, gift: true }],
+  ['peek', { pose: 'peek', expr: 'smile' }],
+  ['hide', { pose: 'hide' }],
+  ['duck', { pose: 'hide', duck: true }],
+  ['kneel', { pose: 'stand', kneel: true, expr: 'smile' }],
+  ['kneel + cradle', { pose: 'stand', kneel: true, hold: true, held: teddy }],
+  ['stand', { pose: 'stand', expr: 'smile' }],
+  ['stand + gift', { pose: 'stand', gift: true }],
+  ['walk carrying', { pose: 'walkHold', speed: 26, held: teddy }],
+  ['walk carrying b', { pose: 'walkHold', speed: 26, held: teddy, n: 170 }],
+  ['walk carrying c', { pose: 'walkHold', speed: 26, held: teddy, n: 190 }]];
+const Q = new URLSearchParams(location.search), ZOOM = Q.get('zoom');   // ?zoom=8,1,5 : those poses close up (hands and wrists), ?y=-38 the local height at the centre
+(ZOOM ? ZOOM.split(',').map(i => POSES[+i]) : POSES).forEach(([name, st], i) => {
+  const b = new Boy(), s = { wind: 4, ...st };
+  for (let f = 0; f < (st.n || 150); f++) b.update({ ...s, t: f / 60, dt: 1 / 60 });
+  const px = ZOOM ? +(Q.get('px') || 250) + i * +(Q.get('dx') || 500) : 260 + i * 240, k = ZOOM ? +(Q.get('k') || 16) : 6.2;
+  x.save(); x.translate(px, ZOOM ? 450 - (+(Q.get('y') || -38)) * k : 860); x.scale(-k, k); b.draw(x, { ...s, t: 2.5, dt: 1 / 60 }); x.restore();
+  if (st.pose === 'hide' || st.pose === 'peek') { x.fillStyle = 'rgba(110,80,80,.55)'; x.fillRect(px - 10 * k - 38 * k, 120, 38 * k, 740); }   // where the trunk hides him (his +x side, mirrored)
+  x.fillStyle = '#4A3A4A'; x.font = '600 22px system-ui'; x.textAlign = 'center'; x.fillText(name, px, 40);
+});
+window.__done = true;
+</script>
+</body></html>

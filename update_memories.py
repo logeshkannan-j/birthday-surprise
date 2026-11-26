@@ -61,7 +61,7 @@ def read_kv(path):
                 continue
             k, v = line.split("=", 1)
             k, v = k.strip(), v.strip()
-            if k.lower() in ("title", "concept", "quote", "order", "password", "hint", "voice", "cover"):
+            if k.lower() in ("title", "concept", "quote", "order", "password", "hint", "voice", "cover", "reveal"):
                 meta[k.lower()] = v
             else:
                 quotes[k.lower()] = v
@@ -308,6 +308,8 @@ def main():
             q = quotes.get(f.lower(), "")
             if q:
                 it["q"] = q
+            if meta.get("reveal", "").lower() == f.lower():
+                it["rv"] = 1   # the photo on the last page of the site ("A moment worth remembering")
             if dt:
                 it["d"] = dt.strftime("%d %b %Y").lstrip("0")
             vp = voice_for(folder, f)

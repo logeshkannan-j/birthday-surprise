@@ -50,17 +50,18 @@ export function buildTimeline(cfg) {
     focus: [[0, 'boy'], [4.36, 'boy'], [4.36 + C, 'crate'], [6.0, 'crate'], [8.6, 'sky']], aper: 2.4,
     ev: [[0.2, 'boyToLight'], [3.5, 'boyLight'], [4.0, 'flame'], [4.4, 'fuse'], [5.4, 'boyHide'], [7.4, 'launch'], [10.2, 'crack'], [10.5, 'helenLookUp'], [10.8, 'jessiLookUp']] });
   // ---- 8  Her surprise turns into a search along the shore; the firework's reflection keeps moving across the sea
-  scenes.push({ n: 8, dur: d[8], tod: [1.84, 1.86], sub: [], rev: [[0, 4.2]],
+  scenes.push({ n: 8, dur: d[8], tod: [1.84, 1.86], sub: [[3.4, sub(8), 4.6]], rev: [[0, 4.2]],
     cam: [K(0, 'helenUp', { z: 2.6, lens: 0.92, e: 'inOutSine' }), K(2.3, 'helenFace', { z: 3.1, lens: 0.95 }),
       K(2.3 + C, 'trioBack', { z: 1.32, e: 'inOutSine' }), K(d[8], 'trioBack', { z: 1.42 })], focus: 'helen', aper: 3,
     ev: [[0, 'snLookUp'], [0, 'hSurprised'], [1.5, 'hExcited'], [3.5, 'hSearch'], [6.4, 'hBackToSea']] });
-  // ---- 9  Helen stays by the sea with Jessi and Snowki; the boy watches her happily from behind the tree
-  scenes.push({ n: 9, dur: d[9], tod: [1.86, 1.97], sub: [],
+  // ---- 9  Helen looks around once more while he stays pressed behind the trunk; when she turns back to the sea he leans out and
+  //          watches her happily from behind the tree (he never steps into the open)
+  scenes.push({ n: 9, dur: d[9], tod: [1.86, 1.97], sub: [[2.2, sub(9), 4.4]],
     rev: [[2, 4.99]],
     cam: [K(0, 'trioBack', { z: 1.48, e: 'inOutSine' }), K(3.0, 'trioBack', { z: 1.52 }),
       K(3.0 + C, 'treeManClose', { z: 2.2, e: 'inOutSine' }), K(8.0, 'treeManClose', { z: 2.35 }),
       K(8.0 + C, 'trioBack', { z: 1.44, e: 'inOutSine' }), K(14.0, 'trioBack', { z: 1.52 }),
-      K(14.0 + C, 'manSmile2', { z: 3.3, lens: 0.85, e: 'inOutSine' }), K(18.8, 'finalWide', { z: 1.0, lens: 0.5 }), K(d[9], 'finalWide', { z: 0.98, lens: 0.5 })],
+      K(14.0 + C, 'manSmile2', { z: 3.3, lens: 0.85, e: 'inOutSine' }), K(16.2, 'manSmile2', { z: 3.4, lens: 0.85, e: 'inOutSine' }), K(18.8, 'finalWide', { z: 1.0, lens: 0.5 }), K(d[9], 'finalWide', { z: 0.98, lens: 0.5 })],
     focus: [[0, 'helen'], [3.0 + C, 'boy'], [8.0, 'boy'], [8.0 + C, 'helen'], [14.0 + C, 'boy'], [d[9], 'boy']], aper: 1.6,
     ev: [[0, 'snHold'], [0, 'finalPlaces'], [0.2, 'jessiHappy'], [0.4, 'helenSky'], [0.5, 'softFireworks'],
       [2.0, 'hSearch'], [4.8, 'hBackToSea'], [7.0, 'boyHappy'], [9.0, 'boyWatch'], [16.6, 'line', 0], [18.6, 'fadeOut'], [d[9] - 0.4, 'end']] });
