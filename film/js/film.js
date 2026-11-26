@@ -164,17 +164,10 @@ const boyPlace = () => boyAt(S.T);
 function local2world(p, lx, ly) { const s = us(p.gy ?? p.y), fl = p.flip ? -1 : 1, r = p.rot || 0; return [p.x + s * fl * (lx * Math.cos(r) - ly * Math.sin(r)), p.y + s * (lx * Math.sin(r) + ly * Math.cos(r))]; }
 const HS = { x: PLACE.helen.x, y: PLACE.helen.seat, gy: PLACE.helen.gy };
 function helenPlace(T = S.T) {
-  const local = T - sc0(9), [startX, startZ] = toXZ(HS.x, HS.gy), stand = local >= 5;
+  const local = T - sc0(9), [startX, startZ] = toXZ(HS.x, HS.gy), stand = false;
   let X = startX, Z = startZ, walked = 0, alpha = 1;
-  if (local >= 6.2) {   // she gets up, runs a few steps to the six, and walks off at the left end of the group (her stride stays matched to the ground)
-    const tr = reunionTrack(local - 0.8), tx = tr.X - 1.9, tz = tr.Z - 0.15, join = ease.inOutSine(clamp((local - 6.2) / 2.8, 0, 1));
-    X = lerp(startX, tx, join); Z = lerp(startZ, tz, join);
-    const t9 = reunionTrack(9.0 - 0.8), w9 = Math.hypot(t9.X - 1.9 - startX, t9.Z - 0.15 - startZ);
-    walked = local < 9 ? Math.hypot(X - startX, Z - startZ) : w9 + (tr.dist - t9.dist);
-    alpha = 1 - smoothstep(30, 45, Z);
-  }
-  const [x, gy] = stand ? fromXZ(X, Z) : [HS.x, HS.gy];
-  return { x, y: stand ? gy - Helen.STAND_GROUND * us(gy) : HS.y, gy, stand, X, Z, alpha, walking: local >= 6.2 && alpha > 0.02, walkPhase: Math.PI * 2 * walked / CU / 58 };
+  const [x, gy] = [HS.x, HS.gy];
+  return { x, y: HS.y, gy, stand, X, Z, alpha, walking: false, walkPhase: 0 };
 }
 const helenW = (lx, ly) => { const p = helenPlace(); return [p.x + lx * us(p.gy), p.y + ly * us(p.gy)]; };
 const boyHead = (bp, dy = 0) => { const h = boy.P && boy.P.head ? boy.P.head : [0.3, -86]; return local2world(bp, h[0], h[1] + dy); };
@@ -417,14 +410,7 @@ function jessiAt(T) {
   if (T < s(6) + 1.6) return at(JSIT, -1, 'stand');
   if (T < s(6) + 6.9) return gait(jessiTrail(T, -0.5, JSIT.x - SNM[0]), jessiTrail(T + 0.05, -0.5, JSIT.x - SNM[0]), -1, 'stand');   // back to her, just ahead of Snowki
   if (T < s(6) + 7.5) return { ...hop(J1, JS, (T - s(6) - 6.9) / 0.6), fl: -1, act: 'run' };
-  const L9 = T - s(9);
-  if (L9 >= 7.0) {   // the end: she hops off the wall, bounds after Helen and the six, trots beside them and fades into the night with them
-    if (L9 < 7.6) return { ...hop(JS, J1, (L9 - 7.0) / 0.6), fl: 1, act: 'run', alpha: 1 };
-    const j0 = toXZ(J1.x, J1.gy), at9 = k => { const h = helenPlace(T + k); return [h.X + 1.35, h.Z - 1.5]; }, u = ease.inOutSine(clamp((L9 - 7.6) / 2.6, 0, 1));
-    const pos = k => { const g = at9(k), uu = ease.inOutSine(clamp((L9 + k - 7.6) / 2.6, 0, 1)); return [lerp(j0[0], g[0], uu), lerp(j0[1], g[1], uu)]; };
-    const a = pos(0), b = pos(0.05), [x, gy] = fromXZ(a[0], a[1]), sp = Math.hypot(b[0] - a[0], b[1] - a[1]) / 0.05;
-    return { x, y: gy, gy, fl: 1, act: u < 0.98 ? 'run' : sp > 0.4 ? 'walk' : 'stand', vx: sp / CU / 0.56, alpha: 1 - smoothstep(30, 45, a[1]) };
-  }
+  if (T >= s(9)) return at(JS, -1, 'happy', { look: [-0.4, 0] });
   return at(JS, -1, S.jessi.lookUp ? 'lookUp' : S.jessi.happy ? 'happy' : 'sit', { look: S.jessi.lookUp ? [0, -0.6] : [-0.4, 0] });
 }
 
@@ -572,7 +558,7 @@ class ActorView {
 }
 const views = { helen: new ActorView('helen', helen), jessi: new ActorView('jessi', jessi), boy: new ActorView('boy', boy), snow: new ActorView('snow', snowRig),
   grip: new ActorView('grip', { bounds: boy.bounds, draw: ctx => boy.drawGrip && boy.drawGrip(ctx) }) };
-const crowd = new Crowd({ density: q.name === 'low' ? 0.6 : 1, reunionStart: TL.scenes[8].start + 0.8,
+const crowd = new Crowd({ density: q.name === 'low' ? 0.6 : 1,
   avoid: [{ X: 16, Z: 23, r: 8, t0: TL.scenes[1].start, t1: TL.scenes[2].start + 3 }, { X: 17, Z: 24, r: 7, t0: TL.scenes[4].start, t1: TL.scenes[5].start + 2.5 }, { X: -3.5, Z: 34, r: 10, t0: TL.scenes[6].start, t1: TL.scenes[7].start }, { X: 3, Z: 47, r: 15, t0: TL.scenes[6].start + 2, t1: TL.scenes[6].start + 7.5 }] }), crowdViews = {};   // background people on the promenade
 
 // ---------------------------------------------------------------- the wish (scene 0) overlay: candle, flame, smoke that becomes clouds

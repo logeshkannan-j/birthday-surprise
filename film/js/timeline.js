@@ -54,19 +54,16 @@ export function buildTimeline(cfg) {
     cam: [K(0, 'helenUp', { z: 2.6, lens: 0.92, e: 'inOutSine' }), K(2.3, 'helenFace', { z: 3.1, lens: 0.95 }),
       K(2.3 + C, 'trioBack', { z: 1.32, e: 'inOutSine' }), K(d[8], 'trioBack', { z: 1.42 })], focus: 'helen', aper: 3,
     ev: [[0, 'snLookUp'], [0, 'hSurprised'], [1.5, 'hExcited'], [3.5, 'hSearch'], [6.4, 'hBackToSea']] });
-  // ---- 9  Six friends reach her; she walks away with them – Jessi bounds after them, Snowki waves from her arms – while he stays hidden;
-  //          when they have gone the camera is with him at the tree: he steps out, happy – the surprise worked – and waves; then the last words
+  // ---- 9  Helen stays by the sea with Jessi and Snowki; the boy watches her happily from behind the tree
   scenes.push({ n: 9, dur: d[9], tod: [1.86, 1.97], sub: [],
     rev: [[2, 4.99]],
-    cam: [K(0, 'trioBack', { z: 1.48, e: 'inOutSine' }), K(2.0, 'trioBack', { z: 1.5 }),
-      K(2.0 + C, 'helenFace', { z: 2.65, lens: 0.95, e: 'inOutSine' }), K(3.9, 'helenFace', { z: 2.9, lens: 0.95 }),
-      K(3.9 + C, 'friendsWide', { z: 1.28, lens: 0.78, e: 'inOutSine' }), K(5.0, 'friendsWide', { z: 1.34, lens: 0.78 }),
-      K(5.0 + C, 'treeManClose', { z: 2.2, e: 'inOutSine' }), K(6.8, 'treeManClose', { z: 2.4 }),
-      K(6.8 + C, 'friendsWide', { z: 1.7, lens: 0.78, e: 'inOutSine' }), K(12.9, 'friendsWide', { z: 2.7, lens: 0.78 }),
-      K(12.9 + C, 'manSmile2', { z: 3.3, lens: 0.85, e: 'inOutSine' }), K(15.6, 'manSmile2', { z: 2.9, lens: 0.85, e: 'inOutSine' }), K(18.8, 'finalWide', { z: 1.0, lens: 0.5 }), K(d[9], 'finalWide', { z: 0.98, lens: 0.5 })],
-    focus: [[0, 'helen'], [5.0, 'helen'], [5.0 + C, 'boy'], [6.8, 'boy'], [6.8 + C, 'helen'], [12.9, 'helen'], [12.9 + C, 'boy'], [d[9], 'boy']], aper: 1.6,
+    cam: [K(0, 'trioBack', { z: 1.48, e: 'inOutSine' }), K(3.0, 'trioBack', { z: 1.52 }),
+      K(3.0 + C, 'treeManClose', { z: 2.2, e: 'inOutSine' }), K(8.0, 'treeManClose', { z: 2.35 }),
+      K(8.0 + C, 'trioBack', { z: 1.44, e: 'inOutSine' }), K(14.0, 'trioBack', { z: 1.52 }),
+      K(14.0 + C, 'manSmile2', { z: 3.3, lens: 0.85, e: 'inOutSine' }), K(18.8, 'finalWide', { z: 1.0, lens: 0.5 }), K(d[9], 'finalWide', { z: 0.98, lens: 0.5 })],
+    focus: [[0, 'helen'], [3.0 + C, 'boy'], [8.0, 'boy'], [8.0 + C, 'helen'], [14.0 + C, 'boy'], [d[9], 'boy']], aper: 1.6,
     ev: [[0, 'snHold'], [0, 'finalPlaces'], [0.2, 'jessiHappy'], [0.4, 'helenSky'], [0.5, 'softFireworks'],
-      [2.0, 'hSearch'], [4.8, 'hBackToSea'], [7.0, 'jFollow'], [9.6, 'snWave'], [10.6, 'jFar', 0.45], [13.2, 'jFar', 0.78], [12.7, 'boyHappy'], [14.0, 'boyWave'], [16.6, 'line', 0], [18.6, 'fadeOut'], [d[9] - 0.4, 'end']] });
+      [2.0, 'hSearch'], [4.8, 'hBackToSea'], [7.0, 'boyHappy'], [9.0, 'boyWatch'], [16.6, 'line', 0], [18.6, 'fadeOut'], [d[9] - 0.4, 'end']] });
 
   let t = 0; for (const s of scenes) { s.start = t; t += s.dur; }
   return { scenes, duration: t, at(T) { for (let i = scenes.length - 1; i >= 0; i--) if (T >= scenes[i].start) return scenes[i]; return scenes[0]; } };

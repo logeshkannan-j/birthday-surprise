@@ -38,7 +38,7 @@ export default {
 
   // seconds per scene (scene 0 waits for the wish). Total ≈ 117 s.
   // 1 opening · 2 Jessi and Snowki notice him · 3 he steps out, Snowki goes to him · 4 the memory · 5 the conversation
-  // 6 Snowki returns while he hides · 7 he lights the fuse · 8 she searches the shore · 9 friends arrive, she leaves with them (Jessi and Snowki too); he steps out, happy
+  // 6 Snowki returns while he hides · 7 he lights the fuse · 8 she searches the shore · 9 Helen stays with Jessi and Snowki; he watches from behind the tree, happy
   timings: { 1: 12, 2: 10, 3: 13, 4: 10, 5: 16, 6: 12, 7: 14, 8: 9, 9: 21 },
 
   // drop an mp3 here to replace the generated score (waves, wind and firework sounds stay)
